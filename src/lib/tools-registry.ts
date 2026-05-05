@@ -1,0 +1,1858 @@
+/**
+ * DevToolbox — Tools Registry
+ *
+ * Master list of all tools available in the app, sorted alphabetically (A–Z).
+ * Each tool entry maps to a route at /tools/[slug] and a component in
+ * components/tools/[slug]/.
+ *
+ * Categories use a fixed union type — keep this list in sync with the
+ * sidebar nav and category filters on the homepage.
+ *
+ * Tier definitions:
+ *  - 'free'  : Pure client-side, runs forever at $0 cost.
+ *  - 'pro'   : Gated behind Pro subscription ($7/mo). Heavier tools or premium UX.
+ *  - 'ai'    : Uses Anthropic API. Free tier gets 5/day; Pro gets unlimited.
+ *
+ * The `wasm` flag indicates the tool downloads a WASM binary on first use
+ * (e.g. ffmpeg.wasm, pdf-lib heavy ops). Lazy-load these per-tool, never
+ * upfront in the app shell.
+ *
+ * The `isNew` flag adds a "new" badge to the tool card — flip to false
+ * after launch + 30 days.
+ */
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
+export type ToolCategory =
+  | 'JSON'
+  | 'Text'
+  | 'Encoding'
+  | 'Image'
+  | 'PDF'
+  | 'Code'
+  | 'Design'
+  | 'Calc'
+  | 'Network'
+  | 'Security'
+  | 'Data'
+  | 'Next.js'
+  | 'React';
+
+export type ToolTier = 'free' | 'pro' | 'ai';
+
+export interface Tool {
+  /** URL slug, kebab-case, used as /tools/[slug] */
+  slug: string;
+  /** Display name shown in cards, breadcrumbs, command palette */
+  name: string;
+  /** One-line description (≤80 chars), used on cards and SEO meta */
+  description: string;
+  /** Top-level category for sidebar grouping */
+  category: ToolCategory;
+  /** Pricing tier */
+  tier: ToolTier;
+  /** Lucide React icon name (kebab-case, will be camelCased on import) */
+  icon: string;
+  /** Searchable tags surfaced via the command palette */
+  tags: string[];
+  /** True if tool lazy-loads a WASM binary on first use */
+  wasm?: boolean;
+  /** True for tools added since the previous release */
+  isNew?: boolean;
+  /** True if tool should appear on the homepage "Popular this week" grid */
+  featured?: boolean;
+  /** Optional keyboard shortcut to open the tool (e.g. "g j") */
+  shortcut?: string;
+}
+
+/**
+ * Visual metadata per category — drives the icon chip color, the corner
+ * doodle stroke color, and which doodle component to render. All color
+ * fields reference CSS variables defined in src/styles/globals.css.
+ */
+export interface CategoryMeta {
+  /** Background color for the icon chip on tool cards */
+  iconBg: string;
+  /** Stroke color for the Lucide icon inside the chip */
+  iconColor: string;
+  /** Stroke color for the corner doodle SVG */
+  doodleColor: string;
+  /** Component name in src/components/doodles/ — must match the file's default export */
+  doodleComponent: string;
+  /** Display order in the sidebar / category strip */
+  order: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tools — sorted A–Z by display name
+// ─────────────────────────────────────────────────────────────
+
+export const TOOLS: Tool[] = [
+  {
+    slug: 'age-calculator',
+    name: 'Age calculator',
+    description: 'Calculate exact age in years, months, days, hours from a birth date.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'cake',
+    tags: ['age', 'birthday', 'date', 'years', 'days'],
+  },
+  {
+    slug: 'api-endpoint-tester',
+    name: 'API endpoint tester',
+    description: 'Lightweight Postman-style tester for REST endpoints with headers and auth.',
+    category: 'Network',
+    tier: 'pro',
+    icon: 'send',
+    tags: ['api', 'rest', 'http', 'request', 'postman', 'fetch'],
+    isNew: true,
+  },
+  {
+    slug: 'api-response-formatter',
+    name: 'API response formatter',
+    description: 'Paste any API response and get clean, navigable, syntax-highlighted output.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'file-json',
+    tags: ['api', 'json', 'response', 'format'],
+  },
+  {
+    slug: 'app-icon-generator',
+    name: 'App icon generator',
+    description: 'Upload one square image, get all required iOS and Android icon sizes zipped.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'smartphone',
+    tags: ['icon', 'ios', 'android', 'app', 'mobile', 'pwa'],
+    wasm: true,
+    isNew: true,
+  },
+  {
+    slug: 'ascii-art-generator',
+    name: 'ASCII art generator',
+    description: 'Convert text to ASCII art with selectable figlet-style fonts.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'type',
+    tags: ['ascii', 'art', 'banner', 'figlet', 'text'],
+  },
+  {
+    slug: 'base64',
+    name: 'Base64 encoder / decoder',
+    description: 'Encode and decode Base64 with URL-safe variants and file support.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'binary',
+    tags: ['base64', 'encode', 'decode', 'binary'],
+    shortcut: 'g b',
+  },
+  {
+    slug: 'bcrypt-hash',
+    name: 'Bcrypt hash generator',
+    description: 'Generate and verify bcrypt password hashes with custom salt rounds.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'lock',
+    tags: ['bcrypt', 'hash', 'password', 'salt'],
+  },
+  {
+    slug: 'binary-decimal-hex',
+    name: 'Binary / decimal / hex converter',
+    description: 'Convert numbers between binary, octal, decimal, and hexadecimal bases.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'binary',
+    tags: ['binary', 'decimal', 'hex', 'octal', 'base'],
+  },
+  {
+    slug: 'blur-placeholder',
+    name: 'Blur placeholder generator',
+    description: 'Generate base64 blurDataURL for next/image placeholder prop.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'image-down',
+    tags: ['next', 'image', 'placeholder', 'blur', 'lqip'],
+    wasm: true,
+    isNew: true,
+  },
+  {
+    slug: 'byte-size',
+    name: 'Byte size calculator',
+    description: 'Convert between bytes, KB, MB, GB, TB with binary or decimal scaling.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'hard-drive',
+    tags: ['bytes', 'size', 'kb', 'mb', 'gb'],
+  },
+  {
+    slug: 'case-converter',
+    name: 'Case converter',
+    description: 'Convert text between 10 case formats: camel, snake, kebab, pascal, and more.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'case-sensitive',
+    tags: ['case', 'camel', 'snake', 'kebab', 'pascal'],
+    shortcut: 'g c',
+  },
+  {
+    slug: 'character-frequency',
+    name: 'Character frequency analyzer',
+    description: 'Count occurrences of each character in text with sortable distribution.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'bar-chart-3',
+    tags: ['character', 'frequency', 'count', 'analysis'],
+  },
+  {
+    slug: 'chmod-calculator',
+    name: 'Chmod calculator',
+    description: 'Visualize and calculate Unix file permissions in octal and symbolic form.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'shield',
+    tags: ['chmod', 'unix', 'permissions', 'linux'],
+  },
+  {
+    slug: 'cidr-subnet',
+    name: 'CIDR / subnet calculator',
+    description: 'Calculate network address, broadcast, host range, and subnet mask from CIDR.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'network',
+    tags: ['cidr', 'subnet', 'ipv4', 'network', 'mask'],
+  },
+  {
+    slug: 'code-beautifier',
+    name: 'Code beautifier',
+    description: 'Format JavaScript, TypeScript, CSS, HTML, and JSON with Prettier rules.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'code-2',
+    tags: ['format', 'prettier', 'beautify', 'javascript', 'typescript'],
+  },
+  {
+    slug: 'color-blindness-simulator',
+    name: 'Color blindness simulator',
+    description: 'Preview your design through 8 types of color vision deficiency.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'eye',
+    tags: ['color', 'accessibility', 'blindness', 'wcag'],
+  },
+  {
+    slug: 'color-converter',
+    name: 'Color converter',
+    description: 'Convert colors between HEX, RGB, HSL, OKLCH, HSB with live preview.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'pipette',
+    tags: ['color', 'hex', 'rgb', 'hsl', 'oklch'],
+    featured: true,
+    shortcut: 'g k',
+  },
+  {
+    slug: 'color-name-finder',
+    name: 'Color name finder',
+    description: 'Find the closest CSS named color or Tailwind class for any hex value.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'tag',
+    tags: ['color', 'name', 'css', 'tailwind'],
+    isNew: true,
+  },
+  {
+    slug: 'color-palette-generator',
+    name: 'Color palette generator',
+    description: 'Generate harmonious palettes from a base color: complementary, triadic, analogous.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'palette',
+    tags: ['color', 'palette', 'design', 'theme'],
+  },
+  {
+    slug: 'color-picker',
+    name: 'Color picker',
+    description: 'Native color picker with HEX, RGB, HSL output and contrast preview.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'paintbrush',
+    tags: ['color', 'picker', 'palette'],
+  },
+  {
+    slug: 'component-prop-types',
+    name: 'Component prop types generator',
+    description: 'Paste a JSX usage example, get the matching TypeScript Props type.',
+    category: 'React',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['react', 'props', 'typescript', 'types'],
+    isNew: true,
+  },
+  {
+    slug: 'cookie-parser',
+    name: 'Cookie parser',
+    description: 'Decode and inspect HTTP cookies with attributes, expiry, and same-site flags.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'cookie',
+    tags: ['cookie', 'http', 'parse', 'decode'],
+    isNew: true,
+  },
+  {
+    slug: 'country-code-lookup',
+    name: 'Country / locale code lookup',
+    description: 'Search ISO 3166 country codes, currencies, dial codes, and locale identifiers.',
+    category: 'Data',
+    tier: 'free',
+    icon: 'globe',
+    tags: ['country', 'iso', 'locale', 'currency'],
+    isNew: true,
+  },
+  {
+    slug: 'cron-parser',
+    name: 'Cron expression parser',
+    description: 'Decode any cron expression into human-readable schedule description.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'clock',
+    tags: ['cron', 'schedule', 'parse'],
+  },
+  {
+    slug: 'cron-from-english',
+    name: 'Cron from plain English',
+    description: 'Describe a schedule in English, get the matching cron expression.',
+    category: 'Calc',
+    tier: 'ai',
+    icon: 'wand-2',
+    tags: ['cron', 'ai', 'natural language', 'schedule'],
+  },
+  {
+    slug: 'cron-next-runs',
+    name: 'Cron next-runs predictor',
+    description: 'See the next 10 timestamps a cron expression will fire, with timezone support.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'calendar-clock',
+    tags: ['cron', 'schedule', 'next', 'predictor'],
+    isNew: true,
+  },
+  {
+    slug: 'css-animation-timing',
+    name: 'CSS animation timing',
+    description: 'Visual cubic-bezier editor with curve preview and CSS easing presets.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'zap',
+    tags: ['css', 'animation', 'cubic-bezier', 'easing'],
+    isNew: true,
+  },
+  {
+    slug: 'css-box-shadow',
+    name: 'CSS box-shadow generator',
+    description: 'Visual box-shadow builder with multi-layer shadows and live preview.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'square-stack',
+    tags: ['css', 'shadow', 'box-shadow', 'design'],
+    isNew: true,
+  },
+  {
+    slug: 'css-clip-path',
+    name: 'CSS clip-path maker',
+    description: 'Drag points to create custom polygon clip-path values for CSS.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'scissors',
+    tags: ['css', 'clip-path', 'polygon', 'mask'],
+    isNew: true,
+  },
+  {
+    slug: 'css-flexbox',
+    name: 'CSS flexbox playground',
+    description: 'Interactive flexbox visualizer with all properties and live container preview.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'layout',
+    tags: ['css', 'flexbox', 'flex', 'layout'],
+    isNew: true,
+  },
+  {
+    slug: 'css-gradient',
+    name: 'CSS gradient generator',
+    description: 'Build linear, radial, and conic gradients with multi-stop color editor.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'palette',
+    tags: ['css', 'gradient', 'linear', 'radial'],
+  },
+  {
+    slug: 'css-grid-generator',
+    name: 'CSS grid generator',
+    description: 'Visual grid editor with template areas and named lines, exports CSS.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'grid-3x3',
+    tags: ['css', 'grid', 'layout', 'template'],
+    isNew: true,
+  },
+  {
+    slug: 'css-minifier',
+    name: 'CSS minifier',
+    description: 'Compress CSS by stripping whitespace, comments, and combining selectors.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['css', 'minify', 'compress'],
+  },
+  {
+    slug: 'css-specificity',
+    name: 'CSS specificity calculator',
+    description: 'Calculate selector specificity and rank multiple selectors visually.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'calculator',
+    tags: ['css', 'specificity', 'selector'],
+    isNew: true,
+  },
+  {
+    slug: 'css-to-tailwind',
+    name: 'CSS to Tailwind converter',
+    description: 'Convert raw CSS rules into the closest matching Tailwind utility classes.',
+    category: 'Code',
+    tier: 'pro',
+    icon: 'wind',
+    tags: ['css', 'tailwind', 'convert', 'utility'],
+  },
+  {
+    slug: 'csv-to-json',
+    name: 'CSV to JSON converter',
+    description: 'Convert CSV with headers into JSON arrays, with type-inference for numbers.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['csv', 'json', 'convert'],
+  },
+  {
+    slug: 'csv-viewer',
+    name: 'CSV viewer + formatter',
+    description: 'Open CSV files in a sortable, filterable table with column type detection.',
+    category: 'Data',
+    tier: 'free',
+    icon: 'table',
+    tags: ['csv', 'data', 'table', 'view'],
+  },
+  {
+    slug: 'date-difference',
+    name: 'Date difference calculator',
+    description: 'Calculate the duration between two dates in any unit you choose.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'calendar-days',
+    tags: ['date', 'difference', 'duration'],
+    isNew: true,
+  },
+  {
+    slug: 'diff-checker',
+    name: 'Diff checker',
+    description: 'Compare two text blocks side-by-side with line, word, and character diff.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'diff',
+    tags: ['diff', 'compare', 'text'],
+  },
+  {
+    slug: 'dns-lookup',
+    name: 'DNS lookup',
+    description: 'Lookup A, AAAA, MX, TXT, NS, CNAME records for any domain.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'globe',
+    tags: ['dns', 'lookup', 'records', 'domain'],
+  },
+  {
+    slug: 'dockerfile-generator',
+    name: 'Dockerfile generator',
+    description: 'Generate optimized multi-stage Dockerfiles for Node, Next.js, Python, and Go.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'container',
+    tags: ['docker', 'dockerfile', 'devops', 'container'],
+    isNew: true,
+  },
+  {
+    slug: 'email-validator',
+    name: 'Email address validator',
+    description: 'Validate email format and check for disposable, role-based, or invalid TLDs.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'mail',
+    tags: ['email', 'validate', 'check'],
+  },
+  {
+    slug: 'emoji-unicode',
+    name: 'Emoji / Unicode lookup',
+    description: 'Search emoji and Unicode characters by name, category, or codepoint.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'smile',
+    tags: ['emoji', 'unicode', 'character', 'codepoint'],
+    isNew: true,
+  },
+  {
+    slug: 'env-parser',
+    name: 'env file parser',
+    description: 'Parse and validate .env files, detect missing required keys.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'file-cog',
+    tags: ['env', 'dotenv', 'environment', 'config'],
+    isNew: true,
+  },
+  {
+    slug: 'env-formatter',
+    name: 'env to JSON formatter',
+    description: 'Convert between .env files and JSON config objects, both directions.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['env', 'json', 'convert', 'config'],
+    isNew: true,
+  },
+  {
+    slug: 'exif-viewer',
+    name: 'EXIF data viewer',
+    description: 'View and remove EXIF metadata from images including GPS and camera info.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'info',
+    tags: ['exif', 'metadata', 'image', 'gps'],
+  },
+  {
+    slug: 'favicon-generator',
+    name: 'Favicon generator',
+    description: 'Generate full favicon set: ICO, PNGs, Apple touch icons, web manifest.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'star',
+    tags: ['favicon', 'icon', 'apple-touch', 'manifest'],
+    wasm: true,
+  },
+  {
+    slug: 'gif-frames',
+    name: 'GIF frame extractor',
+    description: 'Split a GIF into individual frames as PNGs, downloadable as ZIP.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'images',
+    tags: ['gif', 'frames', 'extract'],
+    wasm: true,
+  },
+  {
+    slug: 'gif-maker',
+    name: 'GIF maker',
+    description: 'Combine multiple images into an animated GIF with frame timing control.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'film',
+    tags: ['gif', 'animation', 'frames'],
+    wasm: true,
+  },
+  {
+    slug: 'gif-optimizer',
+    name: 'GIF optimizer',
+    description: 'Reduce GIF file size with lossy compression, frame skip, and palette optimization.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'minimize-2',
+    tags: ['gif', 'optimize', 'compress'],
+    wasm: true,
+  },
+  {
+    slug: 'gitignore-generator',
+    name: 'Git ignore generator',
+    description: 'Generate .gitignore files for any combination of languages and frameworks.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'git-branch',
+    tags: ['git', 'gitignore', 'ignore'],
+  },
+  {
+    slug: 'gradient-extractor',
+    name: 'Gradient CSS extractor',
+    description: 'Upload an image, get the closest matching CSS gradient code.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'palette',
+    tags: ['gradient', 'css', 'extract', 'image'],
+  },
+  {
+    slug: 'graphql-formatter',
+    name: 'GraphQL query formatter',
+    description: 'Pretty-print and validate GraphQL queries, mutations, and schemas.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'braces',
+    tags: ['graphql', 'format', 'query'],
+  },
+  {
+    slug: 'hmac-generator',
+    name: 'HMAC signature generator',
+    description: 'Generate HMAC signatures using SHA-256, SHA-512, MD5 with secret keys.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'fingerprint',
+    tags: ['hmac', 'signature', 'sha256', 'webhook'],
+    isNew: true,
+  },
+  {
+    slug: 'html-entity',
+    name: 'HTML entity encoder / decoder',
+    description: 'Convert special characters to and from HTML entity references.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'code',
+    tags: ['html', 'entity', 'encode'],
+  },
+  {
+    slug: 'html-minifier',
+    name: 'HTML minifier',
+    description: 'Compress HTML by removing whitespace, comments, and optional attributes.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['html', 'minify', 'compress'],
+  },
+  {
+    slug: 'html-to-jsx',
+    name: 'HTML to JSX converter',
+    description: 'Convert HTML to valid JSX with className, self-closing tags, and props.',
+    category: 'React',
+    tier: 'free',
+    icon: 'code-2',
+    tags: ['html', 'jsx', 'react', 'convert'],
+    isNew: true,
+  },
+  {
+    slug: 'html-to-markdown',
+    name: 'HTML to Markdown converter',
+    description: 'Convert HTML content to clean Markdown with image and link preservation.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'file-text',
+    tags: ['html', 'markdown', 'convert'],
+  },
+  {
+    slug: 'http-headers',
+    name: 'HTTP header analyzer',
+    description: 'Analyze HTTP response headers for security, caching, and best practices.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'list',
+    tags: ['http', 'headers', 'security'],
+  },
+  {
+    slug: 'http-status',
+    name: 'HTTP status code lookup',
+    description: 'Search any HTTP status code with description and recommended use case.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'info',
+    tags: ['http', 'status', 'code', '404', '500'],
+  },
+  {
+    slug: 'image-alt-text',
+    name: 'Image alt text generator',
+    description: 'Upload an image, get descriptive alt text optimized for accessibility.',
+    category: 'React',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['alt', 'accessibility', 'a11y', 'ai', 'image'],
+    isNew: true,
+  },
+  {
+    slug: 'image-bg-remover',
+    name: 'Image background remover',
+    description: 'Remove backgrounds from photos using on-device AI segmentation.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'scissors',
+    tags: ['background', 'remove', 'ai', 'transparent'],
+    wasm: true,
+  },
+  {
+    slug: 'image-batch-resizer',
+    name: 'Image batch resizer',
+    description: 'Resize multiple images at once with custom dimensions and quality.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'images',
+    tags: ['image', 'batch', 'resize', 'bulk'],
+    wasm: true,
+  },
+  {
+    slug: 'image-color-extractor',
+    name: 'Image color extractor',
+    description: 'Extract dominant colors and full palette from any image.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'palette',
+    tags: ['image', 'color', 'palette', 'extract'],
+    wasm: true,
+  },
+  {
+    slug: 'image-compressor',
+    name: 'Image compressor',
+    description: 'Reduce image file size with adjustable quality and format conversion.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['image', 'compress', 'optimize'],
+    wasm: true,
+    featured: true,
+  },
+  {
+    slug: 'image-crop',
+    name: 'Image crop + rotate',
+    description: 'Crop, rotate, flip, and straighten images with precise controls.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'crop',
+    tags: ['image', 'crop', 'rotate'],
+    wasm: true,
+  },
+  {
+    slug: 'image-dominant-color',
+    name: 'Image dominant color',
+    description: 'Get the dominant color of an image — perfect for placeholder backgrounds.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'droplet',
+    tags: ['image', 'color', 'placeholder', 'next'],
+    wasm: true,
+    isNew: true,
+  },
+  {
+    slug: 'image-format-converter',
+    name: 'Image format converter',
+    description: 'Convert between WebP, AVIF, PNG, JPG, and other image formats.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['webp', 'avif', 'png', 'jpg', 'convert'],
+    wasm: true,
+  },
+  {
+    slug: 'image-metadata-stripper',
+    name: 'Image metadata stripper',
+    description: 'Remove EXIF, GPS, and other metadata from images for privacy.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'eraser',
+    tags: ['exif', 'metadata', 'privacy', 'strip'],
+    wasm: true,
+  },
+  {
+    slug: 'image-resizer',
+    name: 'Image resizer',
+    description: 'Resize images to exact dimensions with aspect-ratio lock and presets.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'maximize-2',
+    tags: ['image', 'resize', 'dimensions'],
+    wasm: true,
+  },
+  {
+    slug: 'image-to-base64',
+    name: 'Image to Base64',
+    description: 'Convert images to Base64 data URLs for inline use in HTML or CSS.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'binary',
+    tags: ['image', 'base64', 'data-url'],
+  },
+  {
+    slug: 'ip-lookup',
+    name: 'IP address lookup',
+    description: 'Lookup IPv4 and IPv6 addresses for geolocation, ISP, and ASN info.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'map-pin',
+    tags: ['ip', 'lookup', 'geolocation'],
+  },
+  {
+    slug: 'iso-duration',
+    name: 'ISO 8601 duration parser',
+    description: 'Parse and humanize ISO 8601 duration strings like P1Y2M10DT2H30M.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'clock',
+    tags: ['iso', 'duration', '8601', 'parse'],
+    isNew: true,
+  },
+  {
+    slug: 'js-minifier',
+    name: 'JavaScript minifier',
+    description: 'Minify JavaScript using Terser with mangling and dead code removal.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['javascript', 'minify', 'terser'],
+  },
+  {
+    slug: 'js-obfuscator',
+    name: 'JavaScript obfuscator',
+    description: 'Obfuscate JavaScript with name mangling, string array, and dead code injection.',
+    category: 'Code',
+    tier: 'pro',
+    icon: 'shield',
+    tags: ['javascript', 'obfuscate', 'protect'],
+  },
+  {
+    slug: 'json-diff',
+    name: 'JSON diff',
+    description: 'Compare two JSON objects with structural diff and visual tree view.',
+    category: 'JSON',
+    tier: 'pro',
+    icon: 'diff',
+    tags: ['json', 'diff', 'compare'],
+  },
+  {
+    slug: 'json-formatter',
+    name: 'JSON formatter',
+    description: 'Format, validate, and beautify JSON with syntax highlighting and stats.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'braces',
+    tags: ['json', 'format', 'prettify', 'validate'],
+    featured: true,
+    shortcut: 'g j',
+  },
+  {
+    slug: 'json-minifier',
+    name: 'JSON minifier',
+    description: 'Strip whitespace from JSON to produce the smallest valid output.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['json', 'minify', 'compress'],
+  },
+  {
+    slug: 'json-path',
+    name: 'JSON path query',
+    description: 'Query JSON with JSONPath expressions and see live matches highlighted.',
+    category: 'JSON',
+    tier: 'pro',
+    icon: 'search',
+    tags: ['json', 'jsonpath', 'query', 'filter'],
+  },
+  {
+    slug: 'json-repair',
+    name: 'JSON repair',
+    description: 'Fix broken or malformed JSON automatically with AI-assisted parsing.',
+    category: 'JSON',
+    tier: 'ai',
+    icon: 'wand-2',
+    tags: ['json', 'repair', 'fix', 'ai'],
+  },
+  {
+    slug: 'json-schema',
+    name: 'JSON schema generator',
+    description: 'Generate a JSON Schema (draft-07) from any sample JSON document.',
+    category: 'JSON',
+    tier: 'pro',
+    icon: 'file-code',
+    tags: ['json', 'schema', 'validate'],
+  },
+  {
+    slug: 'json-to-csv',
+    name: 'JSON to CSV',
+    description: 'Convert arrays of JSON objects to CSV with header detection.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['json', 'csv', 'convert'],
+  },
+  {
+    slug: 'json-to-typescript',
+    name: 'JSON to TypeScript types',
+    description: 'Generate TypeScript interfaces and types from any JSON sample.',
+    category: 'JSON',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['json', 'typescript', 'types', 'ai'],
+  },
+  {
+    slug: 'json-to-yaml',
+    name: 'JSON to YAML',
+    description: 'Convert between JSON and YAML formats both directions, preserving comments.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['json', 'yaml', 'convert'],
+  },
+  {
+    slug: 'json-validator',
+    name: 'JSON validator',
+    description: 'Validate JSON syntax with detailed error messages and line numbers.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'check-circle',
+    tags: ['json', 'validate', 'lint'],
+  },
+  {
+    slug: 'jsx-to-html',
+    name: 'JSX to HTML converter',
+    description: 'Convert JSX back to plain HTML for use in non-React contexts.',
+    category: 'React',
+    tier: 'free',
+    icon: 'code-2',
+    tags: ['jsx', 'html', 'react', 'convert'],
+    isNew: true,
+  },
+  {
+    slug: 'jwt-decoder',
+    name: 'JWT decoder',
+    description: 'Decode JWT tokens, view header and payload, verify HS256 signatures.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'key',
+    tags: ['jwt', 'token', 'decode', 'verify'],
+  },
+  {
+    slug: 'lighthouse-estimator',
+    name: 'Lighthouse score estimator',
+    description: 'Predict performance score from Core Web Vitals and bundle size inputs.',
+    category: 'Next.js',
+    tier: 'ai',
+    icon: 'gauge',
+    tags: ['lighthouse', 'performance', 'web-vitals', 'ai'],
+    isNew: true,
+  },
+  {
+    slug: 'loading-spinner',
+    name: 'Loading spinner CSS',
+    description: 'Pick from 20 pure-CSS loading spinners and customize size, color, speed.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'loader',
+    tags: ['spinner', 'loading', 'css', 'animation'],
+    isNew: true,
+  },
+  {
+    slug: 'lorem-ipsum',
+    name: 'Lorem ipsum generator',
+    description: 'Generate placeholder text in classic, hipster, or custom dictionaries.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'align-left',
+    tags: ['lorem', 'ipsum', 'placeholder'],
+  },
+  {
+    slug: 'markdown-preview',
+    name: 'Markdown preview',
+    description: 'Live Markdown preview with GFM, syntax highlighting, and export to HTML.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'file-text',
+    tags: ['markdown', 'preview', 'gfm'],
+  },
+  {
+    slug: 'markdown-table',
+    name: 'Markdown table generator',
+    description: 'Build Markdown tables visually with column alignment and CSV import.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'table',
+    tags: ['markdown', 'table', 'gfm'],
+    isNew: true,
+  },
+  {
+    slug: 'meta-tag-generator',
+    name: 'Meta tag generator',
+    description: 'Generate SEO meta tags including OpenGraph, Twitter cards, and JSON-LD.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'tag',
+    tags: ['meta', 'seo', 'opengraph', 'twitter'],
+    isNew: true,
+  },
+  {
+    slug: 'mime-lookup',
+    name: 'MIME type lookup',
+    description: 'Look up MIME types by file extension or vice versa.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'file',
+    tags: ['mime', 'content-type', 'extension'],
+  },
+  {
+    slug: 'mock-json-data',
+    name: 'Mock JSON data generator',
+    description: 'Generate realistic fake data: users, addresses, companies, with custom shape.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'database',
+    tags: ['mock', 'fake', 'faker', 'seed', 'data'],
+    isNew: true,
+  },
+  {
+    slug: 'mongo-objectid',
+    name: 'MongoDB ObjectID',
+    description: 'Generate ObjectIDs and decode them to extract timestamp and machine ID.',
+    category: 'Data',
+    tier: 'free',
+    icon: 'database',
+    tags: ['mongodb', 'objectid', 'mongo', 'id'],
+    isNew: true,
+  },
+  {
+    slug: 'morse-code',
+    name: 'Morse code converter',
+    description: 'Encode and decode Morse code with audio playback and tap-to-translate.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'radio',
+    tags: ['morse', 'code', 'encode'],
+  },
+  {
+    slug: 'next-metadata-builder',
+    name: 'Next.js metadata builder',
+    description: 'Build the metadata export for App Router pages with all SEO fields.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'tag',
+    tags: ['next', 'metadata', 'seo', 'app-router'],
+    isNew: true,
+  },
+  {
+    slug: 'next-middleware-tester',
+    name: 'Next.js middleware tester',
+    description: 'Test middleware matcher patterns against URLs to verify route matching.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'route',
+    tags: ['next', 'middleware', 'matcher', 'route'],
+    isNew: true,
+  },
+  {
+    slug: 'next-proxy-config',
+    name: 'Next.js proxy config',
+    description: 'Generate the proxy.ts file for redirects, rewrites, and headers (Next 16+).',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'workflow',
+    tags: ['next', 'proxy', 'middleware', 'redirect'],
+    isNew: true,
+  },
+  {
+    slug: 'next-route-tester',
+    name: 'Next.js route pattern tester',
+    description: 'Test dynamic route patterns including catch-all and optional segments.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'git-branch',
+    tags: ['next', 'route', 'dynamic', 'pattern'],
+    isNew: true,
+  },
+  {
+    slug: 'npm-package-size',
+    name: 'NPM package size checker',
+    description: 'Check the bundle size, dependencies, and treeshaking of any npm package.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'package',
+    tags: ['npm', 'package', 'size', 'bundle', 'bundlephobia'],
+    isNew: true,
+  },
+  {
+    slug: 'number-base',
+    name: 'Number base converter',
+    description: 'Convert numbers between any bases from binary to base-36.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'hash',
+    tags: ['number', 'base', 'convert', 'radix'],
+  },
+  {
+    slug: 'og-preview',
+    name: 'OG image previewer',
+    description: 'Preview how your page link appears on Twitter, LinkedIn, Discord, Slack.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'image',
+    tags: ['og', 'opengraph', 'twitter', 'social', 'preview'],
+    isNew: true,
+  },
+  {
+    slug: 'password-generator',
+    name: 'Password generator',
+    description: 'Generate strong passwords with custom length, charset, and entropy display.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'key',
+    tags: ['password', 'generate', 'random'],
+  },
+  {
+    slug: 'password-strength',
+    name: 'Password strength checker',
+    description: 'Test password strength with zxcvbn, see crack-time and weakness reasons.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'shield-check',
+    tags: ['password', 'strength', 'zxcvbn'],
+  },
+  {
+    slug: 'pdf-compressor',
+    name: 'PDF compressor',
+    description: 'Reduce PDF file size with adjustable quality, runs entirely in your browser.',
+    category: 'PDF',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['pdf', 'compress', 'optimize'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-merger',
+    name: 'PDF merger',
+    description: 'Combine multiple PDF files into one, with drag-to-reorder.',
+    category: 'PDF',
+    tier: 'free',
+    icon: 'combine',
+    tags: ['pdf', 'merge', 'combine'],
+    wasm: true,
+    featured: true,
+  },
+  {
+    slug: 'pdf-metadata',
+    name: 'PDF metadata editor',
+    description: 'View and edit PDF metadata: title, author, subject, keywords.',
+    category: 'PDF',
+    tier: 'pro',
+    icon: 'info',
+    tags: ['pdf', 'metadata', 'edit'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-page-extractor',
+    name: 'PDF page extractor',
+    description: 'Extract specific pages or ranges from a PDF as new files.',
+    category: 'PDF',
+    tier: 'free',
+    icon: 'file-output',
+    tags: ['pdf', 'extract', 'pages'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-page-reorder',
+    name: 'PDF page reorder',
+    description: 'Drag pages to reorder, rotate individual pages, delete unwanted ones.',
+    category: 'PDF',
+    tier: 'pro',
+    icon: 'shuffle',
+    tags: ['pdf', 'reorder', 'rotate'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-protect',
+    name: 'PDF protect / unlock',
+    description: 'Add or remove password protection from PDF files.',
+    category: 'PDF',
+    tier: 'pro',
+    icon: 'lock',
+    tags: ['pdf', 'protect', 'password', 'encrypt'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-splitter',
+    name: 'PDF splitter',
+    description: 'Split a PDF into multiple files by page ranges or evenly.',
+    category: 'PDF',
+    tier: 'free',
+    icon: 'split',
+    tags: ['pdf', 'split', 'separate'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-summarizer',
+    name: 'PDF summarizer',
+    description: 'Get an AI-generated summary of any PDF document with key takeaways.',
+    category: 'PDF',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['pdf', 'summarize', 'ai'],
+  },
+  {
+    slug: 'pdf-to-images',
+    name: 'PDF to images',
+    description: 'Convert each PDF page to PNG or JPG with custom DPI.',
+    category: 'PDF',
+    tier: 'free',
+    icon: 'images',
+    tags: ['pdf', 'image', 'convert'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-to-word',
+    name: 'PDF to Word',
+    description: 'Convert PDF documents to editable .docx Word files.',
+    category: 'PDF',
+    tier: 'pro',
+    icon: 'file-text',
+    tags: ['pdf', 'word', 'docx', 'convert'],
+    wasm: true,
+  },
+  {
+    slug: 'pdf-watermark',
+    name: 'PDF watermark adder',
+    description: 'Add text or image watermarks to PDFs with opacity and position control.',
+    category: 'PDF',
+    tier: 'pro',
+    icon: 'droplets',
+    tags: ['pdf', 'watermark'],
+    wasm: true,
+  },
+  {
+    slug: 'phone-formatter',
+    name: 'Phone number formatter',
+    description: 'Format and validate international phone numbers with E.164 and country detection.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'phone',
+    tags: ['phone', 'format', 'e164', 'international'],
+    isNew: true,
+  },
+  {
+    slug: 'pixel-density',
+    name: 'Pixel density calculator',
+    description: 'Calculate PPI, DPI, and viewport sizes for any screen.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'monitor',
+    tags: ['ppi', 'dpi', 'pixel', 'density', 'screen'],
+  },
+  {
+    slug: 'placeholder-image',
+    name: 'Placeholder image builder',
+    description: 'Build placeholder image URLs with custom size, text, and color.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'image',
+    tags: ['placeholder', 'image', 'lorem-picsum', 'mock'],
+    isNew: true,
+  },
+  {
+    slug: 'pwa-manifest',
+    name: 'PWA manifest builder',
+    description: 'Generate web app manifest.json with icons, theme colors, and display mode.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'smartphone',
+    tags: ['pwa', 'manifest', 'web-app'],
+    isNew: true,
+  },
+  {
+    slug: 'qr-code',
+    name: 'QR code generator',
+    description: 'Generate QR codes for URLs, WiFi, vCard, with logo and color customization.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'qr-code',
+    tags: ['qr', 'code', 'generator'],
+  },
+  {
+    slug: 'react-hook-deps',
+    name: 'React hook deps linter',
+    description: 'Check useEffect, useMemo, useCallback hooks for missing dependencies.',
+    category: 'React',
+    tier: 'free',
+    icon: 'list-checks',
+    tags: ['react', 'hooks', 'useEffect', 'lint'],
+    isNew: true,
+  },
+  {
+    slug: 'react-key-generator',
+    name: 'React key generator',
+    description: 'Generate stable, collision-resistant keys for React list rendering.',
+    category: 'React',
+    tier: 'free',
+    icon: 'key',
+    tags: ['react', 'key', 'list', 'render'],
+    isNew: true,
+  },
+  {
+    slug: 'react-prop-types',
+    name: 'React PropTypes ↔ TypeScript',
+    description: 'Convert between PropTypes and TypeScript prop interfaces both directions.',
+    category: 'React',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['react', 'proptypes', 'typescript'],
+    isNew: true,
+  },
+  {
+    slug: 'react-rerender-explainer',
+    name: 'React re-render explainer',
+    description: 'Paste a component, get explanation of when and why it re-renders.',
+    category: 'React',
+    tier: 'ai',
+    icon: 'refresh-cw',
+    tags: ['react', 'rerender', 'performance', 'ai'],
+    isNew: true,
+  },
+  {
+    slug: 'react-server-client',
+    name: 'React server vs client component',
+    description: 'Analyze a component to determine if it should be Server or Client.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'split-square-vertical',
+    tags: ['react', 'server', 'client', 'rsc', 'next'],
+    isNew: true,
+  },
+  {
+    slug: 'readme-badges',
+    name: 'README badge generator',
+    description: 'Generate shields.io badges for npm, build status, license, and version.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'badge',
+    tags: ['readme', 'badge', 'shields', 'github'],
+    isNew: true,
+  },
+  {
+    slug: 'regex-from-english',
+    name: 'Regex from plain English',
+    description: 'Describe a pattern in English, get the matching regular expression.',
+    category: 'Text',
+    tier: 'ai',
+    icon: 'wand-2',
+    tags: ['regex', 'ai', 'natural language'],
+  },
+  {
+    slug: 'regex-tester',
+    name: 'Regex tester',
+    description: 'Test regular expressions with live match highlighting and explanations.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'regex',
+    tags: ['regex', 'pattern', 'test'],
+    featured: true,
+    shortcut: 'g r',
+  },
+  {
+    slug: 'robots-txt',
+    name: 'robots.txt generator',
+    description: 'Generate robots.txt with crawler rules, sitemap, and crawl-delay.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'bot',
+    tags: ['robots', 'seo', 'crawler'],
+    isNew: true,
+  },
+  {
+    slug: 'rot13',
+    name: 'ROT13 encoder / decoder',
+    description: 'Apply ROT13 cipher transformation to text instantly.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'rotate-ccw',
+    tags: ['rot13', 'cipher', 'encode'],
+  },
+  {
+    slug: 'sitemap-xml',
+    name: 'sitemap.xml generator',
+    description: 'Generate sitemap.xml with priorities, change frequency, and lastmod.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'map',
+    tags: ['sitemap', 'xml', 'seo'],
+    isNew: true,
+  },
+  {
+    slug: 'sql-dialect-converter',
+    name: 'SQL dialect converter',
+    description: 'Convert SQL queries between MySQL, PostgreSQL, SQLite, and SQL Server.',
+    category: 'Code',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['sql', 'mysql', 'postgres', 'ai'],
+  },
+  {
+    slug: 'sql-formatter',
+    name: 'SQL formatter',
+    description: 'Format SQL with dialect-aware indentation for MySQL, Postgres, SQLite.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'database',
+    tags: ['sql', 'format', 'beautify'],
+  },
+  {
+    slug: 'ssl-decoder',
+    name: 'SSL certificate decoder',
+    description: 'Decode PEM-formatted SSL certificates to view issuer, dates, and SAN entries.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'shield-check',
+    tags: ['ssl', 'tls', 'certificate', 'pem', 'x509'],
+    isNew: true,
+  },
+  {
+    slug: 'svg-optimizer',
+    name: 'SVG optimizer',
+    description: 'Optimize SVG files with SVGO, removing unnecessary metadata and shrinking paths.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'minimize-2',
+    tags: ['svg', 'optimize', 'svgo'],
+  },
+  {
+    slug: 'svg-to-png',
+    name: 'SVG to PNG',
+    description: 'Rasterize SVG to PNG at custom resolutions with transparent backgrounds.',
+    category: 'Image',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['svg', 'png', 'convert', 'raster'],
+    wasm: true,
+  },
+  {
+    slug: 'svg-to-react',
+    name: 'SVG to React component',
+    description: 'Convert SVG markup into a typed, prop-driven React component.',
+    category: 'React',
+    tier: 'free',
+    icon: 'code-2',
+    tags: ['svg', 'react', 'component', 'icon'],
+    isNew: true,
+  },
+  {
+    slug: 'tailwind-animation',
+    name: 'Tailwind animation builder',
+    description: 'Build custom Tailwind animations with keyframes and add to config.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'zap',
+    tags: ['tailwind', 'animation', 'keyframes'],
+    isNew: true,
+  },
+  {
+    slug: 'tailwind-class-sorter',
+    name: 'Tailwind class sorter',
+    description: 'Sort Tailwind classes in the official recommended order.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'arrow-down-up',
+    tags: ['tailwind', 'sort', 'prettier'],
+  },
+  {
+    slug: 'tailwind-config-visualizer',
+    name: 'Tailwind config visualizer',
+    description: 'Visualize your Tailwind theme tokens: colors, spacing, fonts, breakpoints.',
+    category: 'React',
+    tier: 'free',
+    icon: 'eye',
+    tags: ['tailwind', 'config', 'theme'],
+    isNew: true,
+  },
+  {
+    slug: 'tailwind-v3-v4-migration',
+    name: 'Tailwind v3 → v4 migrator',
+    description: 'Migrate Tailwind v3 config to v4 CSS-first syntax with @theme directive.',
+    category: 'React',
+    tier: 'ai',
+    icon: 'arrow-up',
+    tags: ['tailwind', 'migration', 'v4', 'ai'],
+    isNew: true,
+  },
+  {
+    slug: 'text-dedupe',
+    name: 'Text duplicate line remover',
+    description: 'Remove duplicate or empty lines from text with options to preserve order.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'list-x',
+    tags: ['text', 'duplicate', 'dedupe'],
+  },
+  {
+    slug: 'text-reverse',
+    name: 'Text reverse',
+    description: 'Reverse text by character or word, check if input is a palindrome.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'flip-horizontal',
+    tags: ['reverse', 'text', 'palindrome'],
+  },
+  {
+    slug: 'text-to-slug',
+    name: 'Text to slug',
+    description: 'Convert any text to URL-safe slug with diacritic stripping and case options.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'link',
+    tags: ['slug', 'url', 'text'],
+  },
+  {
+    slug: 'timestamp-converter',
+    name: 'Timestamp converter',
+    description: 'Convert Unix timestamps to readable dates and back, supporting ms and seconds.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'clock',
+    tags: ['timestamp', 'unix', 'date'],
+  },
+  {
+    slug: 'timezone-converter',
+    name: 'Timezone converter',
+    description: 'Convert times between timezones with DST awareness and city search.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'globe',
+    tags: ['timezone', 'time', 'dst'],
+  },
+  {
+    slug: 'toml-to-json',
+    name: 'TOML to JSON',
+    description: 'Convert TOML config files to JSON or YAML, both directions.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['toml', 'json', 'config'],
+  },
+  {
+    slug: 'totp-generator',
+    name: 'TOTP code generator',
+    description: 'Generate and verify TOTP 2FA codes from secret keys with QR code preview.',
+    category: 'Security',
+    tier: 'free',
+    icon: 'shield',
+    tags: ['totp', '2fa', 'auth', 'authenticator'],
+    isNew: true,
+  },
+  {
+    slug: 'ts-interface-merger',
+    name: 'TypeScript interface merger',
+    description: 'Merge multiple TypeScript interfaces or types into a single declaration.',
+    category: 'React',
+    tier: 'free',
+    icon: 'merge',
+    tags: ['typescript', 'interface', 'merge'],
+    isNew: true,
+  },
+  {
+    slug: 'ts-type-visualizer',
+    name: 'TypeScript type visualizer',
+    description: 'Visualize complex TypeScript types as a tree to understand them quickly.',
+    category: 'React',
+    tier: 'free',
+    icon: 'git-branch',
+    tags: ['typescript', 'type', 'visualize'],
+    isNew: true,
+  },
+  {
+    slug: 'url-encoder',
+    name: 'URL encoder / decoder',
+    description: 'Encode and decode URL components and query strings.',
+    category: 'Encoding',
+    tier: 'free',
+    icon: 'link',
+    tags: ['url', 'encode', 'decode'],
+  },
+  {
+    slug: 'url-parser',
+    name: 'URL parser',
+    description: 'Parse URLs into protocol, host, path, query, and fragment components.',
+    category: 'Network',
+    tier: 'free',
+    icon: 'link',
+    tags: ['url', 'parse', 'query'],
+  },
+  {
+    slug: 'uuid-generator',
+    name: 'UUID / ULID generator',
+    description: 'Generate UUID v1, v4, v7, ULID, NanoID, and custom-format IDs in bulk.',
+    category: 'Calc',
+    tier: 'free',
+    icon: 'fingerprint',
+    tags: ['uuid', 'ulid', 'nanoid', 'id'],
+  },
+  {
+    slug: 'video-to-gif',
+    name: 'Video to GIF',
+    description: 'Convert video clips to optimized GIFs with custom FPS and quality.',
+    category: 'Image',
+    tier: 'pro',
+    icon: 'film',
+    tags: ['video', 'gif', 'convert'],
+    wasm: true,
+  },
+  {
+    slug: 'wcag-contrast',
+    name: 'WCAG contrast checker',
+    description: 'Check color contrast ratios against WCAG AA and AAA requirements.',
+    category: 'Design',
+    tier: 'free',
+    icon: 'eye',
+    tags: ['wcag', 'contrast', 'accessibility', 'a11y'],
+  },
+  {
+    slug: 'web-font-loader',
+    name: 'Web font loader snippet',
+    description: 'Generate next/font or @font-face snippets with subsetting and display strategy.',
+    category: 'Next.js',
+    tier: 'free',
+    icon: 'type',
+    tags: ['font', 'next', 'web-font', 'google-fonts'],
+    isNew: true,
+  },
+  {
+    slug: 'word-counter',
+    name: 'Word / character counter',
+    description: 'Count words, characters, paragraphs, reading time with detailed stats.',
+    category: 'Text',
+    tier: 'free',
+    icon: 'tally-5',
+    tags: ['word', 'character', 'count'],
+  },
+  {
+    slug: 'xml-formatter',
+    name: 'XML formatter',
+    description: 'Format and validate XML with XSD schema support and pretty-printing.',
+    category: 'Code',
+    tier: 'free',
+    icon: 'code',
+    tags: ['xml', 'format', 'validate'],
+  },
+  {
+    slug: 'yaml-to-json',
+    name: 'YAML to JSON',
+    description: 'Convert between YAML and JSON formats with multi-document support.',
+    category: 'JSON',
+    tier: 'free',
+    icon: 'arrow-right-left',
+    tags: ['yaml', 'json', 'convert'],
+  },
+  {
+    slug: 'z-index-manager',
+    name: 'z-index manager',
+    description: 'Visualize and manage stacking contexts and z-index values across your app.',
+    category: 'React',
+    tier: 'free',
+    icon: 'layers',
+    tags: ['z-index', 'stacking', 'css'],
+    isNew: true,
+  },
+  {
+    slug: 'zod-from-json',
+    name: 'Zod schema from JSON',
+    description: 'Generate a fully-typed Zod schema from any JSON sample with refinements.',
+    category: 'React',
+    tier: 'ai',
+    icon: 'sparkles',
+    tags: ['zod', 'schema', 'typescript', 'ai', 'validation'],
+    featured: true,
+    isNew: true,
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// Derived constants & helpers
+// ─────────────────────────────────────────────────────────────
+
+/** Total count for display in headers and meta tags */
+export const TOOL_COUNT = TOOLS.length;
+
+/**
+ * Visual + design-system metadata per category. Drives:
+ *  - Icon chip background color on tool cards
+ *  - Lucide icon stroke color inside the chip
+ *  - Corner doodle stroke color
+ *  - Which doodle component to render (must match a file in src/components/doodles/)
+ *  - Sidebar / category strip ordering
+ *
+ * All color values are CSS variable references — defined in globals.css.
+ */
+export const CATEGORY_META: Record<ToolCategory, CategoryMeta> = {
+  JSON: {
+    iconBg: 'var(--color-surface-tint)',
+    iconColor: 'var(--color-terracotta)',
+    doodleColor: 'var(--color-terracotta)',
+    doodleComponent: 'JsonDoodle',
+    order: 1,
+  },
+  Text: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-terracotta-deep)',
+    doodleComponent: 'TextDoodle',
+    order: 2,
+  },
+  Encoding: {
+    iconBg: 'var(--color-surface-tint)',
+    iconColor: 'var(--color-terracotta)',
+    doodleColor: 'var(--color-terracotta)',
+    doodleComponent: 'EncodingDoodle',
+    order: 3,
+  },
+  Image: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-amber)',
+    doodleComponent: 'ImageDoodle',
+    order: 4,
+  },
+  PDF: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-terracotta-deep)',
+    doodleComponent: 'PdfDoodle',
+    order: 5,
+  },
+  Code: {
+    iconBg: 'var(--color-sage)',
+    iconColor: 'var(--color-sage-deep)',
+    doodleColor: 'var(--color-sage-deep)',
+    doodleComponent: 'CodeDoodle',
+    order: 6,
+  },
+  Design: {
+    iconBg: 'var(--color-sage)',
+    iconColor: 'var(--color-sage-deep)',
+    doodleColor: 'var(--color-sage-deep)',
+    doodleComponent: 'DesignDoodle',
+    order: 7,
+  },
+  Calc: {
+    iconBg: 'var(--color-surface-tint)',
+    iconColor: 'var(--color-terracotta)',
+    doodleColor: 'var(--color-terracotta)',
+    doodleComponent: 'CalcDoodle',
+    order: 8,
+  },
+  Network: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-terracotta-deep)',
+    doodleComponent: 'NetworkDoodle',
+    order: 9,
+  },
+  Security: {
+    iconBg: 'var(--color-surface-tint)',
+    iconColor: 'var(--color-terracotta)',
+    doodleColor: 'var(--color-terracotta)',
+    doodleComponent: 'SecurityDoodle',
+    order: 10,
+  },
+  Data: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-terracotta-deep)',
+    doodleComponent: 'DataDoodle',
+    order: 11,
+  },
+  'Next.js': {
+    iconBg: 'var(--color-surface-tint)',
+    iconColor: 'var(--color-terracotta)',
+    doodleColor: 'var(--color-terracotta)',
+    doodleComponent: 'NextDoodle',
+    order: 12,
+  },
+  React: {
+    iconBg: 'var(--color-sage)',
+    iconColor: 'var(--color-sage-deep)',
+    doodleColor: 'var(--color-sage-deep)',
+    doodleComponent: 'ReactDoodle',
+    order: 13,
+  },
+};
+
+/** All categories present, ordered by CATEGORY_META.order (drives sidebar) */
+export const CATEGORIES: ToolCategory[] = (
+  Object.keys(CATEGORY_META) as ToolCategory[]
+).sort((a, b) => CATEGORY_META[a].order - CATEGORY_META[b].order);
+
+/** Counts per category for sidebar badges */
+export const CATEGORY_COUNTS: Record<ToolCategory, number> = CATEGORIES.reduce(
+  (acc, cat) => {
+    acc[cat] = TOOLS.filter((t) => t.category === cat).length;
+    return acc;
+  },
+  {} as Record<ToolCategory, number>,
+);
+
+/** Counts per tier for stats and pricing page */
+export const TIER_COUNTS: Record<ToolTier, number> = {
+  free: TOOLS.filter((t) => t.tier === 'free').length,
+  pro: TOOLS.filter((t) => t.tier === 'pro').length,
+  ai: TOOLS.filter((t) => t.tier === 'ai').length,
+};
+
+/** Find a tool by its URL slug. Returns undefined if not found. */
+export function getToolBySlug(slug: string): Tool | undefined {
+  return TOOLS.find((t) => t.slug === slug);
+}
+
+/** All tools in a given category, preserving alphabetical order. */
+export function getToolsByCategory(category: ToolCategory): Tool[] {
+  return TOOLS.filter((t) => t.category === category);
+}
+
+/** All tools in a given tier. */
+export function getToolsByTier(tier: ToolTier): Tool[] {
+  return TOOLS.filter((t) => t.tier === tier);
+}
+
+/** All tools flagged as new — for the "Recently added" section on home. */
+export function getNewTools(): Tool[] {
+  return TOOLS.filter((t) => t.isNew);
+}
+
+/** Featured tools for the homepage "Popular this week" grid. */
+export function getFeaturedTools(): Tool[] {
+  return TOOLS.filter((t) => t.featured);
+}
+
+/** Visual metadata (icon colors + doodle component) for a category. */
+export function getCategoryMeta(category: ToolCategory): CategoryMeta {
+  return CATEGORY_META[category];
+}
+
+/**
+ * Tools related to the given one — same category, excluding itself.
+ * Used on tool pages for cross-promotion / "you might also like".
+ */
+export function getRelatedTools(slug: string, limit = 4): Tool[] {
+  const tool = getToolBySlug(slug);
+  if (!tool) return [];
+  return TOOLS.filter((t) => t.slug !== slug && t.category === tool.category).slice(0, limit);
+}
+
+/**
+ * Fuzzy search across name, description, and tags. Case-insensitive.
+ * Used by the cmdk command palette.
+ */
+export function searchTools(query: string): Tool[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return TOOLS;
+  return TOOLS.filter((t) => {
+    if (t.name.toLowerCase().includes(q)) return true;
+    if (t.description.toLowerCase().includes(q)) return true;
+    if (t.category.toLowerCase().includes(q)) return true;
+    if (t.tags.some((tag) => tag.toLowerCase().includes(q))) return true;
+    return false;
+  });
+}
+
+/** Group tools by first letter — for the A-Z explorer view. */
+export function groupToolsAlphabetically(): Record<string, Tool[]> {
+  return TOOLS.reduce(
+    (acc, tool) => {
+      const letter = tool.name[0].toUpperCase();
+      if (!acc[letter]) acc[letter] = [];
+      acc[letter].push(tool);
+      return acc;
+    },
+    {} as Record<string, Tool[]>,
+  );
+}
