@@ -1,8 +1,6 @@
 /* eslint-disable react-hooks/static-components */
-import Link from "next/link";
-import { ArrowLeft, ChevronRight } from "lucide-react";
-import { ToolIcon } from "@/components/shared/ToolIcon";
 import { ToolCard } from "@/components/shared/ToolCard";
+import { ToolIcon } from "@/components/shared/ToolIcon";
 import { getDoodle } from "@/lib/doodle-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import {
@@ -10,6 +8,8 @@ import {
   getRelatedTools,
   type Tool,
 } from "@/lib/tools-registry";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 interface Props {
   tool: Tool;
@@ -29,7 +29,7 @@ export function ComingSoon({ tool }: Props) {
     <>
       {/* ─── Header band ─────────────────────────────── */}
       <section className="border-b border-border bg-bg">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 pt-7 pb-9 sm:pt-9">
+        <div className="mx-auto max-w-8xl px-5 sm:px-8 pt-7 pb-9 sm:pt-9">
           <div className="flex items-center justify-between gap-3 mb-6">
             <nav
               aria-label="Breadcrumb"
@@ -86,9 +86,7 @@ export function ComingSoon({ tool }: Props) {
                   style={{ color: meta.iconColor }}
                 />
               </div>
-              <span
-                className="rounded-full px-2.5 py-1 text-2xs font-semibold uppercase tracking-eyebrow bg-mist-sage text-olive-ink"
-              >
+              <span className="rounded-full px-2.5 py-1 text-2xs font-semibold uppercase tracking-eyebrow bg-mist-sage text-olive-ink">
                 Coming soon
               </span>
             </div>
@@ -124,8 +122,8 @@ export function ComingSoon({ tool }: Props) {
             >
               We&apos;re still building this one. It&apos;s in the registry so
               we don&apos;t lose track of the scope — but the implementation
-              isn&apos;t live yet. In the meantime, the tools below are ready
-              to go.
+              isn&apos;t live yet. In the meantime, the tools below are ready to
+              go.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -152,19 +150,13 @@ export function ComingSoon({ tool }: Props) {
 
       {/* ─── Related tools ──────────────────────────── */}
       {related.length > 0 && (
-        <section
-          className="border-t border-border bg-surface-soft"
-        >
-          <div className="mx-auto max-w-7xl px-5 sm:px-8 py-12">
+        <section className="border-t border-border bg-surface-soft">
+          <div className="mx-auto max-w-8xl px-5 sm:px-8 py-12">
             <div className="mb-5">
-              <p
-                className="text-xs font-bold uppercase tracking-eyebrow text-text-faint"
-              >
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-text-faint">
                 In the meantime
               </p>
-              <h2
-                className="display mt-1 text-xl font-semibold tracking-tight text-text"
-              >
+              <h2 className="display mt-1 text-xl font-semibold tracking-tight text-text">
                 Related {tool.category} tools
               </h2>
             </div>

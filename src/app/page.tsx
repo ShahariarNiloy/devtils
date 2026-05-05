@@ -1,22 +1,22 @@
-import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Hero } from "@/components/layout/Hero";
 import { HomeFooter } from "@/components/layout/HomeFooter";
 import { ToolCard } from "@/components/shared/ToolCard";
+import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import {
   TOOL_COUNT,
   getFeaturedTools,
   getNewTools,
 } from "@/lib/tools-registry";
-import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
 
 export default async function Home() {
   const featured = getFeaturedTools();
   const newest = getNewTools().slice(0, 8);
   const liveCount = featured.filter((t) =>
-    IMPLEMENTED_TOOL_SLUGS.has(t.slug),
+    IMPLEMENTED_TOOL_SLUGS.has(t.slug)
   ).length;
   const isAvailable = (slug: string) => IMPLEMENTED_TOOL_SLUGS.has(slug);
 
@@ -35,8 +35,8 @@ export default async function Home() {
               title="Popular this week"
               hint={
                 <>
-                  {liveCount} of {featured.length} live ·{" "}
-                  {TOOL_COUNT} tools total
+                  {liveCount} of {featured.length} live · {TOOL_COUNT} tools
+                  total
                 </>
               }
               cta={{ href: "/tools", label: `Browse all ${TOOL_COUNT}` }}
@@ -104,7 +104,13 @@ interface BandProps {
   children: React.ReactNode;
 }
 
-function Band({ tone = "paper", id, className = "", children, ...rest }: BandProps) {
+function Band({
+  tone = "paper",
+  id,
+  className = "",
+  children,
+  ...rest
+}: BandProps) {
   const isSoft = tone === "soft";
   return (
     <section
@@ -115,9 +121,7 @@ function Band({ tone = "paper", id, className = "", children, ...rest }: BandPro
       }}
       {...rest}
     >
-      <div className="relative mx-auto max-w-7xl px-6 sm:px-10">
-        {children}
-      </div>
+      <div className="relative mx-auto max-w-8xl px-6 sm:px-10">{children}</div>
     </section>
   );
 }
@@ -133,9 +137,7 @@ function SectionHeading({ eyebrow, title, hint, cta }: SectionHeadingProps) {
   return (
     <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
       <div>
-        <span
-          className="inline-flex items-center gap-2 text-2xs font-bold uppercase tracking-eyebrow text-text-faint"
-        >
+        <span className="inline-flex items-center gap-2 text-2xs font-bold uppercase tracking-eyebrow text-text-faint">
           <span
             className="inline-block h-1.5 w-1.5 rounded-full"
             style={{ background: "var(--color-sage-olive)" }}
@@ -143,18 +145,10 @@ function SectionHeading({ eyebrow, title, hint, cta }: SectionHeadingProps) {
           />
           {eyebrow}
         </span>
-        <h2
-          className="display mt-2 text-h2 sm:text-page font-semibold tracking-tight text-text"
-        >
+        <h2 className="display mt-2 text-h2 sm:text-page font-semibold tracking-tight text-text">
           {title}
         </h2>
-        {hint && (
-          <p
-            className="mt-1.5 text-sm text-text-faint"
-          >
-            {hint}
-          </p>
-        )}
+        {hint && <p className="mt-1.5 text-sm text-text-faint">{hint}</p>}
       </div>
       {cta && (
         <Link

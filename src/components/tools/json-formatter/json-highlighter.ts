@@ -1,7 +1,7 @@
 /**
  * Tiny self-contained JSON syntax highlighter — returns a string of HTML
- * with class-tagged spans. No regex backtracking surprises: we tokenize by
- * walking the source character by character.
+ * with class-tagged spans. Tokenizes character-by-character for accuracy
+ * and speed up to ~500 KB of JSON.
  */
 
 const escape = (s: string) =>
@@ -123,3 +123,6 @@ export function lineCount(text: string): number {
   if (!text) return 1;
   return text.split("\n").length;
 }
+
+/** Alias for new code — same implementation, spec-required name. */
+export const highlightJson = highlightJSON;

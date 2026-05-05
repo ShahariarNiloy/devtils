@@ -1,24 +1,29 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, ChevronRight } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
-import { motion } from "framer-motion";
-import { ToolIcon } from "@/components/shared/ToolIcon";
-import { ToolCard } from "@/components/shared/ToolCard";
 import { pushRecent } from "@/components/primitives/CommandPalette";
+import { ToolCard } from "@/components/shared/ToolCard";
+import { ToolIcon } from "@/components/shared/ToolIcon";
+import { cn } from "@/lib/cn";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import {
   getCategoryMeta,
   getRelatedTools,
   type Tool,
 } from "@/lib/tools-registry";
+import { motion } from "framer-motion";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { useEffect, type ReactNode } from "react";
 
 interface Props {
   tool: Tool;
   /** Optional sticky bottom action row (rendered inside a styled container). */
   actions?: ReactNode;
   children: ReactNode;
+  classNames?: {
+    header?: string;
+    body?: string;
+  };
 }
 
 /**
@@ -27,7 +32,7 @@ interface Props {
  * (children), an optional sticky action bar, and a related-tools strip.
  * Tracks the visit so the palette's Recents stays useful.
  */
-export function ToolShell({ tool, actions, children }: Props) {
+export function ToolShell({ tool, actions, children, classNames }: Props) {
   const meta = getCategoryMeta(tool.category);
   const isLive = IMPLEMENTED_TOOL_SLUGS.has(tool.slug);
   const related = getRelatedTools(tool.slug, 3);
@@ -45,7 +50,7 @@ export function ToolShell({ tool, actions, children }: Props) {
       >
         {/* ─── Tool header band ─────────────────────────── */}
         <section className="border-b border-border bg-bg">
-          <div className="mx-auto max-w-7xl px-5 sm:px-8 pt-7 pb-9 sm:pt-9">
+          <div className="mx-auto max-w-8xl px-5 sm:px-8 pt-7 pb-9 sm:pt-9">
             {/* Breadcrumb + back link */}
             <div className="flex items-center justify-between gap-3 mb-6">
               <nav
@@ -92,14 +97,10 @@ export function ToolShell({ tool, actions, children }: Props) {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <span
-                    className="rounded-md px-2 h-5 inline-flex items-center text-2xs font-semibold uppercase tracking-tag bg-tier-free-bg text-tier-free-text"
-                  >
+                  <span className="rounded-md px-2 h-5 inline-flex items-center text-2xs font-semibold uppercase tracking-tag bg-tier-free-bg text-tier-free-text">
                     {tool.tier}
                   </span>
-                  <span
-                    className="text-2xs font-bold uppercase tracking-eyebrow text-text-faint"
-                  >
+                  <span className="text-2xs font-bold uppercase tracking-eyebrow text-text-faint">
                     {tool.category}
                   </span>
                   {isLive ? (
@@ -115,9 +116,7 @@ export function ToolShell({ tool, actions, children }: Props) {
                       Live
                     </span>
                   ) : (
-                    <span
-                      className="rounded-md px-2 h-5 inline-flex items-center text-2xs font-semibold uppercase tracking-tag text-text-faint bg-surface-soft"
-                    >
+                    <span className="rounded-md px-2 h-5 inline-flex items-center text-2xs font-semibold uppercase tracking-tag text-text-faint bg-surface-soft">
                       Soon
                     </span>
                   )}
@@ -131,15 +130,11 @@ export function ToolShell({ tool, actions, children }: Props) {
                   )}
                 </div>
 
-                <h1
-                  className="display text-h2 sm:text-page-lg font-semibold text-text leading-heading tracking-tight"
-                >
+                <h1 className="display text-h2 sm:text-page-lg font-semibold text-text leading-heading tracking-tight">
                   {tool.name}
                 </h1>
 
-                <p
-                  className="mt-2 text-sm leading-snug-2 max-w-prose text-text-muted"
-                >
+                <p className="mt-2 text-sm leading-snug-2 max-w-prose text-text-muted">
                   {tool.description}
                 </p>
 
@@ -162,7 +157,12 @@ export function ToolShell({ tool, actions, children }: Props) {
 
         {/* ─── Tool body ────────────────────────────────── */}
         <section className="bg-bg">
-          <div className="mx-auto max-w-7xl px-5 sm:px-8 py-6 sm:py-8">
+          <div
+            className={cn(
+              "mx-auto max-w-8xl px-5 sm:px-8 py-6 sm:py-8",
+              classNames?.body
+            )}
+          >
             <div className="space-y-4">{children}</div>
           </div>
         </section>
@@ -177,7 +177,7 @@ export function ToolShell({ tool, actions, children }: Props) {
             backdropFilter: "saturate(140%) blur(10px)",
           }}
         >
-          <div className="mx-auto max-w-7xl px-5 sm:px-8 py-3 flex flex-wrap items-center gap-2">
+          <div className="mx-auto max-w-8xl px-5 sm:px-8 py-3 flex flex-wrap items-center gap-2">
             {actions}
           </div>
         </div>
@@ -185,20 +185,14 @@ export function ToolShell({ tool, actions, children }: Props) {
 
       {/* ─── Related tools ──────────────────────────────── */}
       {related.length > 0 && (
-        <section
-          className="border-t border-border bg-surface-soft"
-        >
-          <div className="mx-auto max-w-7xl px-5 sm:px-8 py-12">
+        <section className="border-t border-border bg-surface-soft">
+          <div className="mx-auto max-w-8xl px-5 sm:px-8 py-12">
             <div className="mb-5 flex items-end justify-between gap-3 flex-wrap">
               <div>
-                <p
-                  className="text-xs font-bold uppercase tracking-eyebrow text-text-faint"
-                >
+                <p className="text-xs font-bold uppercase tracking-eyebrow text-text-faint">
                   Same category
                 </p>
-                <h2
-                  className="display mt-1 text-xl font-semibold tracking-tight text-text"
-                >
+                <h2 className="display mt-1 text-xl font-semibold tracking-tight text-text">
                   More {tool.category} tools
                 </h2>
               </div>

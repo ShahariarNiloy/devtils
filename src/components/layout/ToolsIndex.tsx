@@ -61,7 +61,7 @@ export function ToolsIndex({ tools, initialCategory, initialQuery }: Props) {
     <>
       {/* ─── Page header / control bar ──────────────── */}
       <section className="border-b border-border bg-bg">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10 pt-12 pb-8 sm:pt-14">
+        <div className="mx-auto max-w-8xl px-6 sm:px-10 pt-12 pb-8 sm:pt-14">
           <p className="text-xs font-bold uppercase tracking-ultra text-text-faint">
             Index
           </p>
@@ -119,7 +119,7 @@ export function ToolsIndex({ tools, initialCategory, initialQuery }: Props) {
 
       {/* ─── Grid ────────────────────────────────────── */}
       <section className="bg-bg">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10 py-12 sm:py-14">
+        <div className="mx-auto max-w-8xl px-6 sm:px-10 py-12 sm:py-14">
           {filtered.length === 0 ? (
             <EmptyState
               hasQuery={Boolean(query.trim())}

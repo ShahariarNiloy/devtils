@@ -19,7 +19,7 @@ const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 select-none rounded-lg border border-border bg-surface-warm px-2 py-2 text-xs font-medium text-terracotta-deep shadow-[0_4px_12px_-6px_rgba(164,114,81,0.25)]",
+        "z-50 select-none rounded-lg border border-border bg-surface-soft px-2.5 py-1.5 text-sm font-medium text-text shadow-float",
         "data-[state=delayed-open]:animate-[scale-in_140ms_ease-out] data-[state=closed]:animate-[fade-out_120ms_ease-in]",
         className,
       )}
@@ -58,10 +58,10 @@ export function Tooltip({
             <span className="flex items-center gap-2">
               {content}
               {shortcut ? (
-                <span className="text-text-faint font-mono text-2xs">{shortcut}</span>
+                <span className="text-text-faint font-mono text-xs">{shortcut}</span>
               ) : null}
             </span>
-            <Radix.Arrow className="fill-[var(--color-surface-warm)]" />
+            <Radix.Arrow className="fill-[var(--color-surface-soft)]" />
           </TooltipContent>
         </TooltipPortal>
       </TooltipRoot>

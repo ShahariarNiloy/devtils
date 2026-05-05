@@ -1,10 +1,10 @@
-import Link from "next/link";
 import {
   CATEGORIES,
   CATEGORY_COUNTS,
-  TOOL_COUNT,
   TIER_COUNTS,
+  TOOL_COUNT,
 } from "@/lib/tools-registry";
+import Link from "next/link";
 
 /**
  * Multi-column footer with category links, tier counts, and a small
@@ -17,7 +17,7 @@ export function HomeFooter() {
   const colB = CATEGORIES.slice(half);
   return (
     <footer className="relative border-t border-border bg-surface-soft">
-      <div className="relative mx-auto grid max-w-7xl grid-cols-2 gap-y-10 gap-x-6 px-6 sm:px-10 py-12 sm:grid-cols-4">
+      <div className="relative mx-auto grid max-w-8xl grid-cols-2 gap-y-10 gap-x-6 px-6 sm:px-10 py-12 sm:grid-cols-4">
         {/* Brand block */}
         <div className="col-span-2 sm:col-span-1">
           <div className="flex items-center gap-2">
@@ -54,10 +54,7 @@ export function HomeFooter() {
             {colA.map((c) => (
               <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
                 {c}
-                <span className="text-text-faint">
-                  {" "}
-                  · {CATEGORY_COUNTS[c]}
-                </span>
+                <span className="text-text-faint"> · {CATEGORY_COUNTS[c]}</span>
               </FooterLink>
             ))}
           </ul>
@@ -70,10 +67,7 @@ export function HomeFooter() {
             {colB.map((c) => (
               <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
                 {c}
-                <span className="text-text-faint">
-                  {" "}
-                  · {CATEGORY_COUNTS[c]}
-                </span>
+                <span className="text-text-faint"> · {CATEGORY_COUNTS[c]}</span>
               </FooterLink>
             ))}
           </ul>
@@ -94,7 +88,7 @@ export function HomeFooter() {
 
       {/* Bottom rule */}
       <div className="border-t border-border">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10 py-5 flex flex-wrap items-center gap-3 justify-between">
+        <div className="mx-auto max-w-8xl px-6 sm:px-10 py-5 flex flex-wrap items-center gap-3 justify-between">
           <p className="text-xs text-text-faint">
             © {new Date().getFullYear()} devtoolbox · made with care
           </p>

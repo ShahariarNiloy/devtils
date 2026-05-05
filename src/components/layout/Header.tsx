@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
-import { CommandPalette, useCommandPalette } from "@/components/primitives/CommandPalette";
+import {
+  CommandPalette,
+  useCommandPalette,
+} from "@/components/primitives/CommandPalette";
 import { Kbd } from "@/components/primitives/Kbd";
+import { Search } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
 
 function GithubMark({ size = 14 }: { size?: number }) {
@@ -37,7 +40,7 @@ export function Header() {
         backdropFilter: "saturate(140%) blur(10px)",
       }}
     >
-      <div className="mx-auto flex h-full max-w-7xl items-center gap-6 px-6 sm:px-10">
+      <div className="mx-auto flex h-full max-w-8xl items-center gap-6 px-6 sm:px-10">
         {/* Brand wordmark */}
         <Link
           href="/"
@@ -57,25 +60,14 @@ export function Header() {
         </Link>
 
         {/* Center nav */}
-        <nav
-          className="hidden md:flex items-center gap-7 text-sm font-medium text-text-muted"
-        >
-          <Link
-            href="/tools"
-            className="transition-colors hover:text-text"
-          >
+        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-text-muted">
+          <Link href="/tools" className="transition-colors hover:text-text">
             Tools
           </Link>
-          <Link
-            href="/#all"
-            className="transition-colors hover:text-text"
-          >
+          <Link href="/#all" className="transition-colors hover:text-text">
             Pricing
           </Link>
-          <Link
-            href="/#all"
-            className="transition-colors hover:text-text"
-          >
+          <Link href="/#all" className="transition-colors hover:text-text">
             Changelog
           </Link>
           <Link

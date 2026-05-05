@@ -52,7 +52,8 @@
   /* ── Typography: families ─────────────────────────── */
   --font-sans: var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-jetbrains), ui-monospace, "SF Mono", monospace;
-  --font-display: var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
 
   /* ── Typography: sizes ────────────────────────────── */
   /* Micro — below text-xs (12px) */
@@ -65,36 +66,37 @@
   /* 72px → text-7xl */
 
   /* Heading scale — sizes not in Tailwind's default set */
-  --text-h2: 1.75rem;      /* 28px — section headings */
-  --text-page: 2rem;       /* 32px — page h1 medium */
+  --text-h2: 1.75rem; /* 28px — section headings */
+  --text-page: 2rem; /* 32px — page h1 medium */
   --text-page-lg: 2.125rem; /* 34px — tools index h1 */
-  --text-hero-xs: 2.5rem;  /* 40px — coming-soon h1 mobile */
+  --text-hero-xs: 2.5rem; /* 40px — coming-soon h1 mobile */
   --text-hero-sm: 2.625rem; /* 42px — tools index h1 sm */
-  --text-hero-md: 2.75rem;  /* 44px — landing hero mobile */
-  --text-hero-lg: 4.25rem;  /* 68px — landing hero desktop */
+  --text-hero-md: 2.75rem; /* 44px — landing hero mobile */
+  --text-hero-lg: 4.25rem; /* 68px — landing hero desktop */
 
   /* ── Typography: tracking ─────────────────────────── */
   /* 0.1em → tracking-widest (built-in) */
-  --tracking-eyebrow: 0.14em;  /* eyebrow labels, category tags */
-  --tracking-tag: 0.12em;      /* pill/chip labels */
-  --tracking-ultra: 0.16em;    /* footer section headings */
+  --tracking-eyebrow: 0.14em; /* eyebrow labels, category tags */
+  --tracking-tag: 0.12em; /* pill/chip labels */
+  --tracking-ultra: 0.16em; /* footer section headings */
 
   /* ── Spacing: component heights ───────────────────── */
   /* h-5=20px h-6=24px h-7=28px h-9=36px h-10=40px h-11=44px h-12=48px h-20=80px */
-  --spacing-badge: 1.375rem;      /* 22px — tag/badge height */
-  --spacing-kbd: 1.125rem;        /* 18px — keyboard chip height */
-  --spacing-btn-md: 2.625rem;     /* 42px — medium button */
-  --spacing-btn-lg: 2.875rem;     /* 46px — large button */
-  --spacing-search: 3.25rem;      /* 52px — search field */
-  --spacing-header: 3.75rem;      /* 60px — site header */
-  --spacing-hero-input: 4.25rem;  /* 68px — hero search widget */
-  --spacing-card-sm: 18.75rem;    /* 300px — carousel card width */
-  --spacing-line-num: 2.625rem;   /* 42px — code line-number gutter */
+  --spacing-badge: 1.375rem; /* 22px — tag/badge height */
+  --spacing-kbd: 1.125rem; /* 18px — keyboard chip height */
+  --spacing-btn-md: 2.625rem; /* 42px — medium button */
+  --spacing-btn-lg: 2.875rem; /* 46px — large button */
+  --spacing-search: 3.25rem; /* 52px — search field */
+  --spacing-header: 3.75rem; /* 60px — site header */
+  --spacing-hero-input: 4.25rem; /* 68px — hero search widget */
+  --spacing-card-sm: 18.75rem; /* 300px — carousel card width */
+  --spacing-line-num: 2.625rem; /* 42px — code line-number gutter */
 
   /* ── Max-widths ───────────────────────────────────── */
-  /* max-w-7xl = 1280px (built-in, use it) */
-  --max-width-search: 40rem;  /* 640px — search field max */
+  /* max-w-8xl = 1280px (built-in, use it) */
+  --max-width-search: 40rem; /* 640px — search field max */
   --max-width-prose: 42.5rem; /* 680px — long-form prose blocks */
+  --max-width-max: 1536px; /* 1536px — site/content maximum width */
 
   /* ── Radii ────────────────────────────────────────── */
   --radius-button: 10px;
@@ -109,11 +111,11 @@
   --shadow-btn-primary: 0 4px 14px -6px rgba(61, 68, 53, 0.45);
 
   /* ── Line heights (unitless ratios) ───────────────── */
-  --leading-hero: 1.04;     /* landing hero headline */
-  --leading-heading: 1.1;   /* section heading */
-  --leading-desc: 1.6;      /* description / body copy */
-  --leading-snug-2: 1.55;   /* slightly tighter than leading-desc */
-  --leading-code: 1.65;     /* monospace / code panels */
+  --leading-hero: 1.04; /* landing hero headline */
+  --leading-heading: 1.1; /* section heading */
+  --leading-desc: 1.6; /* description / body copy */
+  --leading-snug-2: 1.55; /* slightly tighter than leading-desc */
+  --leading-code: 1.65; /* monospace / code panels */
 
   /* ── Animation ────────────────────────────────────── */
   --animate-in-fade: fade-in 200ms ease-out both;
@@ -220,40 +222,92 @@ textarea:focus,
   .border-1\.5 {
     border-width: 1.5px;
   }
+  /* Utility to apply the new max-width token */
+  .max-w-8xl {
+    max-width: var(--max-width-max);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 @keyframes scale-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.98); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
 }
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* JSON syntax highlighting */
-.json-key { color: #2c3127; font-weight: 600; }
-.json-string { color: #5d6a4d; }
-.json-number { color: #8e5d36; }
-.json-bool { color: #c58e5e; font-weight: 500; }
-.json-null { color: var(--color-text-faint); }
-.json-punct { color: var(--color-text-muted); }
-[data-theme="dark"] .json-key { color: #dde0d0; }
-[data-theme="dark"] .json-string { color: #b5c2a3; }
-[data-theme="dark"] .json-number { color: #c58e5e; }
-[data-theme="dark"] .json-bool { color: #efe0cc; }
+.json-key {
+  color: #2c3127;
+  font-weight: 600;
+}
+.json-string {
+  color: #5d6a4d;
+}
+.json-number {
+  color: #8e5d36;
+}
+.json-bool {
+  color: #c58e5e;
+  font-weight: 500;
+}
+.json-null {
+  color: var(--color-text-faint);
+}
+.json-punct {
+  color: var(--color-text-muted);
+}
+[data-theme="dark"] .json-key {
+  color: #dde0d0;
+}
+[data-theme="dark"] .json-string {
+  color: #b5c2a3;
+}
+[data-theme="dark"] .json-number {
+  color: #c58e5e;
+}
+[data-theme="dark"] .json-bool {
+  color: #efe0cc;
+}
 
 /* Regex match highlight */
 mark.regex-match {
@@ -279,8 +333,12 @@ mark.regex-match-alt {
   }
 }
 
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
 
 .skip-link {
   position: absolute;
@@ -294,4 +352,6 @@ mark.regex-match-alt {
   font-weight: 600;
   font-size: 13px;
 }
-.skip-link:focus { top: 8px; }
+.skip-link:focus {
+  top: 8px;
+}

@@ -24,7 +24,7 @@ export function Hero() {
         style={{ background: "var(--color-sage-olive)" }}
       />
 
-      <div className="mx-auto max-w-7xl px-6 sm:px-10 pt-16 pb-20 lg:pt-20 lg:pb-24">
+      <div className="mx-auto max-w-8xl px-6 sm:px-10 pt-16 pb-20 lg:pt-20 lg:pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_460px] gap-12 lg:gap-16 items-center">
           {/* ─── Left column ──────────────────────────── */}
           <div>
