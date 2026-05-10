@@ -103,36 +103,6 @@ export function sortJsonKeys(value: unknown, order: "asc" | "desc"): unknown {
 
 // ── Deduplication ────────────────────────────────────────────────────────────
 
-/** Remove duplicate keys at each level. Returns cleaned value + count. */
-export function deduplicateKeys(raw: string): { value: unknown; removed: number } {
-  let removed = 0;
-  // JSON.parse already drops duplicate keys (last-write-wins in V8). Use a
-  // reviver that tracks how many times each key appears by walking the raw text.
-  const seenTracker: Map<string, Set<string>> = new Map();
-
-  function dedup(value: unknown, path: string): unknown {
-    if (Array.isArray(value)) return value.map((v, i) => dedup(v, `${path}[${i}]`));
-    if (value !== null && typeof value === "object") {
-      const obj = value as Record<string, unknown>;
-      const seen = new Set<string>();
-      const result: Record<string, unknown> = {};
-      for (const k of Object.keys(obj)) {
-        if (seen.has(k)) {
-          removed += 1;
-        } else {
-          seen.add(k);
-          result[k] = dedup(obj[k], `${path}.${k}`);
-        }
-      }
-      seenTracker.set(path, seen);
-      return result;
-    }
-    return value;
-  }
-
-  const value = dedup(JSON.parse(raw), "$");
-  return { value, removed };
-}
 
 // ── Escaping ─────────────────────────────────────────────────────────────────
 

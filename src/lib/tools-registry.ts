@@ -65,6 +65,18 @@ export interface Tool {
   featured?: boolean;
   /** Optional keyboard shortcut to open the tool (e.g. "g j") */
   shortcut?: string;
+  /**
+   * True if this tool is part of the curated launch set shown in the app.
+   * Tools without this flag are registered but hidden from all listings,
+   * browse pages, and the command palette until they are ready to ship.
+   */
+  showcase?: boolean;
+  /**
+   * Display rank within the showcase (1 = first). Each showcase tool must
+   * have a unique value — gaps are fine, just keep numbers distinct so the
+   * sort order is unambiguous and easy to adjust in one place.
+   */
+  order?: number;
 }
 
 /**
@@ -147,6 +159,8 @@ export const TOOLS: Tool[] = [
     icon: 'binary',
     tags: ['base64', 'encode', 'decode', 'binary'],
     shortcut: 'g b',
+    order: 3,
+    showcase: true,
   },
   {
     slug: 'bcrypt-hash',
@@ -195,6 +209,8 @@ export const TOOLS: Tool[] = [
     icon: 'case-sensitive',
     tags: ['case', 'camel', 'snake', 'kebab', 'pascal'],
     shortcut: 'g c',
+    order: 4,
+    showcase: true,
   },
   {
     slug: 'character-frequency',
@@ -213,6 +229,8 @@ export const TOOLS: Tool[] = [
     tier: 'free',
     icon: 'shield',
     tags: ['chmod', 'unix', 'permissions', 'linux'],
+    order: 20,
+    showcase: true,
   },
   {
     slug: 'cidr-subnet',
@@ -251,6 +269,8 @@ export const TOOLS: Tool[] = [
     tags: ['color', 'hex', 'rgb', 'hsl', 'oklch'],
     featured: true,
     shortcut: 'g k',
+    order: 5,
+    showcase: true,
   },
   {
     slug: 'color-name-finder',
@@ -316,8 +336,10 @@ export const TOOLS: Tool[] = [
     description: 'Decode any cron expression into human-readable schedule description.',
     category: 'Calc',
     tier: 'free',
-    icon: 'clock',
+    icon: 'calendar-cog',
     tags: ['cron', 'schedule', 'parse'],
+    order: 19,
+    showcase: true,
   },
   {
     slug: 'cron-from-english',
@@ -431,8 +453,10 @@ export const TOOLS: Tool[] = [
     description: 'Convert CSV with headers into JSON arrays, with type-inference for numbers.',
     category: 'JSON',
     tier: 'free',
-    icon: 'arrow-right-left',
+    icon: 'table-2',
     tags: ['csv', 'json', 'convert'],
+    order: 16,
+    showcase: true,
   },
   {
     slug: 'csv-viewer',
@@ -459,8 +483,10 @@ export const TOOLS: Tool[] = [
     description: 'Compare two text blocks side-by-side with line, word, and character diff.',
     category: 'Text',
     tier: 'free',
-    icon: 'diff',
+    icon: 'git-compare',
     tags: ['diff', 'compare', 'text'],
+    order: 11,
+    showcase: true,
   },
   {
     slug: 'dns-lookup',
@@ -612,8 +638,10 @@ export const TOOLS: Tool[] = [
     description: 'Convert special characters to and from HTML entity references.',
     category: 'Encoding',
     tier: 'free',
-    icon: 'code',
+    icon: 'code-xml',
     tags: ['html', 'entity', 'encode'],
+    order: 18,
+    showcase: true,
   },
   {
     slug: 'html-minifier',
@@ -725,7 +753,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'image-dominant-color',
     name: 'Image dominant color',
-    description: 'Get the dominant color of an image — perfect for placeholder backgrounds.',
+    description: 'Get the dominant color of an image, perfect for placeholder backgrounds.',
     category: 'Next.js',
     tier: 'free',
     icon: 'droplet',
@@ -828,6 +856,8 @@ export const TOOLS: Tool[] = [
     tags: ['json', 'format', 'prettify', 'validate'],
     featured: true,
     shortcut: 'g j',
+    order: 1,
+    showcase: true,
   },
   {
     slug: 'json-minifier',
@@ -917,8 +947,10 @@ export const TOOLS: Tool[] = [
     description: 'Decode JWT tokens, view header and payload, verify HS256 signatures.',
     category: 'Security',
     tier: 'free',
-    icon: 'key',
+    icon: 'lock-keyhole',
     tags: ['jwt', 'token', 'decode', 'verify'],
+    order: 6,
+    showcase: true,
   },
   {
     slug: 'lighthouse-estimator',
@@ -957,6 +989,8 @@ export const TOOLS: Tool[] = [
     tier: 'free',
     icon: 'file-text',
     tags: ['markdown', 'preview', 'gfm'],
+    order: 14,
+    showcase: true,
   },
   {
     slug: 'markdown-table',
@@ -1091,8 +1125,10 @@ export const TOOLS: Tool[] = [
     description: 'Generate strong passwords with custom length, charset, and entropy display.',
     category: 'Security',
     tier: 'free',
-    icon: 'key',
+    icon: 'shield-plus',
     tags: ['password', 'generate', 'random'],
+    order: 12,
+    showcase: true,
   },
   {
     slug: 'password-strength',
@@ -1340,6 +1376,8 @@ export const TOOLS: Tool[] = [
     tags: ['regex', 'pattern', 'test'],
     featured: true,
     shortcut: 'g r',
+    order: 2,
+    showcase: true,
   },
   {
     slug: 'robots-txt',
@@ -1387,6 +1425,8 @@ export const TOOLS: Tool[] = [
     tier: 'free',
     icon: 'database',
     tags: ['sql', 'format', 'beautify'],
+    order: 13,
+    showcase: true,
   },
   {
     slug: 'ssl-decoder',
@@ -1499,8 +1539,10 @@ export const TOOLS: Tool[] = [
     description: 'Convert Unix timestamps to readable dates and back, supporting ms and seconds.',
     category: 'Calc',
     tier: 'free',
-    icon: 'clock',
+    icon: 'calendar-clock',
     tags: ['timestamp', 'unix', 'date'],
+    order: 9,
+    showcase: true,
   },
   {
     slug: 'timezone-converter',
@@ -1556,8 +1598,10 @@ export const TOOLS: Tool[] = [
     description: 'Encode and decode URL components and query strings.',
     category: 'Encoding',
     tier: 'free',
-    icon: 'link',
+    icon: 'link-2',
     tags: ['url', 'encode', 'decode'],
+    order: 7,
+    showcase: true,
   },
   {
     slug: 'url-parser',
@@ -1565,8 +1609,10 @@ export const TOOLS: Tool[] = [
     description: 'Parse URLs into protocol, host, path, query, and fragment components.',
     category: 'Network',
     tier: 'free',
-    icon: 'link',
+    icon: 'globe',
     tags: ['url', 'parse', 'query'],
+    order: 8,
+    showcase: true,
   },
   {
     slug: 'uuid-generator',
@@ -1576,6 +1622,8 @@ export const TOOLS: Tool[] = [
     tier: 'free',
     icon: 'fingerprint',
     tags: ['uuid', 'ulid', 'nanoid', 'id'],
+    order: 10,
+    showcase: true,
   },
   {
     slug: 'video-to-gif',
@@ -1612,8 +1660,10 @@ export const TOOLS: Tool[] = [
     description: 'Count words, characters, paragraphs, reading time with detailed stats.',
     category: 'Text',
     tier: 'free',
-    icon: 'tally-5',
+    icon: 'baseline',
     tags: ['word', 'character', 'count'],
+    order: 17,
+    showcase: true,
   },
   {
     slug: 'xml-formatter',
@@ -1630,8 +1680,10 @@ export const TOOLS: Tool[] = [
     description: 'Convert between YAML and JSON formats with multi-document support.',
     category: 'JSON',
     tier: 'free',
-    icon: 'arrow-right-left',
+    icon: 'file-json',
     tags: ['yaml', 'json', 'convert'],
+    order: 15,
+    showcase: true,
   },
   {
     slug: 'z-index-manager',
@@ -1660,8 +1712,18 @@ export const TOOLS: Tool[] = [
 // Derived constants & helpers
 // ─────────────────────────────────────────────────────────────
 
-/** Total count for display in headers and meta tags */
-export const TOOL_COUNT = TOOLS.length;
+/** Tools in the curated launch set — the only ones shown in the app UI. */
+export const SHOWCASE_TOOLS: Tool[] = TOOLS
+  .filter((t) => t.showcase)
+  .sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+    if (a.order !== undefined) return -1;
+    if (b.order !== undefined) return 1;
+    return 0;
+  });
+
+/** Visible count for display in headers and meta tags. */
+export const TOOL_COUNT = SHOWCASE_TOOLS.length;
 
 /**
  * Visual + design-system metadata per category. Drives:
@@ -1772,45 +1834,45 @@ export const CATEGORIES: ToolCategory[] = (
   Object.keys(CATEGORY_META) as ToolCategory[]
 ).sort((a, b) => CATEGORY_META[a].order - CATEGORY_META[b].order);
 
-/** Counts per category for sidebar badges */
+/** Counts per category for sidebar badges (showcase tools only) */
 export const CATEGORY_COUNTS: Record<ToolCategory, number> = CATEGORIES.reduce(
   (acc, cat) => {
-    acc[cat] = TOOLS.filter((t) => t.category === cat).length;
+    acc[cat] = SHOWCASE_TOOLS.filter((t) => t.category === cat).length;
     return acc;
   },
   {} as Record<ToolCategory, number>,
 );
 
-/** Counts per tier for stats and pricing page */
+/** Counts per tier for stats and pricing page (showcase tools only) */
 export const TIER_COUNTS: Record<ToolTier, number> = {
-  free: TOOLS.filter((t) => t.tier === 'free').length,
-  pro: TOOLS.filter((t) => t.tier === 'pro').length,
-  ai: TOOLS.filter((t) => t.tier === 'ai').length,
+  free: SHOWCASE_TOOLS.filter((t) => t.tier === 'free').length,
+  pro: SHOWCASE_TOOLS.filter((t) => t.tier === 'pro').length,
+  ai: SHOWCASE_TOOLS.filter((t) => t.tier === 'ai').length,
 };
 
-/** Find a tool by its URL slug. Returns undefined if not found. */
+/** Find a tool by its URL slug. Searches all tools (including non-showcase). */
 export function getToolBySlug(slug: string): Tool | undefined {
   return TOOLS.find((t) => t.slug === slug);
 }
 
-/** All tools in a given category, preserving alphabetical order. */
+/** Showcase tools in a given category, preserving alphabetical order. */
 export function getToolsByCategory(category: ToolCategory): Tool[] {
-  return TOOLS.filter((t) => t.category === category);
+  return SHOWCASE_TOOLS.filter((t) => t.category === category);
 }
 
-/** All tools in a given tier. */
+/** Showcase tools in a given tier. */
 export function getToolsByTier(tier: ToolTier): Tool[] {
-  return TOOLS.filter((t) => t.tier === tier);
+  return SHOWCASE_TOOLS.filter((t) => t.tier === tier);
 }
 
-/** All tools flagged as new — for the "Recently added" section on home. */
+/** Showcase tools flagged as new — for the "Recently added" section on home. */
 export function getNewTools(): Tool[] {
-  return TOOLS.filter((t) => t.isNew);
+  return SHOWCASE_TOOLS.filter((t) => t.isNew);
 }
 
 /** Featured tools for the homepage "Popular this week" grid. */
 export function getFeaturedTools(): Tool[] {
-  return TOOLS.filter((t) => t.featured);
+  return SHOWCASE_TOOLS.filter((t) => t.featured);
 }
 
 /** Visual metadata (icon colors + doodle component) for a category. */
@@ -1825,17 +1887,17 @@ export function getCategoryMeta(category: ToolCategory): CategoryMeta {
 export function getRelatedTools(slug: string, limit = 4): Tool[] {
   const tool = getToolBySlug(slug);
   if (!tool) return [];
-  return TOOLS.filter((t) => t.slug !== slug && t.category === tool.category).slice(0, limit);
+  return SHOWCASE_TOOLS.filter((t) => t.slug !== slug && t.category === tool.category).slice(0, limit);
 }
 
 /**
  * Fuzzy search across name, description, and tags. Case-insensitive.
- * Used by the cmdk command palette.
+ * Searches showcase tools only — used by the cmdk command palette.
  */
 export function searchTools(query: string): Tool[] {
   const q = query.toLowerCase().trim();
-  if (!q) return TOOLS;
-  return TOOLS.filter((t) => {
+  if (!q) return SHOWCASE_TOOLS;
+  return SHOWCASE_TOOLS.filter((t) => {
     if (t.name.toLowerCase().includes(q)) return true;
     if (t.description.toLowerCase().includes(q)) return true;
     if (t.category.toLowerCase().includes(q)) return true;
@@ -1844,9 +1906,9 @@ export function searchTools(query: string): Tool[] {
   });
 }
 
-/** Group tools by first letter — for the A-Z explorer view. */
+/** Group showcase tools by first letter — for the A-Z explorer view. */
 export function groupToolsAlphabetically(): Record<string, Tool[]> {
-  return TOOLS.reduce(
+  return SHOWCASE_TOOLS.reduce(
     (acc, tool) => {
       const letter = tool.name[0].toUpperCase();
       if (!acc[letter]) acc[letter] = [];

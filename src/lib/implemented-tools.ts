@@ -1,9 +1,9 @@
 import type { ComponentType } from "react";
-import { Base64 } from "@/components/tools/base64/Base64";
-import { ColorConverter } from "@/components/tools/color-converter/ColorConverter";
-import { JsonFormatter } from "@/components/tools/json-formatter/JsonFormatter";
-import { RegexTester } from "@/components/tools/regex-tester/RegexTester";
-import { TextCase } from "@/components/tools/text-case/TextCase";
+import { Base64 } from '@/components/tools/base64/base64';
+import { ColorConverter } from '@/components/tools/color-converter/color-converter';
+import { JsonFormatter } from '@/components/tools/json-formatter/json-formatter';
+import { RegexTester } from '@/components/tools/regex-tester/regex-tester';
+import { TextCase } from '@/components/tools/text-case/text-case';
 import type { Tool } from "./tools-registry";
 
 export type ToolComponent = ComponentType<{ tool: Tool }>;

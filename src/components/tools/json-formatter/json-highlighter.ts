@@ -126,3 +126,21 @@ export function lineCount(text: string): number {
 
 /** Alias for new code — same implementation, spec-required name. */
 export const highlightJson = highlightJSON;
+
+/**
+ * Wrap every occurrence of `search` inside the syntax-highlighted HTML with a
+ * `<mark class="json-search-match">` span. Only touches text nodes — HTML tags
+ * are left verbatim so the existing syntax highlighting is preserved.
+ */
+export function applySearchHighlight(html: string, search: string): string {
+  if (!search.trim()) return html;
+  // Encode search to match HTML-entity-escaped text (highlighter escapes & < >)
+  const encoded = search.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escaped = encoded.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(${escaped})`, "gi");
+  return html.replace(/(<[^>]*>)|([^<]+)/g, (_, tag, text) => {
+    if (tag) return tag;
+    if (text) return text.replace(re, '<mark class="json-search-match">$1</mark>');
+    return "";
+  });
+}

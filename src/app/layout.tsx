@@ -1,16 +1,23 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
-import { Manrope, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const manrope = Manrope({
+import { Fredoka, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+
+const fredoka = Fredoka({
   subsets: ["latin"],
-  variable: "--font-sans-manrope",
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono-jetbrains",
@@ -19,10 +26,10 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevToolbox — handcrafted developer utilities",
+  title: "devtils: handcrafted developer utilities",
   description:
-    "Format JSON, convert cases, encode Base64, test regex, and convert colors — fast, keyboard-first, and beautifully designed.",
-  metadataBase: new URL("https://devtoolbox.local"),
+    "Format JSON, convert cases, encode Base64, test regex, and convert colors. Fast, keyboard-first, and beautifully designed.",
+  metadataBase: new URL("https://devtils.local"),
 };
 
 export default function RootLayout({
@@ -32,9 +39,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${manrope.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${fredoka.variable} ${jakarta.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-screen bg-bg text-text font-sans">
+      <body
+        className="min-h-screen bg-bg text-text font-sans"
+        cz-shortcut-listen="true"
+      >
         <a href="#main" className="skip-link">
           Skip to main content
         </a>

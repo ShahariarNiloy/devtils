@@ -56,10 +56,7 @@
     var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
 
   /* ── Typography: sizes ────────────────────────────── */
-  /* Micro — below text-xs (12px) */
-  --text-2xs: 10px;
-  --text-xs-plus: 12.5px;
-  --text-sm-plus: 13.5px;
+  /* Minimum size is 14px (text-sm). text-base (16px) is the default. */
   /* 14px → text-sm  | 16px → text-base | 18px → text-lg  */
   /* 20px → text-xl  | 24px → text-2xl  | 30px → text-3xl */
   /* 36px → text-4xl | 48px → text-5xl  | 60px → text-6xl */
@@ -100,8 +97,26 @@
 
   /* ── Radii ────────────────────────────────────────── */
   --radius-button: 10px;
+  --radius-card: 12px;
   --radius-pill: 9999px;
   /* 6px → rounded-md | 8px → rounded-lg | 12px → rounded-xl | 16px → rounded-2xl */
+
+  /* ── Dusty rose — palette extension (quantifier tokens only) ── */
+  --color-dusty-rose: #e8d5ce;
+  --color-rose-deep: #7a4a3d;
+  --color-charcoal-soft: #e0dcc8;
+
+  /* ── Token category colors ────────────────────────── */
+  --color-token-anchor-bg: var(--color-mist-sage);
+  --color-token-anchor-text: var(--color-olive-ink);
+  --color-token-class-bg: #efe0cc;
+  --color-token-class-text: #8e5d36;
+  --color-token-quant-bg: var(--color-dusty-rose);
+  --color-token-quant-text: var(--color-rose-deep);
+  --color-token-group-bg: var(--color-surface-soft);
+  --color-token-group-text: var(--color-olive-ink);
+  --color-token-literal-bg: var(--color-surface-soft);
+  --color-token-literal-text: var(--color-text-faint);
 
   /* ── Shadows ──────────────────────────────────────── */
   --shadow-card: 0 10px 28px -18px rgba(26, 26, 24, 0.22);
@@ -133,11 +148,11 @@
   --color-text: #f5f0e5;
   --color-text-muted: #dde0d0;
   --color-text-faint: #8a9080;
-  --color-text-on-sage: #f5f0e5;
+  --color-text-on-sage: #1a1a18;
   --color-border: #3d4435;
   --color-border-subtle: #2c3127;
   --color-border-strong: #7e8a6c;
-  --color-brand: #dde0d0;
+  --color-brand: #adb99a;
   --color-brand-hover: #f5f0e5;
   --color-accent-soft: #3d3528;
   --color-tier-free-bg: #2c3127;
@@ -147,6 +162,22 @@
   --color-tier-ai-bg: #2c3127;
   --color-tier-ai-text: #dde0d0;
   --shadow-focus: 0 0 0 3px rgba(61, 68, 53, 0.4);
+
+  /* ── Dusty-rose dark mode ─────────────────────────── */
+  --color-dusty-rose: #3b2922;
+  --color-rose-deep: #d08070;
+
+  /* ── Token category colors dark mode ─────────────── */
+  --color-token-anchor-bg: #263326;
+  --color-token-anchor-text: #90b485;
+  --color-token-class-bg: #3d3122;
+  --color-token-class-text: #c8924c;
+  --color-token-quant-bg: #3b2922;
+  --color-token-quant-text: #d08070;
+  --color-token-group-bg: var(--color-surface-soft);
+  --color-token-group-text: #9aaa8a;
+  --color-token-literal-bg: var(--color-surface-soft);
+  --color-token-literal-text: var(--color-text-faint);
 }
 
 html {
@@ -222,7 +253,6 @@ textarea:focus,
   .border-1\.5 {
     border-width: 1.5px;
   }
-  /* Utility to apply the new max-width token */
   .max-w-8xl {
     max-width: var(--max-width-max);
   }
@@ -274,54 +304,447 @@ textarea:focus,
     transform: translateY(0);
   }
 }
+@keyframes sheet-up-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-down-out {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
 
-/* JSON syntax highlighting */
+/* ── ActionColumn button tier tokens ─────────────────── */
+:root,
+[data-theme="light"] {
+  --btn-upload-bg: #c58e5e;
+  --btn-upload-text: #fbf8f0;
+  --btn-upload-border: transparent;
+  --btn-format-bg: #3d4435;
+  --btn-format-text: #f5f0e5;
+  --btn-format-border: transparent;
+  --btn-sage-bg: #c8d4b4;
+  --btn-sage-text: #2c3820;
+  --btn-sage-border: #a8bc88;
+  --btn-ghost-bg: #fbfaf5;
+  --btn-ghost-text: #5c4e42;
+  --btn-ghost-border: #c8c0b0;
+}
+
+[data-theme="dark"] {
+  --btn-upload-bg: #9e6b3e;
+  --btn-upload-text: #fbf8f0;
+  --btn-upload-border: transparent;
+  --btn-format-bg: #8a9880;
+  --btn-format-text: #1a1a18;
+  --btn-format-border: transparent;
+  --btn-sage-bg: #3d4a30;
+  --btn-sage-text: #c8d4b4;
+  --btn-sage-border: #4e6040;
+  --btn-ghost-bg: #2c3127;
+  --btn-ghost-text: #c0bdb0;
+  --btn-ghost-border: #3d4435;
+}
+
+/* ── JSON syntax highlighting ─────────────────────────── */
 .json-key {
-  color: #2c3127;
+  color: #141a10;
   font-weight: 600;
 }
 .json-string {
-  color: #5d6a4d;
+  color: #1f6e2a;
 }
 .json-number {
-  color: #8e5d36;
+  color: #a04800;
 }
 .json-bool {
-  color: #c58e5e;
+  color: #6b30a8;
   font-weight: 500;
 }
 .json-null {
   color: var(--color-text-faint);
+  font-style: italic;
 }
 .json-punct {
   color: var(--color-text-muted);
 }
+
 [data-theme="dark"] .json-key {
-  color: #dde0d0;
+  color: #dff0c8;
+  font-weight: 600;
 }
 [data-theme="dark"] .json-string {
-  color: #b5c2a3;
+  color: #7ecf5a;
 }
 [data-theme="dark"] .json-number {
-  color: #c58e5e;
+  color: #d4904a;
 }
 [data-theme="dark"] .json-bool {
-  color: #efe0cc;
+  color: #b87ae0;
+}
+[data-theme="dark"] .json-null {
+  color: var(--color-text-faint);
+}
+[data-theme="dark"] .json-punct {
+  color: var(--color-text-muted);
 }
 
-/* Regex match highlight */
-mark.regex-match {
+/* JSON output search highlight */
+mark.json-search-match {
+  background: color-mix(in oklab, var(--color-brand) 40%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-style: normal;
+}
+
+/* Regex editor: brand-tinted selection on the textarea while keeping the
+   typed text readable. The text-color inherits from the element so the user
+   always sees what they're typing. */
+.regex-highlighted::selection {
   background: var(--color-mist-sage);
-  color: var(--color-charcoal);
-  border-radius: 2px;
-  padding: 0 1px;
+  color: inherit;
 }
-mark.regex-match-alt {
-  background: color-mix(in oklab, var(--color-mist-sage), transparent 50%);
-  color: var(--color-text);
-  border-radius: 2px;
-  padding: 0 1px;
+[data-theme="dark"] .regex-highlighted::selection {
+  background: color-mix(in oklab, var(--color-olive-ink), transparent 20%);
+  color: inherit;
 }
+
+/* Regex match highlight — two states, clay tone */
+mark.regex-match {
+  background: color-mix(in oklab, var(--color-accent-soft), transparent 30%);
+  color: inherit;
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+/* Selected match (clicked from panel) — stronger clay with clay border */
+mark.regex-match-active {
+  background: color-mix(in oklab, var(--color-accent-soft), transparent 15%);
+  color: inherit;
+  border-radius: 3px;
+  padding: 1px 2px;
+  box-shadow: 0 0 0 1.5px var(--color-clay);
+}
+
+/* ── Featured tool card hover ─────────────────────────────────────────────── */
+.tool-card {
+  transition:
+    transform 160ms ease,
+    box-shadow 200ms ease,
+    border-color 160ms ease;
+}
+.tool-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px -12px rgba(26, 26, 24, 0.16);
+  border-color: var(--color-border-strong);
+}
+[data-theme="dark"] .tool-card:hover {
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.38);
+}
+
+/* ── Tool card preview animations ─────────────────────────────────────────────
+   Pure CSS @keyframes for the SVG illustrations in the homepage bouncy cards.
+   All animations loop every 5s (or 8s for slow continuous ones like hue-rotate).
+   prefers-reduced-motion is handled by the block at the bottom of this file —
+   every animation collapses to 0.01ms so nothing moves for users who prefer it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* fade + rise — generic token appear */
+@keyframes ti-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15%,
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* fade only */
+@keyframes ti-fade {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* cursor blink — 1s, not looped with the others */
+@keyframes ti-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* progress bar fill left to right */
+@keyframes ti-fill {
+  0% {
+    width: 0;
+  }
+  80%,
+  100% {
+    width: 100%;
+  }
+}
+
+/* slide in from left */
+@keyframes ti-slide-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  20%,
+  85% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+/* slide in from right */
+@keyframes ti-slide-right {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  20%,
+  85% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+}
+
+/* continuous hue rotation for color picker */
+@keyframes ti-hue {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* regex match sweep — scaleX from 0 to 1 on transform-origin left */
+@keyframes ti-sweep {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  20%,
+  80% {
+    opacity: 0.7;
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* badge pop with slight overshoot */
+@keyframes ti-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  30% {
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* gentle scale pulse for AI sparkle */
+@keyframes ti-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
+/* staggered line-by-line token reveal — 5 levels */
+@keyframes ti-line1 {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  18%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes ti-line2 {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  28%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes ti-line3 {
+  0%,
+  28% {
+    opacity: 0;
+  }
+  38%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes ti-line4 {
+  0%,
+  38% {
+    opacity: 0;
+  }
+  48%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes ti-line5 {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  58%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Animation utility classes ─────────────────────────────────────────────── */
+/* Applied directly on SVG <g> and <rect> elements in ToolIllustration.tsx    */
+
+.ti-anim-rise {
+  animation: ti-rise 5s ease-in-out infinite both;
+}
+.ti-anim-fade {
+  animation: ti-fade 5s ease-in-out infinite both;
+}
+.ti-anim-blink {
+  animation: ti-blink 1s step-end infinite;
+}
+.ti-anim-fill {
+  animation: ti-fill 5s ease-out infinite both;
+}
+.ti-anim-sleft {
+  animation: ti-slide-left 5s ease-in-out infinite both;
+}
+.ti-anim-sright {
+  animation: ti-slide-right 5s ease-in-out infinite both;
+}
+.ti-anim-hue {
+  animation: ti-hue 8s linear infinite;
+}
+.ti-anim-sweep {
+  animation: ti-sweep 5s ease-in-out infinite both;
+}
+.ti-anim-pop {
+  animation: ti-pop 5s ease-in-out infinite both;
+}
+.ti-anim-pulse {
+  animation: ti-pulse 2s ease-in-out infinite;
+}
+.ti-anim-l1 {
+  animation: ti-line1 5s ease-in-out infinite both;
+}
+.ti-anim-l2 {
+  animation: ti-line2 5s ease-in-out infinite both;
+}
+.ti-anim-l3 {
+  animation: ti-line3 5s ease-in-out infinite both;
+}
+.ti-anim-l4 {
+  animation: ti-line4 5s ease-in-out infinite both;
+}
+.ti-anim-l5 {
+  animation: ti-line5 5s ease-in-out infinite both;
+}
+
+/* Delay helpers — compose with any ti-anim-* class */
+.ti-d1 {
+  animation-delay: 0.3s;
+}
+.ti-d2 {
+  animation-delay: 0.6s;
+}
+.ti-d3 {
+  animation-delay: 0.9s;
+}
+.ti-d4 {
+  animation-delay: 1.2s;
+}
+.ti-d5 {
+  animation-delay: 1.5s;
+}
+.ti-d6 {
+  animation-delay: 1.8s;
+}
+
+/* ── Accessibility + scrollbar utilities ──────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -273,6 +273,110 @@ export function parseOklch(input: string): RGB | null {
   return oklchToRgb({ l, c, h, a: clamp(a, 0, 1) });
 }
 
+// HWB (CSS Color Level 4)
+interface HWB { h: number; w: number; b: number; a: number }
+
+export function rgbToHwb({ r, g, b, a }: RGB): HWB {
+  const rN = r / 255, gN = g / 255, bN = b / 255;
+  const max = Math.max(rN, gN, bN);
+  const min = Math.min(rN, gN, bN);
+  let h = 0;
+  const d = max - min;
+  if (d !== 0) {
+    if (max === rN) h = ((gN - bN) / d + (gN < bN ? 6 : 0)) * 60;
+    else if (max === gN) h = ((bN - rN) / d + 2) * 60;
+    else h = ((rN - gN) / d + 4) * 60;
+  }
+  return { h, w: min * 100, b: (1 - max) * 100, a };
+}
+
+export function hwbToString({ h, w, b, a }: HWB): string {
+  const f = (n: number) => Math.round(n * 10) / 10;
+  return a >= 1
+    ? `hwb(${f(h)} ${f(w)}% ${f(b)}%)`
+    : `hwb(${f(h)} ${f(w)}% ${f(b)}% / ${a.toFixed(2)})`;
+}
+
+export function parseHwb(input: string): RGB | null {
+  const m = input.match(/hwb\(([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const h = Number(parts[0]);
+  const w = Number(parts[1].replace("%", "")) / 100;
+  const bk = Number(parts[2].replace("%", "")) / 100;
+  if ([h, w, bk].some(Number.isNaN)) return null;
+  let a = 1;
+  if (parts[3]) {
+    a = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
+    if (Number.isNaN(a)) a = 1;
+  }
+  if (w + bk >= 1) {
+    const g = (w / (w + bk)) * 255;
+    return { r: g, g, b: g, a };
+  }
+  // Convert hue to pure RGB via HSL at s=100%, l=50%
+  const { r, g, b: bl } = hslToRgb({ h, s: 100, l: 50, a: 1 });
+  const factor = 1 - w - bk;
+  return {
+    r: clamp((r / 255) * factor * 255 + w * 255, 0, 255),
+    g: clamp((g / 255) * factor * 255 + w * 255, 0, 255),
+    b: clamp((bl / 255) * factor * 255 + w * 255, 0, 255),
+    a: clamp(a, 0, 1),
+  };
+}
+
+// CMYK (print)
+interface CMYK { c: number; m: number; y: number; k: number }
+
+export function rgbToCmyk({ r, g, b }: RGB): CMYK {
+  const rN = r / 255, gN = g / 255, bN = b / 255;
+  const k = 1 - Math.max(rN, gN, bN);
+  if (k >= 1) return { c: 0, m: 0, y: 0, k: 100 };
+  return {
+    c: ((1 - rN - k) / (1 - k)) * 100,
+    m: ((1 - gN - k) / (1 - k)) * 100,
+    y: ((1 - bN - k) / (1 - k)) * 100,
+    k: k * 100,
+  };
+}
+
+export function cmykToString({ c, m, y, k }: CMYK): string {
+  const f = (n: number) => Math.round(n);
+  return `cmyk(${f(c)}%, ${f(m)}%, ${f(y)}%, ${f(k)}%)`;
+}
+
+export function parseCmyk(input: string): RGB | null {
+  const m = input.match(/cmyk\(([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[,\s]+/).filter(Boolean);
+  if (parts.length < 4) return null;
+  const [c, mg, y, k] = parts.map((p) => Number(p.replace("%", "")) / 100);
+  if ([c, mg, y, k].some(Number.isNaN)) return null;
+  return {
+    r: clamp(255 * (1 - c) * (1 - k), 0, 255),
+    g: clamp(255 * (1 - mg) * (1 - k), 0, 255),
+    b: clamp(255 * (1 - y) * (1 - k), 0, 255),
+    a: 1,
+  };
+}
+
+export function hsbToRgb(h: number, s: number, v: number, a: number): RGB {
+  const sN = s / 100, vN = v / 100;
+  const c = vN * sN;
+  const hh = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hh % 2) - 1));
+  let rN = 0, gN = 0, bN = 0;
+  if (hh < 1) [rN, gN, bN] = [c, x, 0];
+  else if (hh < 2) [rN, gN, bN] = [x, c, 0];
+  else if (hh < 3) [rN, gN, bN] = [0, c, x];
+  else if (hh < 4) [rN, gN, bN] = [0, x, c];
+  else if (hh < 5) [rN, gN, bN] = [x, 0, c];
+  else [rN, gN, bN] = [c, 0, x];
+  const m = vN - c;
+  return { r: (rN + m) * 255, g: (gN + m) * 255, b: (bN + m) * 255, a };
+}
+
 // WCAG contrast
 const luminanceChannel = (n: number) => {
   const v = n / 255;
@@ -318,14 +422,14 @@ export const TW_PALETTE: Array<{ name: string; rgb: RGB }> = [
   { name: "rose-500", rgb: { r: 244, g: 63, b: 94, a: 1 } },
 ];
 
-export function nearestTailwind(rgb: RGB): { name: string; distance: number } {
-  let best = { name: TW_PALETTE[0].name, distance: Infinity };
+export function nearestTailwind(rgb: RGB): { name: string; distance: number; swatch: RGB } {
+  let best = { name: TW_PALETTE[0].name, distance: Infinity, swatch: TW_PALETTE[0].rgb };
   for (const swatch of TW_PALETTE) {
     const dr = swatch.rgb.r - rgb.r;
     const dg = swatch.rgb.g - rgb.g;
     const db = swatch.rgb.b - rgb.b;
     const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-    if (distance < best.distance) best = { name: swatch.name, distance };
+    if (distance < best.distance) best = { name: swatch.name, distance, swatch: swatch.rgb };
   }
   return best;
 }

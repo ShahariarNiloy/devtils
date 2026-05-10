@@ -8,95 +8,68 @@ export class RepairError extends Error {
 }
 
 /**
- * Try to fix common JSON mistakes in order. Returns a RepairResult with
- * the fixed string and a log of every change made.
+ * Apply `fn` to every segment of `s` that is NOT inside a JSON string literal.
+ * String literals (including their escape sequences) are passed through unchanged.
  */
-export function repairJson(raw: string): RepairResult {
-  // If already valid, return immediately
-  try {
-    JSON.parse(raw);
-    return { fixed: raw, changes: [], wasValid: true };
-  } catch {
-    // continue to repair
+function outsideStrings(s: string, fn: (chunk: string) => string): string {
+  let result = "";
+  let i = 0;
+  while (i < s.length) {
+    if (s[i] === '"') {
+      // Collect the entire string literal verbatim
+      result += '"';
+      i++;
+      while (i < s.length) {
+        if (s[i] === "\\" && i + 1 < s.length) {
+          result += s[i] + s[i + 1];
+          i += 2;
+        } else if (s[i] === '"') {
+          result += '"';
+          i++;
+          break;
+        } else {
+          result += s[i++];
+        }
+      }
+    } else {
+      let chunk = "";
+      while (i < s.length && s[i] !== '"') chunk += s[i++];
+      result += fn(chunk);
+    }
   }
+  return result;
+}
 
-  const changes: string[] = [];
-  let s = raw;
-
-  // 1. Strip line comments  //...
-  const withoutLineComments = s.replace(/\/\/[^\n]*/g, "");
-  if (withoutLineComments !== s) {
-    const count = (s.match(/\/\/[^\n]*/g) ?? []).length;
-    s = withoutLineComments;
-    changes.push(`Removed ${count} line comment${count !== 1 ? "s" : ""}`);
+/**
+ * Escape literal control characters (newline, tab, CR) that appear inside
+ * string literals — these make JSON parsers choke.
+ */
+function escapeStringControls(s: string): string {
+  let result = "";
+  let i = 0;
+  let changed = false;
+  while (i < s.length) {
+    if (s[i] === '"') {
+      result += '"';
+      i++;
+      while (i < s.length) {
+        if (s[i] === "\\" && i + 1 < s.length) {
+          result += s[i] + s[i + 1];
+          i += 2;
+        } else if (s[i] === '"') {
+          result += '"';
+          i++;
+          break;
+        } else if (s[i] === "\n") { result += "\\n";  i++; changed = true; }
+        else if (s[i] === "\r") { result += "\\r";  i++; changed = true; }
+        else if (s[i] === "\t") { result += "\\t";  i++; changed = true; }
+        else { result += s[i++]; }
+      }
+    } else {
+      result += s[i++];
+    }
   }
-
-  // 2. Strip block comments  /* ... */
-  const withoutBlockComments = s.replace(/\/\*[\s\S]*?\*\//g, "");
-  if (withoutBlockComments !== s) {
-    const count = (s.match(/\/\*[\s\S]*?\*\//g) ?? []).length;
-    s = withoutBlockComments;
-    changes.push(`Removed ${count} block comment${count !== 1 ? "s" : ""}`);
-  }
-
-  // 3. Convert single-quoted strings to double-quoted
-  //    Match 'key' or 'value' patterns not already inside double-quoted strings.
-  //    Simple heuristic: replace 'text' → "text" when not inside a valid string.
-  const singleQuoteRe = /'(?:[^'\\]|\\.)*'/g;
-  const withDoubleQuotes = s.replace(singleQuoteRe, (m) => {
-    // Re-escape inner content for JSON double-quote context
-    const inner = m.slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"');
-    return `"${inner}"`;
-  });
-  if (withDoubleQuotes !== s) {
-    const count = (s.match(singleQuoteRe) ?? []).length;
-    s = withDoubleQuotes;
-    changes.push(`Converted ${count} single-quoted string${count !== 1 ? "s" : ""} to double-quoted`);
-  }
-
-  // 4. Quote unquoted keys: { key: value } → { "key": value }
-  //    Match word chars before a colon that aren't already quoted.
-  const unquotedKeyRe = /([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g;
-  const withQuotedKeys = s.replace(unquotedKeyRe, (_, prefix, key) => `${prefix}"${key}":`);
-  if (withQuotedKeys !== s) {
-    const count = (s.match(unquotedKeyRe) ?? []).length;
-    s = withQuotedKeys;
-    changes.push(`Quoted ${count} unquoted key${count !== 1 ? "s" : ""}`);
-  }
-
-  // 5. Replace `undefined` values with null
-  const undefinedRe = /:\s*undefined\b/g;
-  const withNulls = s.replace(undefinedRe, ": null");
-  if (withNulls !== s) {
-    const count = (s.match(undefinedRe) ?? []).length;
-    s = withNulls;
-    changes.push(`Replaced ${count} undefined value${count !== 1 ? "s" : ""} with null`);
-  }
-
-  // 6. Remove trailing commas before ] or }
-  const trailingCommaRe = /,\s*([}\]])/g;
-  const withoutTrailing = s.replace(trailingCommaRe, "$1");
-  if (withoutTrailing !== s) {
-    const count = (s.match(trailingCommaRe) ?? []).length;
-    s = withoutTrailing;
-    changes.push(`Removed ${count} trailing comma${count !== 1 ? "s" : ""}`);
-  }
-
-  // 7. Append missing closing brackets
-  //    Count open/close brackets to detect imbalance.
-  const missing = findMissingClosers(s);
-  if (missing.length > 0) {
-    s = s.trimEnd() + "\n" + missing.join("\n");
-    changes.push(`Added ${missing.length} missing closing bracket${missing.length !== 1 ? "s" : ""}`);
-  }
-
-  // Check if repaired
-  try {
-    JSON.parse(s);
-    return { fixed: s, changes, wasValid: false };
-  } catch (err) {
-    throw new RepairError(err instanceof Error ? err.message : String(err));
-  }
+  return changed ? result : s;
 }
 
 /** Walk the string to find unmatched open brackets and return their closers. */
@@ -104,7 +77,6 @@ function findMissingClosers(s: string): string[] {
   const stack: string[] = [];
   let inString = false;
   let escape = false;
-
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     if (escape) { escape = false; continue; }
@@ -115,6 +87,190 @@ function findMissingClosers(s: string): string[] {
     else if (ch === "[") stack.push("]");
     else if (ch === "}" || ch === "]") stack.pop();
   }
-
   return stack.reverse();
+}
+
+function track(next: string, prev: string, label: string, changes: string[]): string {
+  if (next !== prev) changes.push(label);
+  return next;
+}
+
+export function repairJson(raw: string): RepairResult {
+  try {
+    JSON.parse(raw);
+    return { fixed: raw, changes: [], wasValid: true };
+  } catch { /* fall through to repair */ }
+
+  const changes: string[] = [];
+  let s = raw;
+
+  // ── Encoding ──────────────────────────────────────────────────────────────
+
+  // 1. Strip BOM
+  if (s.startsWith("﻿")) {
+    s = s.slice(1);
+    changes.push("Stripped byte-order mark (BOM)");
+  }
+
+  // 2. Normalize curly/smart quotes → straight quotes
+  s = track(
+    s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"),
+    s, "Normalized smart/curly quotes", changes,
+  );
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+
+  // 3. Strip line comments  //...
+  {
+    const next = s.replace(/\/\/[^\n]*/g, "");
+    if (next !== s) {
+      const n = (s.match(/\/\/[^\n]*/g) ?? []).length;
+      changes.push(`Removed ${n} line comment${n !== 1 ? "s" : ""}`);
+      s = next;
+    }
+  }
+
+  // 4. Strip block comments  /* ... */
+  {
+    const next = s.replace(/\/\*[\s\S]*?\*\//g, "");
+    if (next !== s) {
+      const n = (s.match(/\/\*[\s\S]*?\*\//g) ?? []).length;
+      changes.push(`Removed ${n} block comment${n !== 1 ? "s" : ""}`);
+      s = next;
+    }
+  }
+
+  // ── String content ────────────────────────────────────────────────────────
+
+  // 5. Escape literal newlines / tabs inside string literals
+  s = track(escapeStringControls(s), s, "Escaped literal newlines/tabs inside strings", changes);
+
+  // 6. Convert single-quoted strings → double-quoted
+  {
+    const re = /'(?:[^'\\]|\\.)*'/g;
+    const next = s.replace(re, (m) => {
+      const inner = m.slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"');
+      return `"${inner}"`;
+    });
+    if (next !== s) {
+      const n = (s.match(re) ?? []).length;
+      changes.push(`Converted ${n} single-quoted string${n !== 1 ? "s" : ""} to double-quoted`);
+      s = next;
+    }
+  }
+
+  // ── Keys ─────────────────────────────────────────────────────────────────
+
+  // 7. Quote unquoted keys: { key: value } → { "key": value }
+  {
+    const re = /([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g;
+    const next = s.replace(re, (_, prefix, key) => `${prefix}"${key}":`);
+    if (next !== s) {
+      const n = (s.match(re) ?? []).length;
+      changes.push(`Quoted ${n} unquoted key${n !== 1 ? "s" : ""}`);
+      s = next;
+    }
+  }
+
+  // ── Values ────────────────────────────────────────────────────────────────
+
+  // 8. JS / Python non-JSON literals
+  for (const [re, repl, label] of [
+    [/\bTrue\b/g,      "true",  "Python True → true"],
+    [/\bFalse\b/g,     "false", "Python False → false"],
+    [/\bNone\b/g,      "null",  "Python None → null"],
+    [/\bundefined\b/g, "null",  "undefined → null"],
+    [/-Infinity\b/g,   "null",  "-Infinity → null"],
+    [/\bInfinity\b/g,  "null",  "Infinity → null"],
+    [/\bNaN\b/g,       "null",  "NaN → null"],
+  ] as [RegExp, string, string][]) {
+    s = track(s.replace(re, repl), s, label, changes);
+  }
+
+  // 9. Numeric separators: 1_000_000 → 1000000  (JS / Python)
+  s = track(
+    outsideStrings(s, (c) => c.replace(/(\d)_(?=\d)/g, "$1")),
+    s, "Removed numeric separators (1_000 → 1000)", changes,
+  );
+
+  // 10. Leading + on numbers: +3 → 3
+  s = track(
+    outsideStrings(s, (c) => c.replace(/([:,\[]\s*)\+(-?\d)/g, "$1$2")),
+    s, "Removed leading + from numbers", changes,
+  );
+
+  // 11. Leading decimal point: .5 → 0.5
+  s = track(
+    outsideStrings(s, (c) => c.replace(/([:,\[]\s*)\.(\d)/g, "$10.$2")),
+    s, "Added leading zero to decimals (.5 → 0.5)", changes,
+  );
+
+  // 12. Trailing decimal point: 3. → 3
+  s = track(
+    outsideStrings(s, (c) => c.replace(/(\d)\.\s*([,}\]\n])/g, "$1$2")),
+    s, "Removed trailing decimal point (3. → 3)", changes,
+  );
+
+  // 13. Hex numbers: 0xFF → 255
+  {
+    const next = outsideStrings(s, (c) =>
+      c.replace(/\b0[xX][0-9a-fA-F]+\b/g, (m) => String(parseInt(m, 16))),
+    );
+    s = track(next, s, "Converted hex numbers to decimal", changes);
+  }
+
+  // ── Structural ────────────────────────────────────────────────────────────
+
+  // 14. Semicolons as value separators → commas  (outside strings)
+  s = track(
+    outsideStrings(s, (c) => c.replace(/;/g, ",")),
+    s, "Replaced semicolons with commas", changes,
+  );
+
+  // 15. Remove trailing commas before ] or }
+  {
+    const re = /,(\s*[}\]])/g;
+    const next = s.replace(re, "$1");
+    if (next !== s) {
+      const n = (s.match(re) ?? []).length;
+      changes.push(`Removed ${n} trailing comma${n !== 1 ? "s" : ""}`);
+      s = next;
+    }
+  }
+
+  // 16. Collapse double / multiple commas → single
+  s = track(
+    outsideStrings(s, (c) => c.replace(/,(\s*),+/g, ",$1")),
+    s, "Collapsed duplicate commas", changes,
+  );
+
+  // 17. Add missing commas between values
+  //     value\n  "nextKey"  →  value,\n  "nextKey"
+  {
+    const re = /(true|false|null|"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[}\]])(\s*\n(\s*))(?=["\[{]|-?\d|true\b|false\b|null\b)/g;
+    const next = s.replace(re, "$1,$2");
+    if (next !== s) {
+      const n = (s.match(re) ?? []).length;
+      changes.push(`Added ${n} missing comma${n !== 1 ? "s" : ""}`);
+      s = next;
+    }
+  }
+
+  // 18. Append missing closing brackets
+  {
+    const missing = findMissingClosers(s);
+    if (missing.length > 0) {
+      s = s.trimEnd() + "\n" + missing.join("\n");
+      changes.push(`Added ${missing.length} missing closing bracket${missing.length !== 1 ? "s" : ""}`);
+    }
+  }
+
+  // ── Final check ───────────────────────────────────────────────────────────
+
+  try {
+    JSON.parse(s);
+    return { fixed: s, changes, wasValid: false };
+  } catch (err) {
+    throw new RepairError(err instanceof Error ? err.message : String(err));
+  }
 }

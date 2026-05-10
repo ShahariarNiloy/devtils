@@ -1,1 +1,1 @@
-export { JsonFormatter } from "./JsonFormatter";
+export { JsonFormatter } from './json-formatter';

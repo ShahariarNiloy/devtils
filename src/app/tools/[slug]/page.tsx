@@ -2,8 +2,8 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Header } from "@/components/layout/Header";
-import { ComingSoon } from "@/components/layout/ComingSoon";
+import { Header } from '@/components/layout/header';
+import { ComingSoon } from '@/components/layout/coming-soon';
 import { getToolComponent } from "@/lib/implemented-tools";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
 
@@ -18,11 +18,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const tool = getToolBySlug(slug);
-  if (!tool) return { title: "Not found · DevToolbox" };
+  if (!tool) return { title: "Not found · devtils" };
   const Comp = getToolComponent(slug);
   const suffix = Comp ? "" : " (coming soon)";
   return {
-    title: `${tool.name}${suffix} · DevToolbox`,
+    title: `${tool.name}${suffix} · devtils`,
     description: tool.description,
   };
 }

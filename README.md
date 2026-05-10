@@ -1,8 +1,8 @@
-# DevToolbox
+# DevTils
 
-Tiny developer tools, exactly where you reach for them.
+Every tool you need, exactly where you reach for them.
 
-DevToolbox is a beautifully crafted web app of essential utilities for developers. Format JSON, convert text cases, encode/decode Base64, test regex patterns, convert between colors, and more — all keyboard-first, offline-capable, and built with the same care you'd give your product's frontend.
+DevTils is a beautifully crafted web app of essential utilities for developers. Format JSON, convert text cases, encode/decode Base64, test regex patterns, convert between colors, and more — all keyboard-first, offline-capable, and built with the same care you'd give your product's frontend.
 
 ## What's inside
 
@@ -13,7 +13,7 @@ DevToolbox is a beautifully crafted web app of essential utilities for developer
 - **Color Converter** — Convert between hex, RGB, HSL with WCAG contrast checker
 - **More tools coming** — Constantly expanding the toolkit
 
-## Why DevToolbox
+## Why DevTils
 
 - **Keyboard-first** — Press `⌘ K` (or `Ctrl K`) from anywhere to search and jump between tools
 - **Offline** — All tools run locally in your browser; nothing leaves your machine
@@ -24,7 +24,7 @@ DevToolbox is a beautifully crafted web app of essential utilities for developer
 
 ## Get started
 
-Visit [devtoolbox.app](https://devtoolbox.app) and start using tools immediately — no signup, no ads, no tracking.
+Visit [devtils.com](https://devtils.com) and start using tools immediately — no signup, no ads, no tracking.
 
 **Pro tip:** Bookmark the site or add it to your home screen for instant access from anywhere.
 tier: "free",

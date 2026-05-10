@@ -1,0 +1,111 @@
+/* ── Clip hooks ─────────────────────────────────────────────────────────── */
+@keyframes clipL {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-82deg);
+  }
+}
+@keyframes clipR {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(82deg);
+  }
+}
+
+/* clipL starts at 0.5s — user sees clips closed before they move        */
+/* clipR starts at 0.7s — slight stagger after left                      */
+/* both finish around 1.15s, lid starts at 1.3s                          */
+.clipL {
+  transform-origin: 108px 220px;
+  animation: clipL 0.45s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+.clipR {
+  transform-origin: 312px 220px;
+  animation: clipR 0.45s cubic-bezier(0.4, 0, 0.2, 1) 0.7s both;
+}
+
+/* ── Lid ────────────────────────────────────────────────────────────────── */
+@keyframes lid {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-26deg);
+  }
+}
+
+/* starts at 1.3s — clips are done by 1.15s, tiny gap for feel           */
+.lid {
+  transform-origin: 20px 206px;
+  animation: lid 0.9s cubic-bezier(0.34, 1.05, 0.64, 1) 1.3s both;
+}
+
+/* ── Card entry ─────────────────────────────────────────────────────────── */
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* cards start flying in as the lid reaches its peak, staggered 0.15s    */
+.card {
+  animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.d1 {
+  animation-delay: 1.45s;
+}
+.d2 {
+  animation-delay: 1.6s;
+}
+.d3 {
+  animation-delay: 1.75s;
+}
+.d4 {
+  animation-delay: 1.9s;
+}
+.d5 {
+  animation-delay: 2.05s;
+}
+
+/* ── Card hover ─────────────────────────────────────────────────────────── */
+.cardHover {
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cardHover:hover {
+  transform: translateY(-12px);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .clipL,
+  .clipR,
+  .lid,
+  .card {
+    animation: none;
+  }
+  .clipL {
+    transform: rotate(-82deg);
+  }
+  .clipR {
+    transform: rotate(82deg);
+  }
+  .lid {
+    transform: rotate(-26deg);
+  }
+  .card {
+    opacity: 1;
+  }
+  .cardHover {
+    transition: none;
+  }
+}

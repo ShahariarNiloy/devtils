@@ -1,20 +1,20 @@
 import type { ComponentType } from "react";
-import { CalcDoodle } from "@/components/doodles/CalcDoodle";
-import { CodeDoodle } from "@/components/doodles/CodeDoodle";
-import { ColorDoodle } from "@/components/doodles/ColorDoodle";
-import { DataDoodle } from "@/components/doodles/DataDoodle";
-import { DesignDoodle } from "@/components/doodles/DesignDoodle";
-import { EncodingDoodle } from "@/components/doodles/EncodingDoodle";
-import { ImageDoodle } from "@/components/doodles/ImageDoodle";
-import { JsonDoodle } from "@/components/doodles/JsonDoodle";
-import { NetworkDoodle } from "@/components/doodles/NetworkDoodle";
-import { NextDoodle } from "@/components/doodles/NextDoodle";
-import { PdfDoodle } from "@/components/doodles/PdfDoodle";
-import { ReactDoodle } from "@/components/doodles/ReactDoodle";
-import { RegexDoodle } from "@/components/doodles/RegexDoodle";
-import { SecurityDoodle } from "@/components/doodles/SecurityDoodle";
-import { TextDoodle } from "@/components/doodles/TextDoodle";
-import { ZodDoodle } from "@/components/doodles/ZodDoodle";
+import { CalcDoodle } from '@/components/doodles/calc-doodle';
+import { CodeDoodle } from '@/components/doodles/code-doodle';
+import { ColorDoodle } from '@/components/doodles/color-doodle';
+import { DataDoodle } from '@/components/doodles/data-doodle';
+import { DesignDoodle } from '@/components/doodles/design-doodle';
+import { EncodingDoodle } from '@/components/doodles/encoding-doodle';
+import { ImageDoodle } from '@/components/doodles/image-doodle';
+import { JsonDoodle } from '@/components/doodles/json-doodle';
+import { NetworkDoodle } from '@/components/doodles/network-doodle';
+import { NextDoodle } from '@/components/doodles/next-doodle';
+import { PdfDoodle } from '@/components/doodles/pdf-doodle';
+import { ReactDoodle } from '@/components/doodles/react-doodle';
+import { RegexDoodle } from '@/components/doodles/regex-doodle';
+import { SecurityDoodle } from '@/components/doodles/security-doodle';
+import { TextDoodle } from '@/components/doodles/text-doodle';
+import { ZodDoodle } from '@/components/doodles/zod-doodle';
 import { CATEGORY_META, type ToolCategory } from "./tools-registry";
 
 export interface DoodleProps {

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { Header } from "@/components/layout/Header";
-import { HomeFooter } from "@/components/layout/HomeFooter";
-import { ToolsIndex } from "@/components/layout/ToolsIndex";
-import { TOOLS, CATEGORIES, TOOL_COUNT, type ToolCategory } from "@/lib/tools-registry";
+import { Header } from '@/components/layout/header';
+import { HomeFooter } from '@/components/layout/home-footer';
+import { ToolsIndex } from '@/components/layout/tools-index';
+import { SHOWCASE_TOOLS, CATEGORIES, TOOL_COUNT, type ToolCategory } from "@/lib/tools-registry";
 
 export const metadata = {
-  title: "All tools — DevToolbox",
-  description: `Browse all ${TOOL_COUNT} DevToolbox utilities. Search by name, tag, or category.`,
+  title: "All tools | devtils",
+  description: `Browse all ${TOOL_COUNT} devtils utilities. Search by name, tag, or category.`,
 };
 
 interface PageSearchParams {
@@ -32,7 +32,7 @@ export default async function ToolsPage({
       </Suspense>
       <main id="main" className="flex-1 bg-bg">
         <ToolsIndex
-          tools={TOOLS}
+          tools={SHOWCASE_TOOLS}
           initialCategory={initialCat}
           initialQuery={initialQuery}
         />
