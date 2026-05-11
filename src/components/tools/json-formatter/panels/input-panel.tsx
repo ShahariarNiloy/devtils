@@ -1,32 +1,39 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
-  UnfoldVertical,
-  FoldVertical,
-  ArrowUpAZ,
+  AlertCircle,
+  CheckCircle2,
   Copy,
-  Trash2,
   Maximize2,
   Minimize2,
-  AlertCircle,
+  MoreHorizontal,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { Tooltip } from '@/components/primitives/tooltip';
-import { CodeView } from '../views/code-view';
+import { Tooltip } from "@/components/primitives/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/primitives/dropdown-menu";
+import { CodeView } from "../views/code-view";
 import type { JsonFormatterState } from "../use-json-formatter";
-import { formatBytes } from "../json-formatter.lib";
-import { lineCount } from "../json-highlighter";
 
 interface InputPanelProps {
   state: JsonFormatterState;
+  onLoadFile: (file: File) => void;
+  onOpenFetchUrl: () => void;
 }
 
-export function InputPanel({ state }: InputPanelProps) {
+export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
-
-  const numLines = lineCount(state.input);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleCopy = useCallback(async () => {
     if (!state.input) return;
@@ -34,63 +41,97 @@ export function InputPanel({ state }: InputPanelProps) {
     toast.success("Input copied to clipboard");
   }, [state.input]);
 
-  const validation = state.validation;
-  const errorLine =
-    validation.status === "invalid" ? validation.line : undefined;
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const handleDragLeave = () => setIsDragOver(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onLoadFile(file);
+  };
+
+  const v = state.validation;
+  const errorLine = v.status === "invalid" ? v.line : undefined;
+
+  let statusDot: React.ReactNode;
+  if (v.status === "valid") {
+    statusDot = (
+      <span className="inline-flex items-center gap-1 text-success">
+        <CheckCircle2 size={10} />
+        Valid
+      </span>
+    );
+  } else if (v.status === "invalid") {
+    statusDot = (
+      <span className="inline-flex items-center gap-1 text-danger">
+        <AlertCircle size={10} />
+        Error
+      </span>
+    );
+  } else {
+    statusDot = (
+      <span className="inline-flex items-center gap-1 text-text-faint">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-text-faint/60" />
+        Empty
+      </span>
+    );
+  }
 
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col overflow-hidden border-r border-border-subtle bg-surface",
+        "relative flex h-full flex-col overflow-hidden bg-surface",
         fullscreen && "fixed inset-0 z-50 bg-surface",
+        isDragOver && "ring-2 ring-inset ring-brand/50",
       )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
-      {/* Toolbar */}
-      <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
-        {state.fileName && (
-          <span className="mr-2 truncate text-sm text-text-faint font-mono max-w-36">
-            {state.fileName}
-          </span>
-        )}
+      {/* Header */}
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,.txt,.csv"
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) { onLoadFile(file); e.target.value = ""; }
+          }}
+        />
 
-        <Tooltip content="Expand all" side="bottom">
-          <button
-            type="button"
-            onClick={() => state.setTreeExpandAll((n) => n + 1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-          >
-            <UnfoldVertical size={16} />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Collapse all" side="bottom">
-          <button
-            type="button"
-            onClick={() => state.setTreeCollapseAll((n) => n + 1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-          >
-            <FoldVertical size={16} />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Sort A→Z" side="bottom">
-          <button
-            type="button"
-            onClick={() => state.sortKeys("asc")}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-          >
-            <ArrowUpAZ size={16} />
-          </button>
-        </Tooltip>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-text-muted">
+          Input
+        </span>
+        <span className="text-sm font-normal text-text-faint">
+          {statusDot}
+        </span>
 
         <div className="ml-auto flex items-center gap-0.5">
+          <Tooltip content="Upload file" side="bottom">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+              aria-label="Upload file"
+            >
+              <Upload size={14} />
+            </button>
+          </Tooltip>
+
           <Tooltip content="Copy input" side="bottom">
             <button
               type="button"
               onClick={() => void handleCopy()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+              disabled={!state.input}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Copy input"
             >
-              <Copy size={16} />
+              <Copy size={14} />
             </button>
           </Tooltip>
 
@@ -98,9 +139,11 @@ export function InputPanel({ state }: InputPanelProps) {
             <button
               type="button"
               onClick={state.clear}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-danger transition-colors"
+              disabled={!state.input}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-danger transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-faint"
+              aria-label="Clear input"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           </Tooltip>
 
@@ -109,22 +152,50 @@ export function InputPanel({ state }: InputPanelProps) {
               type="button"
               onClick={() => setFullscreen((f) => !f)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+              aria-label="Toggle fullscreen"
             >
-              {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           </Tooltip>
+
+          <DropdownMenu>
+            <Tooltip content="More" side="bottom">
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+              </DropdownMenuTrigger>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onOpenFetchUrl}>Fetch from URL…</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => state.validate()}>Validate</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => state.setTreeExpandAll((n) => n + 1)}>
+                Expand all (tree)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => state.setTreeCollapseAll((n) => n + 1)}>
+                Collapse all (tree)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Validation error banner */}
-      {validation.status === "invalid" && (
-        <div className="border-b border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger flex items-center gap-2 shrink-0">
-          <AlertCircle size={14} />
-          Line {validation.line}, col {validation.col}: {validation.message}
+      {/* Validation banner */}
+      {v.status === "invalid" && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+          <AlertCircle size={13} />
+          <span className="truncate">
+            Line {v.line}, col {v.col}: {v.message}
+          </span>
         </div>
       )}
 
-      {/* Main content area */}
+      {/* Editor */}
       <div className="flex-1 overflow-hidden">
         <CodeView
           value={state.input}
@@ -134,12 +205,6 @@ export function InputPanel({ state }: InputPanelProps) {
           errorLine={errorLine}
           onPasteFormatted={state.formatFrom}
         />
-      </div>
-
-      {/* Status bar */}
-      <div className="h-8 shrink-0 border-t border-border-subtle bg-surface px-3 flex items-center justify-between text-sm font-mono text-text-faint">
-        <span>Ln {state.inputCursor.ln} · Col {state.inputCursor.col}</span>
-        <span>{numLines} lines · {formatBytes(state.input.length)}</span>
       </div>
     </div>
   );

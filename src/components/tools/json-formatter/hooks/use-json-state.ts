@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useDeferredValue } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type {
   ConversionResult,
   CursorPosition,
   IndentStyle,
-  JsonStats,
   MinifyStats,
+  RepairPreview,
   SortOrder,
   ValidationState,
   ViewMode,
@@ -16,7 +16,6 @@ import {
   parseJson,
   queryJsonPath,
   isArrayOfObjects,
-  computeStats,
 } from "../json-formatter.lib";
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -33,13 +32,11 @@ export function useJsonState() {
   const [indent, setIndent] = useState<IndentStyle>("2");
   const [viewMode, setViewMode] = useState<ViewMode>("tree");
   const [validation, setValidation] = useState<ValidationState>({ status: "idle" });
-  const [stats, setStats] = useState<JsonStats | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [queryPath, setQueryPath] = useState("$");
   const [queryResults, setQueryResults] = useState<unknown[]>([]);
   const [diffInput, setDiffInput] = useState("");
-  const [repairLog, setRepairLog] = useState<string[]>([]);
-  const [repairError, setRepairError] = useState<string | null>(null);
+  const [repairPreview, setRepairPreview] = useState<RepairPreview | null>(null);
   const [isProcessing] = useState(false);
   const [inputCursor, setInputCursor] = useState<CursorPosition>({ ln: 1, col: 1 });
   const [outputCursor, setOutputCursor] = useState<CursorPosition>({ ln: 1, col: 1 });
@@ -71,17 +68,11 @@ export function useJsonState() {
     () =>
       debounce((...args: unknown[]) => {
         const raw = args[0] as string;
-        const state = validateJson(raw);
-        setValidation(state);
-        if (state.status === "valid") {
-          try {
-            const v = parseJson(raw);
-            const s = computeStats(v);
-            s.size = new TextEncoder().encode(raw).length;
-            s.lines = raw.split("\n").length;
-            setStats(s);
-          } catch { /* ignore */ }
-        }
+        // Validation result drives the red banner — keep it urgent. Stats
+        // are *not* computed here anymore: that walk used to fire on every
+        // 300ms debounce cycle regardless of whether the user had the Stats
+        // panel open. StatsPanel now derives its own stats lazily on mount.
+        setValidation(validateJson(raw));
       }, 300),
     [],
   );
@@ -108,10 +99,8 @@ export function useJsonState() {
     if (showQuery) queryDebounced(queryPath, parsedOutput ?? parsedValue);
   }, [queryPath, parsedOutput, parsedValue, showQuery, queryDebounced]);
 
-  const setStatsExternal = useCallback((s: JsonStats | null) => setStats(s), []);
   const setValidationExternal = useCallback((v: ValidationState) => setValidation(v), []);
-  const setRepairLogExternal = useCallback((log: string[]) => setRepairLog(log), []);
-  const setRepairErrorExternal = useCallback((err: string | null) => setRepairError(err), []);
+  const setRepairPreviewExternal = useCallback((p: RepairPreview | null) => setRepairPreview(p), []);
   const setConversionResultExternal = useCallback((r: ConversionResult | null) => setConversionResult(r), []);
   const setMinifyStatsExternal = useCallback((m: MinifyStats | null) => setMinifyStats(m), []);
   const setFileNameExternal = useCallback((n: string | null) => setFileName(n), []);
@@ -124,17 +113,13 @@ export function useJsonState() {
     viewMode, setViewMode,
     validation,
     setValidation: setValidationExternal,
-    stats,
-    setStats: setStatsExternal,
     sortOrder,
     setSortOrder: setSortOrderExternal,
     queryPath, setQueryPath,
     queryResults, setQueryResults,
     diffInput, setDiffInput,
-    repairLog,
-    setRepairLog: setRepairLogExternal,
-    repairError,
-    setRepairError: setRepairErrorExternal,
+    repairPreview,
+    setRepairPreview: setRepairPreviewExternal,
     isProcessing,
     inputCursor, setInputCursor,
     outputCursor, setOutputCursor,

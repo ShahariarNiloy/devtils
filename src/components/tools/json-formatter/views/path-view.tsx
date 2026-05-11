@@ -14,9 +14,7 @@ export interface PathViewProps {
 
 function serializeValue(v: unknown): string {
   if (v === undefined) return "";
-  const str = JSON.stringify(v);
-  if (!str) return "";
-  return str.length > 50 ? str.slice(0, 50) + "…" : str;
+  return JSON.stringify(v) ?? "";
 }
 
 export function PathView({ value }: PathViewProps) {
@@ -78,11 +76,11 @@ export function PathView({ value }: PathViewProps) {
                     )}
                     title="Click to copy path"
                   >
-                    <code className="text-sm font-mono text-text group-hover:text-brand transition-colors truncate">
+                    <code className="text-base font-mono text-text group-hover:text-brand transition-colors truncate tracking-tight">
                       {path}
                     </code>
                     {displayValue && (
-                      <span className="text-sm font-mono text-text-faint truncate max-w-48 shrink-0">
+                      <span className="text-base font-mono text-text-faint truncate max-w-64 shrink-0 tracking-tight">
                         {displayValue}
                       </span>
                     )}

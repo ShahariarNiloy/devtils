@@ -1,15 +1,16 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Play, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from '@/components/primitives/button';
 import type { JsonFormatterState } from "../use-json-formatter";
 
 interface QueryPanelProps {
   state: JsonFormatterState;
+  onClose: () => void;
 }
 
-export function QueryPanel({ state }: QueryPanelProps) {
+export function QueryPanel({ state, onClose }: QueryPanelProps) {
   return (
     <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-card">
       {/* Input row */}
@@ -41,6 +42,14 @@ export function QueryPanel({ state }: QueryPanelProps) {
           Run
           <span className="text-sm text-text-faint font-mono">⌘⇧Q</span>
         </Button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors shrink-0"
+          aria-label="Close JSONPath panel"
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* Results */}

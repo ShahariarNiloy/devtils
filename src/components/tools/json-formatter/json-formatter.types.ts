@@ -8,6 +8,10 @@ export type ConvertTarget =
   | "typescript"
   | "xml"
   | "zod"
+  | "schema"
+  | "go"
+  | "python"
+  | "rust"
   | "csv-to-json"
   | "yaml-to-json";
 
@@ -47,6 +51,17 @@ export interface RepairResult {
   fixed: string;
   changes: string[];
   wasValid: boolean;
+}
+
+export interface RepairPreview {
+  /** What the user typed before we touched it. */
+  original: string;
+  /** Best-effort repaired output — may still be invalid if `error` is set. */
+  fixed: string;
+  /** Human-readable list of what changed. */
+  changes: string[];
+  /** Post-repair JSON.parse error if we couldn't make it valid. */
+  error?: string;
 }
 
 export interface CursorPosition {

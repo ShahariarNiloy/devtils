@@ -1,74 +1,246 @@
 "use client";
 
-import { useState, useDeferredValue, useMemo } from "react";
+import { startTransition, useCallback, useDeferredValue, useMemo, useState } from "react";
+import {
+  Copy,
+  Download,
+  FoldVertical,
+  Maximize2,
+  Minimize2,
+  Search,
+  UnfoldVertical,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
-import { CodeView } from '../views/code-view';
-import { TreeView } from '../views/tree-view';
-import { TableView } from '../views/table-view';
-import { GridView } from '../views/grid-view';
-import { PathView } from '../views/path-view';
+import { Tooltip } from "@/components/primitives/tooltip";
+import { CodeView } from "../views/code-view";
+import { TreeView } from "../views/tree-view";
+import { TableView } from "../views/table-view";
+import { GridView } from "../views/grid-view";
+import { PathView } from "../views/path-view";
+import type { ViewMode } from "../json-formatter.types";
 import type { JsonFormatterState } from "../use-json-formatter";
+import type { HistoryEntry } from "../hooks/use-history";
 import { OutputSearchBar } from "./output-search-bar";
-import { CodeViewToolbar } from '../views/code-view-toolbar';
-import { highlightJson, lineCount, applySearchHighlight } from "../json-highlighter";
-import { formatBytes } from "../json-formatter.lib";
+import { EmptyState } from "./empty-state";
+import { applySearchHighlight, highlightJson } from "../json-highlighter";
+import { formatJson } from "../json-formatter.lib";
+
+const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
+  { mode: "code", label: "Code" },
+  { mode: "tree", label: "Tree" },
+  { mode: "table", label: "Table" },
+  { mode: "grid", label: "Grid" },
+  { mode: "path", label: "Path" },
+];
 
 interface OutputPanelProps {
   state: JsonFormatterState;
+  onLoadSample: (key: string) => void;
+  onLoadFile: (file: File) => void;
+  onOpenFetchUrl: () => void;
+  recent: HistoryEntry[];
+  onRestoreRecent: (entry: HistoryEntry) => void;
+  onRemoveRecent: (id: string) => void;
+  onClearRecent: () => void;
 }
 
-export function OutputPanel({ state }: OutputPanelProps) {
+export function OutputPanel({
+  state,
+  onLoadSample,
+  onLoadFile,
+  onOpenFetchUrl,
+  recent,
+  onRestoreRecent,
+  onRemoveRecent,
+  onClearRecent,
+}: OutputPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
   const deferredSearch = useDeferredValue(searchTerm);
-  const deferredOutput = useDeferredValue(state.output);
 
-  const highlightedOutput = useMemo(() => highlightJson(deferredOutput), [deferredOutput]);
+  // Code view content: prefer the explicit `output` (formatted / minified /
+  // converted), then a pretty-printed `parsedValue` so that switching from
+  // Tree → Code always shows something useful (the user didn't have to
+  // click Format first to populate output), and finally the raw input.
+  //
+  // The expensive call — `formatJson(parsedValue, indent)` — is split into
+  // its own memo so it ONLY re-runs when the parsed tree or indent changes,
+  // not on every input keystroke. The composite memo just picks among
+  // pre-computed strings.
+  const formattedFromParsed = useMemo(() => {
+    if (state.parsedValue === null || state.parsedValue === undefined) return "";
+    try { return formatJson(state.parsedValue, state.indent); } catch { return ""; }
+  }, [state.parsedValue, state.indent]);
+  const displayedCode = state.output || formattedFromParsed || state.input;
+  const deferredCode = useDeferredValue(displayedCode);
+
+  const highlightedOutput = useMemo(() => highlightJson(deferredCode), [deferredCode]);
   const highlightedWithSearch = useMemo(
-    () => deferredSearch ? applySearchHighlight(highlightedOutput, deferredSearch) : highlightedOutput,
+    () =>
+      deferredSearch
+        ? applySearchHighlight(highlightedOutput, deferredSearch)
+        : highlightedOutput,
     [highlightedOutput, deferredSearch],
   );
 
   const matchCount = useMemo(() => {
-    if (!deferredSearch || !state.output) return 0;
+    if (!deferredSearch || !displayedCode) return 0;
     try {
       const re = new RegExp(deferredSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-      return (state.output.match(re) ?? []).length;
+      return (displayedCode.match(re) ?? []).length;
     } catch { return 0; }
-  }, [deferredSearch, state.output]);
-
-  const numLines = lineCount(state.output);
+  }, [deferredSearch, displayedCode]);
 
   const tableValue = useMemo(() => {
     if (!state.canUseTableView) return [];
     return (state.parsedOutput ?? state.parsedValue) as Record<string, unknown>[];
   }, [state.canUseTableView, state.parsedOutput, state.parsedValue]);
 
+  const showEmptyState =
+    !state.output && !state.parsedValue && state.input.trim().length === 0;
+
   const handleToggleSearch = () => {
     if (showSearch && searchTerm) setSearchTerm("");
     else setShowSearch((s) => !s);
   };
 
+  // Swapping views remounts a tree of components. Mark the swap as a
+  // non-urgent transition so the click feedback (button highlight) is
+  // immediate while the heavy render is allowed to interleave.
+  const switchView = useCallback(
+    (mode: typeof state.viewMode) => {
+      startTransition(() => state.setViewMode(mode));
+    },
+    [state],
+  );
+
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col overflow-hidden bg-surface",
+        "flex h-full flex-col overflow-hidden bg-surface",
         fullscreen && "fixed inset-0 z-50 bg-surface",
       )}
     >
-      <CodeViewToolbar
-        viewMode={state.viewMode}
-        canUseTableView={state.canUseTableView}
-        showSearch={showSearch}
-        fullscreen={fullscreen}
-        onViewModeChange={state.setViewMode}
-        onToggleSearch={handleToggleSearch}
-        onCopyOutput={() => void state.copyOutput()}
-        onDownloadOutput={() => state.downloadOutput("json")}
-        onToggleFullscreen={() => setFullscreen((f) => !f)}
-      />
+      {/* Tab bar */}
+      <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
+        <div className="flex items-center gap-0.5 flex-1">
+          {VIEW_LABELS.map(({ mode, label }) => {
+            const requiresArray = mode === "table" || mode === "grid";
+            const isDisabled = requiresArray && !state.canUseTableView;
+            const isActive = state.viewMode === mode;
+
+            const btn = (
+              <button
+                key={mode}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => !isDisabled && switchView(mode)}
+                className={cn(
+                  "relative inline-flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors select-none",
+                  isActive
+                    ? "bg-surface-soft text-text"
+                    : "text-text-faint hover:bg-surface-soft hover:text-text",
+                  isDisabled &&
+                    "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-text-faint",
+                )}
+              >
+                {label}
+              </button>
+            );
+
+            if (isDisabled) {
+              return (
+                <Tooltip key={mode} content="Requires array of objects" side="bottom">
+                  {btn}
+                </Tooltip>
+              );
+            }
+            return btn;
+          })}
+        </div>
+
+        <div className="ml-auto flex items-center gap-0.5">
+          {state.viewMode === "tree" && (
+            <>
+              <Tooltip content="Expand all" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => state.setTreeExpandAll((n) => n + 1)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+                  aria-label="Expand all"
+                >
+                  <UnfoldVertical size={15} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Collapse all" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => state.setTreeCollapseAll((n) => n + 1)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+                  aria-label="Collapse all"
+                >
+                  <FoldVertical size={15} />
+                </button>
+              </Tooltip>
+            </>
+          )}
+
+          <Tooltip content="Search output" side="bottom">
+            <button
+              type="button"
+              onClick={handleToggleSearch}
+              disabled={!displayedCode}
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                showSearch
+                  ? "bg-surface-soft text-text"
+                  : "text-text-faint hover:bg-surface-soft hover:text-text",
+                "disabled:opacity-40 disabled:hover:bg-transparent",
+              )}
+              aria-label="Search output"
+            >
+              <Search size={15} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Copy output" shortcut="⌘⇧C" side="bottom">
+            <button
+              type="button"
+              onClick={() => void state.copyOutput()}
+              disabled={!displayedCode}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Copy output"
+            >
+              <Copy size={15} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Download .json" shortcut="⌘⇧D" side="bottom">
+            <button
+              type="button"
+              onClick={() => state.downloadOutput("json")}
+              disabled={!displayedCode}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Download output"
+            >
+              <Download size={15} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content={fullscreen ? "Exit fullscreen" : "Fullscreen"} side="bottom">
+            <button
+              type="button"
+              onClick={() => setFullscreen((f) => !f)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+              aria-label="Toggle fullscreen"
+            >
+              {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+          </Tooltip>
+        </div>
+      </div>
 
       {showSearch && (
         <OutputSearchBar
@@ -80,42 +252,53 @@ export function OutputPanel({ state }: OutputPanelProps) {
         />
       )}
 
+      {/* Body */}
       <div className="flex-1 overflow-hidden">
-        {state.viewMode === "code" && (
-          <CodeView
-            value={state.output}
-            highlighted={highlightedWithSearch}
-            indent={state.indent}
-            onCursorChange={state.setOutputCursor}
+        {showEmptyState ? (
+          <EmptyState
+            onLoadSample={onLoadSample}
+            onLoadFile={onLoadFile}
+            onOpenFetchUrl={onOpenFetchUrl}
+            recent={recent}
+            onRestoreRecent={onRestoreRecent}
+            onRemoveRecent={onRemoveRecent}
+            onClearRecent={onClearRecent}
           />
+        ) : (
+          <>
+            {state.viewMode === "code" && (
+              <CodeView
+                value={displayedCode}
+                highlighted={highlightedWithSearch}
+                indent={state.indent}
+                onCursorChange={state.setOutputCursor}
+              />
+            )}
+            {state.viewMode === "tree" && (
+              <TreeView
+                value={state.parsedOutput ?? state.parsedValue}
+                search={deferredSearch}
+                expandAll={state.treeExpandAll}
+                collapseAll={state.treeCollapseAll}
+              />
+            )}
+            {state.viewMode === "table" && state.canUseTableView && (
+              <TableView value={tableValue} />
+            )}
+            {state.viewMode === "grid" && state.canUseTableView && (
+              <GridView value={tableValue} />
+            )}
+            {state.viewMode === "path" && (
+              <PathView value={state.parsedOutput ?? state.parsedValue} />
+            )}
+            {(state.viewMode === "table" || state.viewMode === "grid") &&
+              !state.canUseTableView && (
+                <div className="flex h-full items-center justify-center text-sm text-text-faint">
+                  Requires an array of objects — format your JSON first.
+                </div>
+              )}
+          </>
         )}
-        {state.viewMode === "tree" && (
-          <TreeView
-            value={state.parsedOutput ?? state.parsedValue}
-            search={deferredSearch}
-            expandAll={state.treeExpandAll}
-            collapseAll={state.treeCollapseAll}
-          />
-        )}
-        {state.viewMode === "table" && state.canUseTableView && (
-          <TableView value={tableValue} />
-        )}
-        {state.viewMode === "grid" && state.canUseTableView && (
-          <GridView value={tableValue} />
-        )}
-        {state.viewMode === "path" && (
-          <PathView value={state.parsedOutput ?? state.parsedValue} />
-        )}
-        {(state.viewMode === "table" || state.viewMode === "grid") && !state.canUseTableView && (
-          <div className="flex h-full items-center justify-center text-sm text-text-faint">
-            Requires an array of objects — format your JSON first.
-          </div>
-        )}
-      </div>
-
-      <div className="h-8 shrink-0 border-t border-border-subtle bg-surface px-3 flex items-center justify-between text-sm font-mono text-text-faint">
-        <span>Ln {state.outputCursor.ln} · Col {state.outputCursor.col}</span>
-        <span>{numLines} lines · {formatBytes(state.output.length)}</span>
       </div>
     </div>
   );

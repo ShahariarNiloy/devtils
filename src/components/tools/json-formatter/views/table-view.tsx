@@ -14,12 +14,12 @@ type SortDir = "asc" | "desc" | "none";
 function renderCell(v: unknown): string {
   if (v === null) return "null";
   if (v === undefined) return "";
-  if (typeof v === "object") {
-    const str = JSON.stringify(v);
-    return str.length > 40 ? str.slice(0, 40) + "…" : str;
-  }
+  if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
+
+/** Above this row count the table caps rendering to avoid main-thread stalls. */
+const MAX_RENDER_ROWS = 1000;
 
 export function TableView({ value }: TableViewProps) {
   const columns = useMemo(() => extractColumns(value), [value]);
@@ -49,12 +49,20 @@ export function TableView({ value }: TableViewProps) {
     });
   }, [value, sortCol, sortDir]);
 
+  const visibleRows = sortedRows.length > MAX_RENDER_ROWS
+    ? sortedRows.slice(0, MAX_RENDER_ROWS)
+    : sortedRows;
+  const isCapped = sortedRows.length > MAX_RENDER_ROWS;
+
   return (
     <div className="relative overflow-auto h-full">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border-subtle sticky top-0 bg-surface z-20">
-        <span className="text-sm text-text-faint font-mono">{value.length} rows</span>
+        <span className="text-sm text-text-faint font-mono">
+          {value.length} rows
+          {isCapped && ` · showing first ${MAX_RENDER_ROWS}`}
+        </span>
       </div>
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-base">
         <thead>
           <tr>
             {columns.map((col) => {
@@ -80,7 +88,7 @@ export function TableView({ value }: TableViewProps) {
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row, ri) => (
+          {visibleRows.map((row, ri) => (
             <tr
               key={ri}
               className="even:bg-surface-soft border-b border-border-subtle last:border-0 hover:bg-surface-sage/30 transition-colors"
@@ -95,14 +103,14 @@ export function TableView({ value }: TableViewProps) {
                   <td
                     key={col}
                     className={cn(
-                      "px-4 py-2 text-sm font-mono whitespace-nowrap max-w-48 overflow-hidden text-ellipsis align-top",
+                      "px-4 py-2 text-base font-mono whitespace-nowrap max-w-[28rem] overflow-hidden text-ellipsis align-top tracking-tight leading-relaxed",
                       isNull && "text-text-faint italic",
                       isBool && "text-brand",
                       isNum && "text-text-muted",
                       isObj && "text-text-faint",
                       !isNull && !isBool && !isNum && !isObj && "text-text",
                     )}
-                    title={isObj ? JSON.stringify(v) : undefined}
+                    title={isObj ? JSON.stringify(v) : String(v ?? "")}
                     style={isNum ? { color: "var(--color-clay)" } : undefined}
                   >
                     {renderCell(v)}

@@ -5,6 +5,14 @@ import type {
   DiffResult,
 } from "./json-formatter.types";
 
+/**
+ * Shared TextEncoder. Encoding is cheap, but instantiating a new encoder for
+ * every byte-count call adds up across validation, stats, formatters, status
+ * bar reads and recent-list writes. One module-scope instance fixes that.
+ */
+export const sharedEncoder = new TextEncoder();
+export const byteLength = (s: string) => sharedEncoder.encode(s).length;
+
 // ── Parsing & Serialisation ───────────────────────────────────────────────────
 
 /** Parse raw string. Throws SyntaxError with accurate line/col from V8 message. */
@@ -27,9 +35,8 @@ export function minifyJson(
   raw: string,
 ): { output: string; before: number; after: number; savedPct: number } {
   const output = JSON.stringify(JSON.parse(raw));
-  const enc = new TextEncoder();
-  const before = enc.encode(raw).length;
-  const after = enc.encode(output).length;
+  const before = byteLength(raw);
+  const after = byteLength(output);
   return {
     output,
     before,
@@ -75,7 +82,7 @@ export function validateJson(raw: string): ValidationState {
   if (!raw.trim()) return { status: "idle" };
   try {
     JSON.parse(raw);
-    const size = new TextEncoder().encode(raw).length;
+    const size = byteLength(raw);
     const lines = raw.split("\n").length;
     return { status: "valid", size, lines };
   } catch (err) {

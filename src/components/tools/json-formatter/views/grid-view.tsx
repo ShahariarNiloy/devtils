@@ -19,13 +19,10 @@ function CellValue({ value }: { value: unknown }) {
     );
   }
   if (typeof value === "string") {
-    const display = value.length > 40 ? value.slice(0, 40) + "…" : value;
-    return <span className="text-brand">{display}</span>;
+    return <span className="text-brand">{value}</span>;
   }
   if (typeof value === "object") {
-    const str = JSON.stringify(value);
-    const display = str.length > 40 ? str.slice(0, 40) + "…" : str;
-    return <span className="text-text-faint font-mono">{display}</span>;
+    return <span className="text-text-faint font-mono">{JSON.stringify(value)}</span>;
   }
   return <span className="text-text">{String(value)}</span>;
 }
@@ -41,10 +38,10 @@ export function GridView({ value }: GridViewProps) {
           >
             {Object.entries(item).map(([k, v]) => (
               <div key={k} className="flex flex-col py-1">
-                <span className="text-sm text-text-faint truncate">{k}</span>
+                <span className="text-sm text-text-faint truncate tracking-wide uppercase">{k}</span>
                 <span
                   className={cn(
-                    "text-sm font-mono truncate",
+                    "text-base font-mono truncate tracking-tight",
                     v === null || v === undefined ? "text-text-faint italic" : "",
                   )}
                 >

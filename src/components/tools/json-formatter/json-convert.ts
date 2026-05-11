@@ -1,10 +1,12 @@
 import type { ConversionResult } from "./json-formatter.types";
+import { byteLength as byteSize } from "./json-formatter.lib";
+import { inferJsonSchema } from "./schema-infer";
+import { collect } from "./codegen/collect";
+import { emitGo } from "./codegen/emit-go";
+import { emitPython } from "./codegen/emit-python";
+import { emitRust } from "./codegen/emit-rust";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function byteSize(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -289,4 +291,41 @@ export function toXML(value: unknown, rootTag = "root"): ConversionResult {
   const body = toXmlNode(value, rootTag, 0);
   const output = `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
   return { output, format: "xml", size: byteSize(output) };
+}
+
+// ── JSON Schema ──────────────────────────────────────────────────────────────
+
+/**
+ * Infer a JSON Schema (draft 2020-12) from the sample value. This is the
+ * same IR used by future codegen and mock-data features, so the output is
+ * intentionally a plain object — downstream consumers parse this back into
+ * `JsonSchema` without re-walking the source.
+ */
+export function toJsonSchema(value: unknown): ConversionResult {
+  const schema = inferJsonSchema(value);
+  const output = JSON.stringify(schema, null, 2);
+  return { output, format: "schema", size: byteSize(output) };
+}
+
+// ── Code generators (built on schema IR) ─────────────────────────────────────
+
+/** Generate Go structs from the inferred schema. */
+export function toGo(value: unknown): ConversionResult {
+  const collected = collect(inferJsonSchema(value), "Root");
+  const output = emitGo(collected);
+  return { output, format: "go", size: byteSize(output) };
+}
+
+/** Generate Python dataclasses from the inferred schema. */
+export function toPython(value: unknown): ConversionResult {
+  const collected = collect(inferJsonSchema(value), "Root");
+  const output = emitPython(collected);
+  return { output, format: "python", size: byteSize(output) };
+}
+
+/** Generate Rust serde structs from the inferred schema. */
+export function toRust(value: unknown): ConversionResult {
+  const collected = collect(inferJsonSchema(value), "Root");
+  const output = emitRust(collected);
+  return { output, format: "rust", size: byteSize(output) };
 }

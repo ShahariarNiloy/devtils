@@ -353,47 +353,95 @@ textarea:focus,
   --btn-ghost-border: #3d4435;
 }
 
-/* ── JSON syntax highlighting ─────────────────────────── */
-.json-key {
-  color: #141a10;
-  font-weight: 600;
+/* ── Code highlighting (unified token classes) ────────────────────────────
+   `tok-*` is the canonical class set produced by every tokenizer in the
+   highlight/ module. The legacy `json-*` selectors below piggyback on the
+   same colour variables so any cached HTML still renders correctly. */
+
+:root,
+[data-theme="light"] {
+  --tok-key: #141a10;
+  --tok-string: #1f6e2a;
+  --tok-number: #a04800;
+  --tok-bool: #6b30a8;
+  --tok-null: var(--color-text-faint);
+  --tok-punct: var(--color-text-muted);
+  --tok-op: var(--color-text-muted);
+  --tok-kw: #6b30a8;
+  --tok-type: #1e5b87;
+  --tok-ident: var(--color-text);
+  --tok-comment: var(--color-text-faint);
+  --tok-tag: #1e5b87;
+  --tok-attr: #6b30a8;
+  --tok-decorator: #a04800;
 }
-.json-string {
-  color: #1f6e2a;
-}
-.json-number {
-  color: #a04800;
-}
-.json-bool {
-  color: #6b30a8;
-  font-weight: 500;
-}
-.json-null {
-  color: var(--color-text-faint);
-  font-style: italic;
-}
-.json-punct {
-  color: var(--color-text-muted);
+[data-theme="dark"] {
+  --tok-key: #dff0c8;
+  --tok-string: #7ecf5a;
+  --tok-number: #d4904a;
+  --tok-bool: #b87ae0;
+  --tok-null: var(--color-text-faint);
+  --tok-punct: var(--color-text-muted);
+  --tok-op: var(--color-text-muted);
+  --tok-kw: #b87ae0;
+  --tok-type: #7eb8e0;
+  --tok-ident: var(--color-text);
+  --tok-comment: var(--color-text-faint);
+  --tok-tag: #7eb8e0;
+  --tok-attr: #b87ae0;
+  --tok-decorator: #d4904a;
 }
 
-[data-theme="dark"] .json-key {
-  color: #dff0c8;
-  font-weight: 600;
+.tok-key      { color: var(--tok-key); font-weight: 600; }
+.tok-string   { color: var(--tok-string); }
+.tok-number   { color: var(--tok-number); }
+.tok-bool     { color: var(--tok-bool); font-weight: 500; }
+.tok-null     { color: var(--tok-null); font-style: italic; }
+.tok-punct    { color: var(--tok-punct); }
+.tok-op       { color: var(--tok-op); }
+.tok-kw       { color: var(--tok-kw); font-weight: 500; }
+.tok-type     { color: var(--tok-type); }
+.tok-ident    { color: var(--tok-ident); }
+.tok-comment  { color: var(--tok-comment); font-style: italic; }
+.tok-tag      { color: var(--tok-tag); font-weight: 500; }
+.tok-attr     { color: var(--tok-attr); }
+.tok-decorator{ color: var(--tok-decorator); }
+
+/* Legacy json-* aliases. Anything still emitting these maps to the same
+   palette via the variables above. */
+.json-key    { color: var(--tok-key); font-weight: 600; }
+.json-string { color: var(--tok-string); }
+.json-number { color: var(--tok-number); }
+.json-bool   { color: var(--tok-bool); font-weight: 500; }
+.json-null   { color: var(--tok-null); font-style: italic; }
+.json-punct  { color: var(--tok-punct); }
+
+/* ── Overlay-style code editor ─────────────────────────────────────────────
+   The textarea floats over a `<pre>` carrying the colourised content. The
+   textarea's own text is transparent so it doesn't double-render; we keep
+   the caret + selection visible via dedicated rules so the editor still
+   feels like a textarea to the user. */
+
+.code-overlay-textarea {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--color-text);
 }
-[data-theme="dark"] .json-string {
-  color: #7ecf5a;
+.code-overlay-textarea::selection {
+  background: var(--color-mist-sage);
+  /* During selection we DO want the text visible — otherwise the
+     selection highlight looks like a blank rectangle. */
+  color: var(--color-text);
+  -webkit-text-fill-color: var(--color-text);
 }
-[data-theme="dark"] .json-number {
-  color: #d4904a;
+[data-theme="dark"] .code-overlay-textarea::selection {
+  background: color-mix(in oklab, var(--color-olive-ink), transparent 20%);
+  color: var(--color-text);
+  -webkit-text-fill-color: var(--color-text);
 }
-[data-theme="dark"] .json-bool {
-  color: #b87ae0;
-}
-[data-theme="dark"] .json-null {
+.code-overlay-textarea::placeholder {
   color: var(--color-text-faint);
-}
-[data-theme="dark"] .json-punct {
-  color: var(--color-text-muted);
+  -webkit-text-fill-color: var(--color-text-faint);
 }
 
 /* JSON output search highlight */

@@ -1,6 +1,5 @@
 import type { JsonStats } from "./json-formatter.types";
-import { computeStats } from "./json-formatter.lib";
-import { formatBytes } from "./json-formatter.lib";
+import { byteLength, computeStats, formatBytes } from "./json-formatter.lib";
 
 export { computeStats, formatBytes };
 export type { JsonStats };
@@ -11,7 +10,7 @@ export function computeStatsFromRaw(raw: string): JsonStats | null {
   try {
     const value = JSON.parse(raw);
     const stats = computeStats(value);
-    stats.size = new TextEncoder().encode(raw).length;
+    stats.size = byteLength(raw);
     stats.lines = raw.split("\n").length;
     return stats;
   } catch {

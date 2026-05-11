@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { startTransition, useCallback } from "react";
 import { toast } from "sonner";
 import type { SortOrder } from "../json-formatter.types";
 import {
@@ -9,7 +9,6 @@ import {
   minifyJson,
   parseJson,
   sortJsonKeys,
-  computeStats,
 } from "../json-formatter.lib";
 import { repairJson, RepairError } from "../json-repair";
 import type { JsonState } from "./use-json-state";
@@ -21,9 +20,9 @@ export function useJsonFormatActions(state: JsonState) {
     indent,
     sortOrder,
     setSortOrder,
-    setValidation, setStats,
+    setValidation,
     setMinifyStats, setConversionResult,
-    setRepairLog, setRepairError,
+    repairPreview, setRepairPreview,
     setViewMode,
   } = state;
 
@@ -38,17 +37,19 @@ export function useJsonFormatActions(state: JsonState) {
       const value = parseJson(raw);
       const sorted = sortOrder !== "none" ? sortJsonKeys(value, sortOrder) : value;
       const formatted = formatJson(sorted, indent);
-      setOutput(formatted);
-      setMinifyStats(null);
-      setConversionResult(null);
-      const s = computeStats(sorted);
-      s.size = new TextEncoder().encode(formatted).length;
-      s.lines = formatted.split("\n").length;
-      setStats(s);
+      // Batch setters into a non-urgent transition so the heavy re-render
+      // of CodeView / TreeView interleaves with any UI clicks the user just
+      // made (button highlight, toast appearance). Stats are derived lazily
+      // by the StatsPanel itself, so we don't compute them here.
+      startTransition(() => {
+        setOutput(formatted);
+        setMinifyStats(null);
+        setConversionResult(null);
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Format failed");
     }
-  }, [indent, sortOrder, setValidation, setOutput, setMinifyStats, setConversionResult, setStats]);
+  }, [indent, sortOrder, setValidation, setOutput, setMinifyStats, setConversionResult]);
 
   const format = useCallback(() => {
     if (!input.trim()) return;
@@ -65,9 +66,11 @@ export function useJsonFormatActions(state: JsonState) {
     if (!input.trim()) return;
     try {
       const result = minifyJson(input);
-      setOutput(result.output);
-      setMinifyStats({ before: result.before, after: result.after, savedPct: result.savedPct });
-      setConversionResult(null);
+      startTransition(() => {
+        setOutput(result.output);
+        setMinifyStats({ before: result.before, after: result.after, savedPct: result.savedPct });
+        setConversionResult(null);
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Minify failed");
     }
@@ -98,28 +101,57 @@ export function useJsonFormatActions(state: JsonState) {
     [input, indent, setSortOrder, setInput],
   );
 
+  /**
+   * Run the repair pipeline but DON'T apply the result. We surface a
+   * preview that the user can inspect and accept. Even on failure (partial
+   * repair) we show what we did manage to fix alongside the actual parse
+   * error — that's usually all the user needs to fix the last bit by hand.
+   */
   const repair = useCallback(() => {
     if (!input.trim()) return;
-    setRepairError(null);
     try {
       const result = repairJson(input);
       if (result.wasValid) {
         toast.info("JSON is already valid — no repairs needed");
-        setRepairLog([]);
         return;
       }
-      setInput(result.fixed);
-      setRepairLog(result.changes);
-      runFormat(result.fixed);
-      if (result.changes.length > 0) {
-        toast.success(`Fixed ${result.changes.length} issue${result.changes.length !== 1 ? "s" : ""}`);
-      }
+      setRepairPreview({
+        original: input,
+        fixed: result.fixed,
+        changes: result.changes,
+      });
     } catch (err) {
-      const msg = err instanceof RepairError ? err.message : "Could not repair — too many errors";
-      setRepairError(msg);
-      toast.error(msg);
+      if (err instanceof RepairError) {
+        setRepairPreview({
+          original: input,
+          fixed: err.partialFixed,
+          changes: err.partialChanges,
+          error: err.parseError,
+        });
+      } else {
+        toast.error(err instanceof Error ? err.message : "Repair failed");
+      }
     }
-  }, [input, runFormat, setRepairError, setRepairLog, setInput]);
+  }, [input, setRepairPreview]);
+
+  /** Apply the previewed repair to the input and trigger a format. */
+  const applyRepair = useCallback(() => {
+    if (!repairPreview) return;
+    const { fixed, changes } = repairPreview;
+    setInput(fixed);
+    setRepairPreview(null);
+    // Only attempt to format if the repair actually produced valid JSON.
+    // Partial repairs (with an unresolved parse error) get loaded as-is so
+    // the user can keep editing in the input pane.
+    if (!repairPreview.error) runFormat(fixed);
+    toast.success(
+      changes.length > 0
+        ? `Applied ${changes.length} repair${changes.length !== 1 ? "s" : ""}`
+        : "Applied",
+    );
+  }, [repairPreview, setInput, setRepairPreview, runFormat]);
+
+  const cancelRepair = useCallback(() => setRepairPreview(null), [setRepairPreview]);
 
   const restoreFromMinify = useCallback(() => {
     if (!output) return;
@@ -130,5 +162,9 @@ export function useJsonFormatActions(state: JsonState) {
     } catch { /* ignore */ }
   }, [output, indent, setOutput, setMinifyStats]);
 
-  return { format, formatFrom, minify, validate, sortKeys, repair, restoreFromMinify, runFormat };
+  return {
+    format, formatFrom, minify, validate, sortKeys,
+    repair, applyRepair, cancelRepair,
+    restoreFromMinify, runFormat,
+  };
 }
