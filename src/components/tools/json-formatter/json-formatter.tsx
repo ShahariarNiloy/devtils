@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
 import { InputPanel } from "./panels/input-panel";
@@ -15,6 +16,7 @@ import { FetchUrlDialog } from "./panels/fetch-url-dialog";
 import { FuzzyFindDialog } from "./panels/fuzzy-find-dialog";
 import { JsonFormatterGuide } from "./panels/json-formatter-guide";
 import { RepairPreviewDialog } from "./panels/repair-preview-dialog";
+import { MobileJsonFormatter } from "./mobile/mobile-json-formatter";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -34,6 +36,7 @@ import {
 export function JsonFormatter({ tool }: { tool: Tool }) {
   const state = useJsonFormatter();
   const history = useHistory();
+  const isMobile = useIsMobile();
   const [fetchUrlOpen, setFetchUrlOpen] = useState(false);
   const [fuzzyOpen, setFuzzyOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -143,68 +146,91 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
   useShortcut({ key: "/", meta: true }, (e) => { e.preventDefault(); setFuzzyOpen(true); });
 
   return (
-    <ToolShell tool={tool} classNames={{ body: "max-w-auto" }}>
-      <div className="flex flex-col gap-3">
-        {/* Detached top action bar — fit-content pill, How to use floats right */}
-        <div className="flex items-center gap-3">
-          <div className="overflow-hidden rounded-xl border border-border shadow-card bg-surface w-fit">
-            <TopActionBar
-              state={state}
-              onToggleQuery={() => state.setShowQuery(!state.showQuery)}
-              onShare={() => void handleShare()}
-              onOpenFind={() => setFuzzyOpen(true)}
-              sharing={sharing}
+    <ToolShell
+      tool={tool}
+      classNames={{
+        header: "hidden md:block",
+        body: "max-md:!p-0 max-md:!max-w-none max-w-auto",
+      }}
+    >
+      {isMobile ? (
+        <MobileJsonFormatter
+          tool={tool}
+          state={state}
+          sharing={sharing}
+          onShare={() => void handleShare()}
+          onOpenFind={() => setFuzzyOpen(true)}
+          onLoadFile={loadFileAndRemember}
+          onLoadSample={loadSampleAndRemember}
+          onOpenFetchUrl={() => setFetchUrlOpen(true)}
+          recent={history.items}
+          onRestoreRecent={restoreRecent}
+          onRemoveRecent={history.remove}
+          onClearRecent={() => void history.clear()}
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {/* Detached top action bar — fit-content pill, How to use floats right */}
+          <div className="flex items-center gap-3">
+            <div className="overflow-hidden rounded-xl border border-border shadow-card bg-surface w-fit">
+              <TopActionBar
+                state={state}
+                onToggleQuery={() => state.setShowQuery(!state.showQuery)}
+                onShare={() => void handleShare()}
+                onOpenFind={() => setFuzzyOpen(true)}
+                sharing={sharing}
+              />
+            </div>
+            <div className="ml-auto">
+              <JsonFormatterGuide />
+            </div>
+          </div>
+
+          {/* Side panels — render between action bar and editor */}
+          {state.showQuery && (
+            <QueryPanel state={state} onClose={() => state.setShowQuery(false)} />
+          )}
+
+          {state.showStats && (
+            <StatsPanel
+              value={state.parsedOutput ?? state.parsedValue}
+              text={state.output || state.input}
+              onClose={() => state.setShowStats(false)}
             />
-          </div>
-          <div className="ml-auto">
-            <JsonFormatterGuide />
+          )}
+
+          {/* Editor card — input + output + status */}
+          <div
+            className="flex flex-col overflow-hidden rounded-xl border border-border shadow-card bg-surface"
+            style={{ height: "max(520px, calc(100dvh - var(--spacing-header) - 88px))" }}
+          >
+            <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+              <ResizablePanel defaultSize={38} minSize={20}>
+                <InputPanel
+                  state={state}
+                  onLoadFile={loadFileAndRemember}
+                  onOpenFetchUrl={() => setFetchUrlOpen(true)}
+                />
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize={62} minSize={30}>
+                <OutputPanel
+                  state={state}
+                  onLoadSample={loadSampleAndRemember}
+                  onLoadFile={loadFileAndRemember}
+                  onOpenFetchUrl={() => setFetchUrlOpen(true)}
+                  recent={history.items}
+                  onRestoreRecent={restoreRecent}
+                  onRemoveRecent={history.remove}
+                  onClearRecent={() => void history.clear()}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+
+            <StatusBar state={state} />
           </div>
         </div>
-
-        {/* Side panels — render between action bar and editor */}
-        {state.showQuery && (
-          <QueryPanel state={state} onClose={() => state.setShowQuery(false)} />
-        )}
-
-        {state.showStats && (
-          <StatsPanel
-            value={state.parsedOutput ?? state.parsedValue}
-            text={state.output || state.input}
-            onClose={() => state.setShowStats(false)}
-          />
-        )}
-
-        {/* Editor card — input + output + status */}
-        <div
-          className="flex flex-col overflow-hidden rounded-xl border border-border shadow-card bg-surface"
-          style={{ height: "max(520px, calc(100dvh - var(--spacing-header) - 88px))" }}
-        >
-          <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
-            <ResizablePanel defaultSize={38} minSize={20}>
-              <InputPanel
-                state={state}
-                onLoadFile={loadFileAndRemember}
-                onOpenFetchUrl={() => setFetchUrlOpen(true)}
-              />
-            </ResizablePanel>
-            <ResizableHandle />
-            <ResizablePanel defaultSize={62} minSize={30}>
-              <OutputPanel
-                state={state}
-                onLoadSample={loadSampleAndRemember}
-                onLoadFile={loadFileAndRemember}
-                onOpenFetchUrl={() => setFetchUrlOpen(true)}
-                recent={history.items}
-                onRestoreRecent={restoreRecent}
-                onRemoveRecent={history.remove}
-                onClearRecent={() => void history.clear()}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-
-          <StatusBar state={state} />
-        </div>
-      </div>
+      )}
 
       <FetchUrlDialog
         open={fetchUrlOpen}

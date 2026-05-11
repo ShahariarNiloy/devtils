@@ -62,14 +62,14 @@ export function TopActionBar({
           onClick={state.format}
           disabled={!canFormat}
           className={cn(
-            "group inline-flex h-8 items-center gap-1.5 rounded-md pl-2.5 pr-1.5 text-sm font-semibold transition-[background,color,box-shadow,transform] duration-150 ease-out select-none cursor-pointer",
+            "group inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 lg:pr-1.5 text-sm font-semibold transition-[background,color,box-shadow,transform] duration-150 ease-out select-none cursor-pointer",
             "bg-brand text-bg shadow-btn-primary hover:bg-brand-hover active:scale-[0.98]",
             "disabled:bg-surface-soft disabled:text-text-faint disabled:shadow-none disabled:cursor-not-allowed disabled:active:scale-100",
           )}
         >
           <AlignLeft size={13} />
-          Format
-          <Kbd className="ml-0.5 h-5 border-transparent bg-bg/15 px-1 text-[10.5px] tracking-tight text-bg/80 group-disabled:opacity-50">
+          <span className="hidden lg:inline">Format</span>
+          <Kbd className="hidden lg:inline-flex ml-0.5 h-5 border-transparent bg-bg/15 px-1 text-[10.5px] tracking-tight text-bg/80 group-disabled:opacity-50">
             ⌘↵
           </Kbd>
         </button>
@@ -213,7 +213,7 @@ function Divider() {
 }
 
 const TOOL_BUTTON_BASE =
-  "group inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-[background,color] duration-150 ease-out select-none cursor-pointer";
+  "group inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 lg:px-2.5 text-sm font-medium transition-[background,color] duration-150 ease-out select-none cursor-pointer";
 
 interface ToolButtonProps {
   icon: React.ReactNode;
@@ -260,7 +260,7 @@ function ToolButton({
       >
         {icon}
       </span>
-      {label}
+      <span className="hidden lg:inline">{label}</span>
     </button>
   );
   return (
@@ -307,7 +307,7 @@ function ToolDropdown({
             <span className="text-text-faint transition-colors group-hover/dropdown:text-text-muted group-data-[state=open]/dropdown:text-text-muted">
               {icon}
             </span>
-            {label}
+            <span className="hidden lg:inline">{label}</span>
             <ChevronDown
               size={11}
               className="ml-0.5 text-text-faint transition-transform duration-150 group-data-[state=open]/dropdown:rotate-180 group-data-[state=open]/dropdown:text-text-muted"
