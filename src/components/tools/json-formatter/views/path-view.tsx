@@ -7,10 +7,13 @@ import {
   getAllPaths,
   queryJsonPath,
 } from "@/components/tools/json-formatter/json-formatter.lib";
+import { useVirtualList } from "./use-virtual-list";
 
 export interface PathViewProps {
   value: unknown;
 }
+
+const ROW_HEIGHT = 40;
 
 function serializeValue(v: unknown): string {
   if (v === undefined) return "";
@@ -28,10 +31,15 @@ export function PathView({ value }: PathViewProps) {
     return allPaths.filter((p) => p.toLowerCase().includes(q));
   }, [allPaths, filter]);
 
+  const { scrollRef, onScroll, totalHeight, offsetY, startIndex, endIndex } =
+    useVirtualList(filteredPaths.length, ROW_HEIGHT);
+
   const handleCopy = async (path: string) => {
     await navigator.clipboard.writeText(path);
     toast.success("Path copied to clipboard");
   };
+
+  const slice = filteredPaths.slice(startIndex, endIndex);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -52,26 +60,28 @@ export function PathView({ value }: PathViewProps) {
         </span>
       </div>
 
-      {/* Path list */}
-      <div className="flex-1 overflow-auto">
+      {/* Path list — virtualized: queryJsonPath only runs for visible rows. */}
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto">
         {filteredPaths.length === 0 ? (
           <div className="flex items-center justify-center h-full text-sm text-text-faint">
             No paths found
           </div>
         ) : (
-          <ul>
-            {filteredPaths.map((path) => {
-              const pathValue = queryJsonPath(value, path)[0];
-              const displayValue = serializeValue(pathValue);
+          <div style={{ height: totalHeight, position: "relative" }}>
+            <div style={{ transform: `translateY(${offsetY}px)` }}>
+              {slice.map((path) => {
+                const pathValue = queryJsonPath(value, path)[0];
+                const displayValue = serializeValue(pathValue);
 
-              return (
-                <li key={path}>
+                return (
                   <button
+                    key={path}
                     type="button"
                     onClick={() => handleCopy(path)}
+                    style={{ height: ROW_HEIGHT }}
                     className={cn(
-                      "w-full flex items-center justify-between gap-3 px-4 py-2.5",
-                      "text-left border-b border-border-subtle last:border-0",
+                      "w-full flex items-center justify-between gap-3 px-4 box-border",
+                      "text-left border-b border-border-subtle",
                       "hover:bg-surface-soft transition-colors group",
                     )}
                     title="Click to copy path"
@@ -85,10 +95,10 @@ export function PathView({ value }: PathViewProps) {
                       </span>
                     )}
                   </button>
-                </li>
-              );
-            })}
-          </ul>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     </div>

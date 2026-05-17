@@ -1,7 +1,7 @@
 "use client";
 
 import { TOOL_COUNT } from "@/lib/tools-registry";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
 
@@ -15,45 +15,40 @@ interface HeroLeftProps {
   stats: StatItem[];
 }
 
+/**
+ * Hero left panel content. Four clear segments — eyebrow label, headline +
+ * subtitle, CTAs, stat row — each visually separated so the panel reads as
+ * structured rather than a wall of text.
+ */
 export function HeroLeft({ stats }: HeroLeftProps) {
   return (
-    <div>
-      {/* Eyebrow badge */}
-      <span
-        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold uppercase tracking-eyebrow"
-        style={{
-          background: "var(--color-surface)",
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-muted)",
-        }}
-      >
+    <div className="flex h-full flex-col">
+      {/* Segment 1 — eyebrow label */}
+      <div className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-eyebrow text-text-faint">
         <span
           className="inline-block h-1.5 w-1.5 rounded-full"
           style={{ background: "var(--color-sage-olive)" }}
           aria-hidden
         />
-        v0.0.1 · {TOOL_COUNT} utilities, all client-side
-      </span>
+        {TOOL_COUNT} utilities · 100% client-side
+        <ArrowUpRight size={12} aria-hidden className="text-text-faint/70" />
+      </div>
 
-      {/* Headline */}
-      <h1 className="display mt-7 text-hero-md sm:text-6xl lg:text-hero-lg font-bold leading-hero tracking-tight">
+      {/* Segment 2 — headline + subtitle */}
+      <h1 className="display mt-6 text-hero-md sm:text-6xl lg:text-hero-lg font-bold leading-hero tracking-tight">
         <span className="block">Every tool you need,</span>
         <span className="block text-brand">Not one you don&apos;t.</span>
         <span className="block text-clay">Free at the core.</span>
       </h1>
 
-      {/* Subtitle */}
-      <p
-        className="mt-7 text-lg leading-desc max-w-xl"
-        style={{ color: "var(--color-text-muted)" }}
-      >
+      <p className="mt-6 max-w-xl text-lg leading-desc text-text-muted">
         Free online developer tools for JSON, PDF, regex, images, colors,
-        encoding and more, all running in your browser. No sign-up, no
-        uploads, nothing leaves your machine.{" "}
+        encoding and more — all running in your browser. No sign-up, no uploads,
+        nothing leaves your machine.
       </p>
 
-      {/* CTAs */}
-      <div className="mt-9 flex flex-wrap items-center gap-3">
+      {/* Segment 3 — CTAs */}
+      <div className="mt-8 flex flex-wrap items-center gap-3">
         <Link
           href="/tools"
           className="group inline-flex items-center gap-2 rounded-button px-5 h-btn-lg text-sm font-semibold transition-all hover:-translate-y-px active:translate-y-0"
@@ -73,27 +68,21 @@ export function HeroLeft({ stats }: HeroLeftProps) {
 
         <Link
           href="/tools/json-formatter"
-          className="inline-flex items-center gap-2 rounded-button border border-border bg-transparent px-5 h-btn-lg text-sm font-semibold text-text transition-colors hover:border-border-strong hover:bg-surface"
+          className="inline-flex items-center gap-2 rounded-button border border-border bg-surface px-5 h-btn-lg text-sm font-semibold text-text transition-colors hover:border-border-strong hover:bg-surface-soft"
         >
           Try JSON formatter
         </Link>
       </div>
 
-      {/* Stat row — sits below CTAs, separated by a top border */}
-      <div className="mt-9 pt-7 border-t border-border flex flex-wrap items-center gap-6">
+      {/* Segment 4 — stat row */}
+      <div className="mt-auto flex flex-wrap items-center gap-6 border-t border-border pt-7 sm:gap-8">
         {stats.map((stat, i) => (
           <Fragment key={stat.label}>
             <div>
-              <div
-                className="text-2xl font-semibold tabular-nums tracking-tight"
-                style={{ color: "var(--color-text)" }}
-              >
+              <div className="text-2xl font-semibold tabular-nums tracking-tight text-text">
                 {stat.value}
               </div>
-              <div
-                className="text-sm uppercase tracking-tag mt-0.5 flex items-center gap-1.5"
-                style={{ color: "var(--color-text-faint)" }}
-              >
+              <div className="mt-0.5 flex items-center gap-1.5 text-sm uppercase tracking-tag text-text-faint">
                 <span
                   className="inline-block h-1.5 w-1.5 rounded-full"
                   style={{ background: stat.dotColor }}
@@ -102,10 +91,9 @@ export function HeroLeft({ stats }: HeroLeftProps) {
                 {stat.label}
               </div>
             </div>
-            {/* Vertical divider between stats — not after last */}
             {i < stats.length - 1 && (
               <div
-                className="hidden sm:block w-px self-stretch"
+                className="hidden h-9 w-px self-center sm:block"
                 style={{ background: "var(--color-border)" }}
                 aria-hidden
               />

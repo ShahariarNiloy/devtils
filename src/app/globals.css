@@ -14,9 +14,16 @@
 
   /* ── Color: surfaces ──────────────────────────────── */
   --color-bg: #f5f0e5;
+  /* Tool workspace canvas — deeper sand so white panels visibly float.
+     Scoped to ToolShell; the rest of the app stays on the lighter --bg. */
+  --color-canvas: #f5f0e5;
   --color-surface: #fbfaf5;
-  --color-surface-soft: #ece6d4;
+  --color-surface-soft: #ebede5;
   --color-surface-sage: #dde0d0;
+  /* Cool silver — a deliberately un-warm near-white for dense list UI
+     (the search finder) where the warm sand reads heavy. Tuned to sit
+     beside the warm palette without fighting it. */
+  --color-silver: #ebede5;
 
   /* ── Color: text ──────────────────────────────────── */
   --color-text: #1a1a18;
@@ -119,7 +126,9 @@
   --color-token-literal-text: var(--color-text-faint);
 
   /* ── Shadows ──────────────────────────────────────── */
-  --shadow-card: 0 10px 28px -18px rgba(26, 26, 24, 0.22);
+  --shadow-card:
+    0 1px 2px -1px rgba(26, 26, 24, 0.1),
+    0 12px 30px -16px rgba(26, 26, 24, 0.26);
   --shadow-float: 0 6px 18px -10px rgba(61, 68, 53, 0.55);
   --shadow-search: 0 6px 20px -16px rgba(26, 26, 24, 0.18);
   --shadow-focus: 0 0 0 3px var(--color-mist-sage);
@@ -142,9 +151,12 @@
 
 [data-theme="dark"] {
   --color-bg: #1a1a18;
+  /* Darker than --surface so tool panels lift on the workspace. */
+  --color-canvas: #10130d;
   --color-surface: #242420;
-  --color-surface-soft: #2c3127;
+  --color-surface-soft: #2d2e28;
   --color-surface-sage: #3d4435;
+  --color-silver: #2d2e28;
   --color-text: #f5f0e5;
   --color-text-muted: #dde0d0;
   --color-text-faint: #8a9080;
@@ -392,29 +404,78 @@ textarea:focus,
   --tok-decorator: #d4904a;
 }
 
-.tok-key      { color: var(--tok-key); font-weight: 600; }
-.tok-string   { color: var(--tok-string); }
-.tok-number   { color: var(--tok-number); }
-.tok-bool     { color: var(--tok-bool); font-weight: 500; }
-.tok-null     { color: var(--tok-null); font-style: italic; }
-.tok-punct    { color: var(--tok-punct); }
-.tok-op       { color: var(--tok-op); }
-.tok-kw       { color: var(--tok-kw); font-weight: 500; }
-.tok-type     { color: var(--tok-type); }
-.tok-ident    { color: var(--tok-ident); }
-.tok-comment  { color: var(--tok-comment); font-style: italic; }
-.tok-tag      { color: var(--tok-tag); font-weight: 500; }
-.tok-attr     { color: var(--tok-attr); }
-.tok-decorator{ color: var(--tok-decorator); }
+.tok-key {
+  color: var(--tok-key);
+  font-weight: 600;
+}
+.tok-string {
+  color: var(--tok-string);
+}
+.tok-number {
+  color: var(--tok-number);
+}
+.tok-bool {
+  color: var(--tok-bool);
+  font-weight: 500;
+}
+.tok-null {
+  color: var(--tok-null);
+  font-style: italic;
+}
+.tok-punct {
+  color: var(--tok-punct);
+}
+.tok-op {
+  color: var(--tok-op);
+}
+.tok-kw {
+  color: var(--tok-kw);
+  font-weight: 500;
+}
+.tok-type {
+  color: var(--tok-type);
+}
+.tok-ident {
+  color: var(--tok-ident);
+}
+.tok-comment {
+  color: var(--tok-comment);
+  font-style: italic;
+}
+.tok-tag {
+  color: var(--tok-tag);
+  font-weight: 500;
+}
+.tok-attr {
+  color: var(--tok-attr);
+}
+.tok-decorator {
+  color: var(--tok-decorator);
+}
 
 /* Legacy json-* aliases. Anything still emitting these maps to the same
    palette via the variables above. */
-.json-key    { color: var(--tok-key); font-weight: 600; }
-.json-string { color: var(--tok-string); }
-.json-number { color: var(--tok-number); }
-.json-bool   { color: var(--tok-bool); font-weight: 500; }
-.json-null   { color: var(--tok-null); font-style: italic; }
-.json-punct  { color: var(--tok-punct); }
+.json-key {
+  color: var(--tok-key);
+  font-weight: 600;
+}
+.json-string {
+  color: var(--tok-string);
+}
+.json-number {
+  color: var(--tok-number);
+}
+.json-bool {
+  color: var(--tok-bool);
+  font-weight: 500;
+}
+.json-null {
+  color: var(--tok-null);
+  font-style: italic;
+}
+.json-punct {
+  color: var(--tok-punct);
+}
 
 /* ── Overlay-style code editor ─────────────────────────────────────────────
    The textarea floats over a `<pre>` carrying the colourised content. The

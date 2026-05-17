@@ -1,6 +1,6 @@
 export type IndentStyle = "2" | "4" | "tab";
 
-export type ViewMode = "code" | "tree" | "table" | "grid" | "diff" | "path";
+export type ViewMode = "code" | "tree" | "table" | "graph" | "diff" | "path";
 
 export type ConvertTarget =
   | "csv"

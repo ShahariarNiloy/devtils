@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { Base64 } from '@/components/tools/base64/base64';
 import { ColorConverter } from '@/components/tools/color-converter/color-converter';
 import { JsonFormatter } from '@/components/tools/json-formatter/json-formatter';
+import { JwtDecoder } from '@/components/tools/jwt-decoder';
 import { RegexTester } from '@/components/tools/regex-tester/regex-tester';
 import { TextCase } from '@/components/tools/text-case/text-case';
 import type { Tool } from "./tools-registry";
@@ -16,6 +17,7 @@ export type ToolComponent = ComponentType<{ tool: Tool }>;
  */
 export const COMPONENT_MAP: Record<string, ToolComponent> = {
   "json-formatter": JsonFormatter,
+  "jwt-decoder": JwtDecoder,
   "case-converter": TextCase,
   base64: Base64,
   "regex-tester": RegexTester,

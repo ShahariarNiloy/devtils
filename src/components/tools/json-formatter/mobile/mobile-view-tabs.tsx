@@ -12,9 +12,9 @@ interface MobileViewTabsProps {
 const TABS: { mode: ViewMode; label: string; requiresArray?: boolean }[] = [
   { mode: "code", label: "Code" },
   { mode: "tree", label: "Tree" },
+  { mode: "graph", label: "Graph" },
   { mode: "path", label: "Path" },
   { mode: "table", label: "Table", requiresArray: true },
-  { mode: "grid", label: "Grid", requiresArray: true },
 ];
 
 export function MobileViewTabs({ viewMode, onViewModeChange, canUseTable }: MobileViewTabsProps) {

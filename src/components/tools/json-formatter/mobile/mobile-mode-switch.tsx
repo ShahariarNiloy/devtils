@@ -19,7 +19,7 @@ export function MobileModeSwitch({
   outputLabel,
 }: MobileModeSwitchProps) {
   return (
-    <div className="shrink-0 border-b border-border bg-bg px-3 py-2.5">
+    <div className="shrink-0 border-b border-border bg-canvas px-3 py-2.5">
       <div className="flex gap-0.5 rounded-md border border-border-subtle bg-surface-soft p-0.5">
         <Tab
           active={mode === "input"}

@@ -149,7 +149,7 @@ export function MobileJsonFormatter({
   // address-bar collapse doesn't desync the action sheet from the bottom edge.
   return (
     <div
-      className="flex flex-col bg-bg"
+      className="flex flex-col bg-canvas"
       style={{ height: "calc(100dvh - var(--spacing-header))" }}
     >
       <MobileAppBar

@@ -7,7 +7,6 @@ import {
   ArrowDownAZ,
   BarChart2,
   ChevronDown,
-  Crosshair,
   Link2,
   Minimize2,
   RotateCcw,
@@ -36,17 +35,19 @@ import type { JsonFormatterState } from "../use-json-formatter";
 
 interface TopActionBarProps {
   state: JsonFormatterState;
-  onToggleQuery: () => void;
   onShare: () => void;
-  onOpenFind: () => void;
+  /** Toggle the unified Search panel (Fuzzy + JSONPath). */
+  onToggleSearch: () => void;
+  /** Whether the Search panel is open (drives the active state). */
+  searchActive?: boolean;
   sharing: boolean;
 }
 
 export function TopActionBar({
   state,
-  onToggleQuery,
   onShare,
-  onOpenFind,
+  onToggleSearch,
+  searchActive,
   sharing,
 }: TopActionBarProps) {
   const hasInput = state.input.trim().length > 0;
@@ -55,25 +56,28 @@ export function TopActionBar({
 
   return (
     <div className="flex h-11 shrink-0 items-center gap-0.5 bg-surface px-2">
-      {/* ── Primary: Format ─────────────────────────────────────────── */}
+      {/* ── Primary CTA: Format — solid brand, lifted, and fenced off by
+            a divider so it reads as the tool's action, not a selected tab. */}
       <Tooltip content="Format" shortcut="⌘↵" side="bottom">
         <button
           type="button"
           onClick={state.format}
           disabled={!canFormat}
           className={cn(
-            "group inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 lg:pr-1.5 text-sm font-semibold transition-[background,color,box-shadow,transform] duration-150 ease-out select-none cursor-pointer",
-            "bg-brand text-bg shadow-btn-primary hover:bg-brand-hover active:scale-[0.98]",
-            "disabled:bg-surface-soft disabled:text-text-faint disabled:shadow-none disabled:cursor-not-allowed disabled:active:scale-100",
+            "group inline-flex h-8 items-center gap-1.5 rounded-lg px-3 lg:pr-2 text-sm font-semibold transition-[background,color,box-shadow,transform] duration-150 ease-out select-none cursor-pointer",
+            "bg-brand text-bg shadow-btn-primary hover:bg-brand-hover hover:-translate-y-px active:translate-y-0 active:scale-[0.98]",
+            "disabled:bg-surface-soft disabled:text-text-faint disabled:shadow-none disabled:cursor-not-allowed disabled:translate-y-0 disabled:active:scale-100",
           )}
         >
-          <AlignLeft size={13} />
+          <AlignLeft size={14} />
           <span className="hidden lg:inline">Format</span>
           <Kbd className="hidden lg:inline-flex ml-0.5 h-5 border-transparent bg-bg/15 px-1 text-[10.5px] tracking-tight text-bg/80 group-disabled:opacity-50">
             ⌘↵
           </Kbd>
         </button>
       </Tooltip>
+
+      <Divider />
 
       {/* ── Transform cluster ────────────────────────────────────────── */}
       <ToolButton
@@ -117,48 +121,6 @@ export function TopActionBar({
 
       <Divider />
 
-      {/* ── Convert + Indent ─────────────────────────────────────────── */}
-      <ToolDropdown
-        disabled={!hasInput}
-        icon={<ArrowDownUp size={13} />}
-        label="Convert"
-        tooltip="Convert format"
-        menuClassName="min-w-[200px]"
-      >
-        <DropdownMenuItem onClick={() => state.convert("csv")}>JSON &rarr; CSV</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("yaml")}>JSON &rarr; YAML</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("typescript")}>JSON &rarr; TypeScript</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("xml")}>JSON &rarr; XML</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("zod")}>JSON &rarr; Zod</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("schema")}>JSON &rarr; JSON Schema</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => state.convert("go")}>JSON &rarr; Go</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("python")}>JSON &rarr; Python</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("rust")}>JSON &rarr; Rust</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => state.convert("csv-to-json")}>CSV &rarr; JSON</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => state.convert("yaml-to-json")}>YAML &rarr; JSON</DropdownMenuItem>
-      </ToolDropdown>
-
-      <Select
-        value={state.indent}
-        onValueChange={(v) => state.setIndent(v as IndentStyle)}
-      >
-        <SelectTrigger
-          size="sm"
-          className="h-8 w-[108px] rounded-md border-border-subtle bg-transparent text-text-muted hover:bg-surface-soft hover:border-border-subtle data-[state=open]:bg-surface-soft"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="2">2 spaces</SelectItem>
-          <SelectItem value="4">4 spaces</SelectItem>
-          <SelectItem value="tab">Tab</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Divider />
-
       {/* ── Utility cluster ──────────────────────────────────────────── */}
       {state.output && (
         <ToolButton
@@ -170,20 +132,13 @@ export function TopActionBar({
       )}
 
       <ToolButton
-        icon={<Crosshair size={13} />}
-        label="Find"
-        onClick={onOpenFind}
-        disabled={!hasInput}
-        tooltip="Find anything"
-        shortcut="⌘/"
-      />
-
-      <ToolButton
         icon={<Search size={13} />}
-        label="Query"
-        onClick={onToggleQuery}
-        active={state.showQuery}
-        tooltip="JSONPath query"
+        label="Search"
+        onClick={onToggleSearch}
+        active={searchActive}
+        disabled={!hasInput}
+        tooltip="Search — fuzzy find or JSONPath"
+        shortcut="⌘/"
       />
 
       <ToolButton
@@ -202,6 +157,48 @@ export function TopActionBar({
         tooltip="Copy a sharable link"
         pulse={sharing}
       />
+
+      {/* ── Right-aligned: Convert + Indent ──────────────────────────── */}
+      <div className="ml-auto flex items-center gap-0.5 pl-2">
+        <ToolDropdown
+          disabled={!hasInput}
+          icon={<ArrowDownUp size={13} />}
+          label="Convert"
+          tooltip="Convert format"
+          menuClassName="min-w-[200px]"
+        >
+          <DropdownMenuItem onClick={() => state.convert("csv")}>JSON &rarr; CSV</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("yaml")}>JSON &rarr; YAML</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("typescript")}>JSON &rarr; TypeScript</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("xml")}>JSON &rarr; XML</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("zod")}>JSON &rarr; Zod</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("schema")}>JSON &rarr; JSON Schema</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => state.convert("go")}>JSON &rarr; Go</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("python")}>JSON &rarr; Python</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("rust")}>JSON &rarr; Rust</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => state.convert("csv-to-json")}>CSV &rarr; JSON</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => state.convert("yaml-to-json")}>YAML &rarr; JSON</DropdownMenuItem>
+        </ToolDropdown>
+
+        <Select
+          value={state.indent}
+          onValueChange={(v) => state.setIndent(v as IndentStyle)}
+        >
+          <SelectTrigger
+            size="sm"
+            className="h-8 w-[108px] rounded-md border-border-subtle bg-transparent text-text-muted hover:bg-surface-soft hover:border-border-subtle data-[state=open]:bg-surface-soft"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2">2 spaces</SelectItem>
+            <SelectItem value="4">4 spaces</SelectItem>
+            <SelectItem value="tab">Tab</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

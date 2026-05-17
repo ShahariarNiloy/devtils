@@ -1,6 +1,14 @@
 "use client";
 
-import { startTransition, useCallback, useDeferredValue, useMemo, useState } from "react";
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useState,
+} from "react";
 import {
   Copy,
   Download,
@@ -13,9 +21,9 @@ import {
 import { cn } from "@/lib/cn";
 import { Tooltip } from "@/components/primitives/tooltip";
 import { CodeView } from "../views/code-view";
+import { DeferredMount } from "../views/deferred-mount";
 import { TreeView } from "../views/tree-view";
 import { TableView } from "../views/table-view";
-import { GridView } from "../views/grid-view";
 import { PathView } from "../views/path-view";
 import type { ViewMode } from "../json-formatter.types";
 import type { JsonFormatterState } from "../use-json-formatter";
@@ -25,11 +33,14 @@ import { EmptyState } from "./empty-state";
 import { applySearchHighlight, highlightJson } from "../json-highlighter";
 import { formatJson } from "../json-formatter.lib";
 
+// Graph is a heavier SVG view — only its chunk loads when the tab opens.
+const GraphView = lazy(() => import("../views/graph/graph-view"));
+
 const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
   { mode: "code", label: "Code" },
   { mode: "tree", label: "Tree" },
   { mode: "table", label: "Table" },
-  { mode: "grid", label: "Grid" },
+  { mode: "graph", label: "Graph" },
   { mode: "path", label: "Path" },
 ];
 
@@ -127,7 +138,7 @@ export function OutputPanel({
       <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
         <div className="flex items-center gap-0.5 flex-1">
           {VIEW_LABELS.map(({ mode, label }) => {
-            const requiresArray = mode === "table" || mode === "grid";
+            const requiresArray = mode === "table";
             const isDisabled = requiresArray && !state.canUseTableView;
             const isActive = state.viewMode === mode;
 
@@ -265,7 +276,7 @@ export function OutputPanel({
             onClearRecent={onClearRecent}
           />
         ) : (
-          <>
+          <DeferredMount token={state.viewMode}>
             {state.viewMode === "code" && (
               <CodeView
                 value={displayedCode}
@@ -285,19 +296,29 @@ export function OutputPanel({
             {state.viewMode === "table" && state.canUseTableView && (
               <TableView value={tableValue} />
             )}
-            {state.viewMode === "grid" && state.canUseTableView && (
-              <GridView value={tableValue} />
+            {state.viewMode === "graph" && (
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-sm text-text-faint">
+                    Loading graph…
+                  </div>
+                }
+              >
+                <GraphView
+                  value={state.parsedOutput ?? state.parsedValue}
+                  onUseTree={() => state.setViewMode("tree")}
+                />
+              </Suspense>
             )}
             {state.viewMode === "path" && (
               <PathView value={state.parsedOutput ?? state.parsedValue} />
             )}
-            {(state.viewMode === "table" || state.viewMode === "grid") &&
-              !state.canUseTableView && (
-                <div className="flex h-full items-center justify-center text-sm text-text-faint">
-                  Requires an array of objects — format your JSON first.
-                </div>
-              )}
-          </>
+            {state.viewMode === "table" && !state.canUseTableView && (
+              <div className="flex h-full items-center justify-center text-sm text-text-faint">
+                Requires an array of objects — format your JSON first.
+              </div>
+            )}
+          </DeferredMount>
         )}
       </div>
     </div>

@@ -1,23 +1,32 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { CATEGORIES, TIER_COUNTS } from "@/lib/tools-registry";
+import { ToolIcon } from "@/components/shared/tool-icon";
 import { HeroLeft, type StatItem } from "./hero-left";
-import { HeroToolbox } from "./hero-toolbox";
+import { HeroPreview } from "./hero-preview";
+
+// Mobile-only quick jumps — the deck is desktop-only, so phones/tablets
+// would otherwise see a bare text hero.
+const MOBILE_QUICK = [
+  { slug: "json-formatter", name: "JSON Formatter", icon: "braces" },
+  { slug: "regex-tester", name: "Regex Tester", icon: "regex" },
+  { slug: "base64", name: "Base64", icon: "binary" },
+  { slug: "color-converter", name: "Color Converter", icon: "pipette" },
+];
 
 /**
- * Hero section — search-first, two-column layout on desktop.
+ * Hero — two-panel layout.
  *
- * Left:  headline, subtitle, two CTAs, stat row (free/pro/ai/categories).
- * Right: big search trigger (opens ⌘K palette) + 2×2 quick-jump tool grid.
+ * Left:  a clearly segmented surface card (eyebrow → headline → CTAs →
+ *        stats). Right: a floating product preview of the JSON formatter
+ *        over an on-brand olive→sage gradient.
  *
- * No doodles, no decorative patterns. The sage-olive 4px strip at the top
- * is the only brand decoration. Clay never appears here — it is reserved
- * for premium tier accents elsewhere.
+ * The sage-olive 4px strip is the only top decoration. Clay stays reserved
+ * for premium-tier accents elsewhere.
  */
 export function Hero() {
-  // const [shortcut] = useState(() => (isMac() ? "⌘ K" : "Ctrl K"));
-  // const { setOpen } = useCommandPalette();
-
   const stats: StatItem[] = [
     {
       value: TIER_COUNTS.free,
@@ -45,11 +54,47 @@ export function Hero() {
         style={{ background: "var(--color-sage-olive)" }}
       />
 
-      <div className="mx-auto max-w-8xl px-6 sm:px-10 pt-16 pb-20 lg:pt-20 lg:pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2  items-center">
-          <HeroLeft stats={stats} />
-          <div className="hidden lg:block lg:col-span-1 w-2/3 px-10 mx-auto">
-            <HeroToolbox />
+      <div className="mx-auto max-w-8xl px-6 sm:px-10 py-12 lg:py-16">
+        <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-10">
+          {/* Left — plain content, no card chrome */}
+          <div className="lg:pr-8">
+            <HeroLeft stats={stats} />
+          </div>
+
+          {/* Right — product preview, inset with padding so it reads
+              "zoomed out" inside the 50% column (desktop only) */}
+          <div className="hidden lg:block lg:px-8 xl:px-12">
+            <HeroPreview />
+          </div>
+
+          {/* Mobile/tablet — quick jumps in place of the desktop deck */}
+          <div className="grid grid-cols-2 gap-2.5 lg:hidden">
+            {MOBILE_QUICK.map((t) => (
+              <Link
+                key={t.slug}
+                href={`/tools/${t.slug}`}
+                className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface p-3.5 transition-all hover:-translate-y-px hover:border-border-strong"
+              >
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    background: "var(--color-mist-sage)",
+                    color: "var(--color-olive-ink)",
+                  }}
+                  aria-hidden
+                >
+                  <ToolIcon name={t.icon} size={15} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text">
+                  {t.name}
+                </span>
+                <ArrowUpRight
+                  size={13}
+                  aria-hidden
+                  className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-70"
+                />
+              </Link>
+            ))}
           </div>
         </div>
       </div>

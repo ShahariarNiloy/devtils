@@ -1,15 +1,17 @@
 "use client";
 
-import { useDeferredValue, useMemo } from "react";
+import { lazy, Suspense, useDeferredValue, useMemo } from "react";
 import { CodeView } from "../views/code-view";
+import { DeferredMount } from "../views/deferred-mount";
 import { TreeView } from "../views/tree-view";
 import { TableView } from "../views/table-view";
-import { GridView } from "../views/grid-view";
 import { PathView } from "../views/path-view";
 import { EmptyState } from "../panels/empty-state";
 import { applySearchHighlight, highlightJson } from "../json-highlighter";
 import { formatJson } from "../json-formatter.lib";
 import type { JsonFormatterState } from "../use-json-formatter";
+
+const GraphView = lazy(() => import("../views/graph/graph-view"));
 import type { HistoryEntry } from "../hooks/use-history";
 
 interface MobileOutputViewProps {
@@ -76,7 +78,7 @@ export function MobileOutputView({
 
   if (showEmptyState) {
     return (
-      <div className="h-full overflow-auto bg-bg">
+      <div className="h-full overflow-auto bg-canvas">
         <EmptyState
           onLoadSample={onLoadSample}
           onLoadFile={onLoadFile}
@@ -92,6 +94,7 @@ export function MobileOutputView({
 
   return (
     <div className="h-full overflow-hidden bg-surface">
+      <DeferredMount token={state.viewMode}>
       {state.viewMode === "code" && (
         <CodeView
           value={displayedCode}
@@ -111,18 +114,29 @@ export function MobileOutputView({
       {state.viewMode === "table" && state.canUseTableView && (
         <TableView value={tableValue} />
       )}
-      {state.viewMode === "grid" && state.canUseTableView && (
-        <GridView value={tableValue} />
+      {state.viewMode === "graph" && (
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-faint">
+              Loading graph…
+            </div>
+          }
+        >
+          <GraphView
+            value={state.parsedOutput ?? state.parsedValue}
+            onUseTree={() => state.setViewMode("tree")}
+          />
+        </Suspense>
       )}
       {state.viewMode === "path" && (
         <PathView value={state.parsedOutput ?? state.parsedValue} />
       )}
-      {(state.viewMode === "table" || state.viewMode === "grid") &&
-        !state.canUseTableView && (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-faint">
-            Requires an array of objects — format your JSON first.
-          </div>
-        )}
+      {state.viewMode === "table" && !state.canUseTableView && (
+        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-faint">
+          Requires an array of objects — format your JSON first.
+        </div>
+      )}
+      </DeferredMount>
     </div>
   );
 }

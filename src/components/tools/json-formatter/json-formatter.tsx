@@ -1,30 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
-import { useIsMobile } from "@/lib/use-is-mobile";
-import { useShortcut } from "@/lib/keyboard";
-import type { Tool } from "@/lib/tools-registry";
-import { InputPanel } from "./panels/input-panel";
-import { OutputPanel } from "./panels/output-panel";
-import { QueryPanel } from "./panels/query-panel";
-import { StatsPanel } from "./panels/stats-panel";
-import { StatusBar } from "./panels/status-bar";
-import { TopActionBar } from "./panels/top-action-bar";
-import { FetchUrlDialog } from "./panels/fetch-url-dialog";
-import { FuzzyFindDialog } from "./panels/fuzzy-find-dialog";
-import { JsonFormatterGuide } from "./panels/json-formatter-guide";
-import { RepairPreviewDialog } from "./panels/repair-preview-dialog";
-import { MobileJsonFormatter } from "./mobile/mobile-json-formatter";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/primitives/resizable";
-import { useJsonFormatter } from "./use-json-formatter";
+import { useShortcut } from "@/lib/keyboard";
+import type { Tool } from "@/lib/tools-registry";
+import { useIsMobile } from "@/lib/use-is-mobile";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useDraftAutosave } from "./hooks/use-draft-autosave";
 import { useHistory, type HistoryEntry } from "./hooks/use-history";
 import { SAMPLE_DATA } from "./json-formatter.lib";
+import { MobileJsonFormatter } from "./mobile/mobile-json-formatter";
+import { FetchUrlDialog } from "./panels/fetch-url-dialog";
+import { FuzzyFindDialog } from "./panels/fuzzy-find-dialog";
+import { InputPanel } from "./panels/input-panel";
+import { JsonFormatterGuide } from "./panels/json-formatter-guide";
+import { OutputPanel } from "./panels/output-panel";
+import { RepairPreviewDialog } from "./panels/repair-preview-dialog";
+import { SearchPanel } from "./panels/search-panel";
+import { StatsPanel } from "./panels/stats-panel";
+import { StatusBar } from "./panels/status-bar";
+import { TopActionBar } from "./panels/top-action-bar";
 import {
   buildShareUrl,
   clearShareTokenFromUrl,
@@ -32,14 +32,22 @@ import {
   encodeShareToken,
   readShareToken,
 } from "./share-link";
+import { useJsonFormatter } from "./use-json-formatter";
 
 export function JsonFormatter({ tool }: { tool: Tool }) {
   const state = useJsonFormatter();
   const history = useHistory();
   const isMobile = useIsMobile();
   const [fetchUrlOpen, setFetchUrlOpen] = useState(false);
-  const [fuzzyOpen, setFuzzyOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  // Persist & restore the live draft on-device. Skip restore when a share
+  // token is present so we never override an explicit `#d=` link.
+  const [skipDraftRestore] = useState(
+    () => typeof window !== "undefined" && Boolean(readShareToken()),
+  );
+  useDraftAutosave(state.input, state.setInput, skipDraftRestore);
 
   // ── Share link: auto-load on mount if URL has `#d=…` ─────────────────────
   // Run once, never block render. Decompression is async (CompressionStream)
@@ -103,17 +111,18 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
       state.loadSample(key);
       history.push(sample.json, sample.label);
     },
-    [state, history],
+    [state, history]
   );
 
   const loadFileAndRemember = useCallback(
     (file: File) => {
       state.loadFile(file);
       const reader = new FileReader();
-      reader.onload = () => history.push(String(reader.result ?? ""), file.name);
+      reader.onload = () =>
+        history.push(String(reader.result ?? ""), file.name);
       reader.readAsText(file);
     },
-    [state, history],
+    [state, history]
   );
 
   const handleUrlLoaded = useCallback(
@@ -121,7 +130,7 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
       state.setInput(text);
       history.push(text, name);
     },
-    [state, history],
+    [state, history]
   );
 
   // Restore is async — the body lives in IDB and is only fetched on click,
@@ -131,26 +140,49 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
       const body = await history.getBody(entry.id);
       if (body !== null) state.setInput(body);
     },
-    [state, history],
+    [state, history]
   );
 
-  useShortcut({ key: "Enter", meta: true }, (e) => { e.preventDefault(); state.format(); });
-  useShortcut({ key: "m", meta: true, shift: true }, (e) => { e.preventDefault(); state.minify(); });
-  useShortcut({ key: "v", meta: true, shift: true }, (e) => { e.preventDefault(); state.validate(); });
-  useShortcut({ key: "c", meta: true, shift: true }, (e) => { e.preventDefault(); void state.copyOutput(); });
-  useShortcut({ key: "r", meta: true, shift: true }, (e) => { e.preventDefault(); state.repair(); });
-  useShortcut({ key: "s", meta: true, shift: true }, (e) => { e.preventDefault(); state.sortKeys("asc"); });
-  useShortcut({ key: "d", meta: true, shift: true }, (e) => { e.preventDefault(); state.downloadOutput("json"); });
+  useShortcut({ key: "Enter", meta: true }, (e) => {
+    e.preventDefault();
+    state.format();
+  });
+  useShortcut({ key: "m", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    state.minify();
+  });
+  useShortcut({ key: "v", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    state.validate();
+  });
+  useShortcut({ key: "c", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    void state.copyOutput();
+  });
+  useShortcut({ key: "r", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    state.repair();
+  });
+  useShortcut({ key: "s", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    state.sortKeys("asc");
+  });
+  useShortcut({ key: "d", meta: true, shift: true }, (e) => {
+    e.preventDefault();
+    state.downloadOutput("json");
+  });
   // Fuzzy find — Cmd/Ctrl + / (Cmd+F is the browser's find which most users
   // expect; / is the editor-style "global find" we want here).
-  useShortcut({ key: "/", meta: true }, (e) => { e.preventDefault(); setFuzzyOpen(true); });
+  useShortcut({ key: "/", meta: true }, (e) => {
+    e.preventDefault();
+    setSearchOpen((v) => !v);
+  });
 
   return (
     <ToolShell
       tool={tool}
       classNames={{
         header: "hidden md:block",
-        body: "max-md:!p-0 max-md:!max-w-none max-w-auto",
       }}
     >
       {isMobile ? (
@@ -159,7 +191,7 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
           state={state}
           sharing={sharing}
           onShare={() => void handleShare()}
-          onOpenFind={() => setFuzzyOpen(true)}
+          onOpenFind={() => setSearchOpen(true)}
           onLoadFile={loadFileAndRemember}
           onLoadSample={loadSampleAndRemember}
           onOpenFetchUrl={() => setFetchUrlOpen(true)}
@@ -170,14 +202,15 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
         />
       ) : (
         <div className="flex flex-col gap-3">
-          {/* Detached top action bar — fit-content pill, How to use floats right */}
+          {/* Detached top action bar — spans the row so Convert/Indent sit
+              at the far right; How to use stays at the end. */}
           <div className="flex items-center gap-3">
-            <div className="overflow-hidden rounded-xl border border-border shadow-card bg-surface w-fit">
+            <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border shadow-card bg-surface">
               <TopActionBar
                 state={state}
-                onToggleQuery={() => state.setShowQuery(!state.showQuery)}
                 onShare={() => void handleShare()}
-                onOpenFind={() => setFuzzyOpen(true)}
+                onToggleSearch={() => setSearchOpen((v) => !v)}
+                searchActive={searchOpen}
                 sharing={sharing}
               />
             </div>
@@ -187,8 +220,11 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
           </div>
 
           {/* Side panels — render between action bar and editor */}
-          {state.showQuery && (
-            <QueryPanel state={state} onClose={() => state.setShowQuery(false)} />
+          {searchOpen && (
+            <SearchPanel
+              value={state.parsedOutput ?? state.parsedValue}
+              onClose={() => setSearchOpen(false)}
+            />
           )}
 
           {state.showStats && (
@@ -202,9 +238,14 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
           {/* Editor card — input + output + status */}
           <div
             className="flex flex-col overflow-hidden rounded-xl border border-border shadow-card bg-surface"
-            style={{ height: "max(520px, calc(100dvh - var(--spacing-header) - 88px))" }}
+            style={{
+              height: "max(520px, calc(100dvh - var(--spacing-header) - 88px))",
+            }}
           >
-            <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+            <ResizablePanelGroup
+              direction="horizontal"
+              className="flex-1 min-h-0"
+            >
               <ResizablePanel defaultSize={38} minSize={20}>
                 <InputPanel
                   state={state}
@@ -238,12 +279,18 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
         onLoaded={handleUrlLoaded}
       />
 
-      <FuzzyFindDialog
-        open={fuzzyOpen}
-        onOpenChange={setFuzzyOpen}
-        value={state.parsedOutput ?? state.parsedValue}
-        onPick={() => { /* path is already copied by the dialog */ }}
-      />
+      {/* Mobile keeps the modal finder (better on small screens); desktop
+          uses the unified inline SearchPanel above (Fuzzy + JSONPath). */}
+      {isMobile && (
+        <FuzzyFindDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          value={state.parsedOutput ?? state.parsedValue}
+          onPick={() => {
+            /* path is already copied by the dialog */
+          }}
+        />
+      )}
 
       <RepairPreviewDialog
         preview={state.repairPreview}

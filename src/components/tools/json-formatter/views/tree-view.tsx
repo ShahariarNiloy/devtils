@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { TreeNode } from "./tree-node";
+import { useCallback, useMemo, useState } from "react";
+import { TreeRow } from "./tree-node";
 import { TreeBreadcrumb } from "./tree-breadcrumb";
+import { collectExpanded, flattenTree, type FlatRow } from "./tree-flatten";
+import { useVirtualList } from "./use-virtual-list";
 
 export interface TreeViewProps {
   value: unknown;
@@ -11,38 +13,94 @@ export interface TreeViewProps {
   collapseAll?: number;
 }
 
-export function TreeView({ value, search, expandAll, collapseAll }: TreeViewProps) {
-  // Focus path is local to the tree. It's a string in JSONPath form so the
-  // breadcrumb can split it on the fly for display, and so memoized TreeNodes
-  // see stable string identities for the `path` prop.
-  const [focusPath, setFocusPath] = useState("$");
+const ROW_HEIGHT = 26;
+const DEFAULT_DEPTH = 1; // auto-expand root + one level
+const DEFAULT_CAP = 4_000; // stop auto-expanding huge docs (collapsed by default)
+const EXPAND_ALL_CAP = 60_000; // hard ceiling for explicit "expand all"
 
-  // Stable callback so every memoized TreeNode receives the same identity
-  // across re-renders — focus changes do *not* invalidate the whole tree.
-  const handleFocus = useCallback((p: string) => setFocusPath(p), []);
+export function TreeView({
+  value,
+  search,
+  expandAll = 0,
+  collapseAll = 0,
+}: TreeViewProps) {
+  // Focus path drives the breadcrumb. String form so memoized rows see stable
+  // identities and the breadcrumb can tokenize it on the fly.
+  const [focusPath, setFocusPath] = useState("$");
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    collectExpanded(value, DEFAULT_DEPTH, DEFAULT_CAP),
+  );
+
+  const handleActivate = useCallback((row: FlatRow) => {
+    setFocusPath(row.path);
+    if (row.kind === "leaf") return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.path)) next.delete(row.path);
+      else next.add(row.path);
+      return next;
+    });
+  }, []);
+
+  // Derived-from-props sync (no effect): when the document changes, reseed the
+  // default expansion; when a force counter ticks, expand/collapse en masse.
+  const [synced, setSynced] = useState({
+    value,
+    le: expandAll,
+    lc: collapseAll,
+  });
+  if (synced.value !== value) {
+    setSynced({ value, le: expandAll, lc: collapseAll });
+    setExpanded(collectExpanded(value, DEFAULT_DEPTH, DEFAULT_CAP));
+  } else if (synced.le !== expandAll) {
+    setSynced({ ...synced, le: expandAll });
+    setExpanded(collectExpanded(value, Infinity, EXPAND_ALL_CAP));
+  } else if (synced.lc !== collapseAll) {
+    setSynced({ ...synced, lc: collapseAll });
+    setExpanded(new Set());
+  }
+
+  const rows = useMemo(
+    () => flattenTree(value, (p) => expanded.has(p)),
+    [value, expanded],
+  );
+
+  const { scrollRef, onScroll, totalHeight, offsetY, startIndex, endIndex } =
+    useVirtualList(rows.length, ROW_HEIGHT);
 
   if (value === null || value === undefined) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 text-text-faint">
-        <span className="text-sm">Paste or load JSON to explore its structure</span>
+        <span className="text-sm">
+          Paste or load JSON to explore its structure
+        </span>
       </div>
     );
   }
 
+  const slice = rows.slice(startIndex, endIndex);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <TreeBreadcrumb path={focusPath} />
-      <div className="flex-1 overflow-auto p-4 font-mono text-base leading-relaxed tracking-tight">
-        <TreeNode
-          nodeKey={null}
-          value={value}
-          depth={0}
-          search={search}
-          forceExpand={expandAll}
-          forceCollapse={collapseAll}
-          path="$"
-          onFocus={handleFocus}
-        />
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-auto font-mono text-base tracking-tight"
+      >
+        <div style={{ height: totalHeight, position: "relative" }}>
+          <div style={{ transform: `translateY(${offsetY}px)` }}>
+            {slice.map((row) => (
+              <TreeRow
+                key={row.path}
+                row={row}
+                rowHeight={ROW_HEIGHT}
+                search={search}
+                onActivate={handleActivate}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -98,49 +98,38 @@ export function buildFuzzyIndex(root: unknown): FuzzyEntry[] {
  * Score how well `target` matches `query` (both already lower-cased).
  * Returns 0 for no match, positive for matches; higher = better.
  *
+ * Substring-only (no scattered-subsequence matching — that produced far
+ * too much noise for a JSON finder, e.g. "name" hitting "AlexaNder MEndez").
+ *
  * Tiers:
  *  - 1000: exact equality
  *  - 800–900: prefix
  *  - 500–700: substring (earlier = higher)
- *  - 100–300: subsequence (fewer gaps = higher)
- *  - 0: query characters absent or out of order
+ *  - 0: query is not a contiguous substring
  */
 function scoreString(query: string, target: string): number {
   if (!target || !query) return 0;
   if (target === query) return 1000;
-  if (target.startsWith(query)) return 900 - Math.min(target.length - query.length, 100);
-
+  if (target.startsWith(query)) {
+    return 900 - Math.min(target.length - query.length, 100);
+  }
   const sub = target.indexOf(query);
   if (sub !== -1) return 700 - Math.min(sub, 200);
-
-  // Subsequence: every query char must appear in order.
-  let qi = 0;
-  let lastIdx = -1;
-  let gaps = 0;
-  for (let ti = 0; ti < target.length && qi < query.length; ti += 1) {
-    if (target.charCodeAt(ti) === query.charCodeAt(qi)) {
-      if (lastIdx >= 0) gaps += ti - lastIdx - 1;
-      lastIdx = ti;
-      qi += 1;
-    }
-  }
-  if (qi !== query.length) return 0;
-  return Math.max(0, 300 - gaps * 2);
+  return 0;
 }
 
-// Per-field multipliers — matches on the leaf key matter most.
+// Match only the leaf key and the value. Path is intentionally NOT scored:
+// it contains every ancestor key, so scoring it surfaces every descendant
+// of any matched branch — the main source of "lots of other things".
 const W_KEY = 1.0;
-const W_VALUE = 0.7;
-const W_PATH = 0.5;
+const W_VALUE = 0.85;
 
 function scoreEntry(query: string, entry: FuzzyEntry): FuzzyResult | null {
   const k = scoreString(query, entry.keyLc) * W_KEY;
   const v = scoreString(query, entry.valueLc) * W_VALUE;
-  const p = scoreString(query, entry.pathLc) * W_PATH;
-  const best = Math.max(k, v, p);
+  const best = Math.max(k, v);
   if (best === 0) return null;
-  const matchedField = best === k ? "key" : best === v ? "value" : "path";
-  return { entry, score: best, matchedField };
+  return { entry, score: best, matchedField: k >= v ? "key" : "value" };
 }
 
 // ── Public search ───────────────────────────────────────────────────────────

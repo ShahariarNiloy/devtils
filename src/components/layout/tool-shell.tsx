@@ -1,11 +1,11 @@
 "use client";
 
-import { pushRecent } from '@/components/primitives/command-palette';
-import { ToolShellHeader } from '@/components/layout/tool-shell-header';
+import { ToolShellHeader } from "@/components/layout/tool-shell-header";
+import { pushRecent } from "@/components/primitives/command-palette";
 import { cn } from "@/lib/cn";
 import type { Tool } from "@/lib/tools-registry";
 import { motion } from "framer-motion";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 interface Props {
   tool: Tool;
@@ -25,10 +25,25 @@ interface Props {
  * Tracks the visit so the palette's Recents stays useful.
  */
 export function ToolShell({ tool, actions, children, classNames }: Props) {
+  const bodyRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     pushRecent(tool.slug);
   }, [tool.slug]);
 
+  // Open each tool at its workspace, not the header band: scroll the body
+  // into view on mount so the breadcrumb/title/tags sit above the fold and
+  // are revealed only if the user scrolls up. Skipped when the URL carries
+  // a hash (deep link / share token) so we don't fight an explicit anchor.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [tool.slug]);
 
   return (
     <>
@@ -41,10 +56,14 @@ export function ToolShell({ tool, actions, children, classNames }: Props) {
         <ToolShellHeader tool={tool} classNames={classNames} />
 
         {/* ─── Tool body ────────────────────────────────── */}
-        <section className="bg-bg">
+        <section
+          ref={bodyRef}
+          className="bg-canvas"
+          style={{ scrollMarginTop: "var(--spacing-header)" }}
+        >
           <div
             className={cn(
-              "mx-auto max-w-8xl px-5 sm:px-8 py-6 sm:py-8",
+              "mx-auto max-w-8xl px-0 sm:px-8 py-0 sm:py-8",
               classNames?.body
             )}
           >
@@ -67,7 +86,6 @@ export function ToolShell({ tool, actions, children, classNames }: Props) {
           </div>
         </div>
       ) : null}
-
     </>
   );
 }
