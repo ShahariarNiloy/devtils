@@ -177,9 +177,6 @@ export function TopActionBar({
           <DropdownMenuItem onClick={() => state.convert("go")}>JSON &rarr; Go</DropdownMenuItem>
           <DropdownMenuItem onClick={() => state.convert("python")}>JSON &rarr; Python</DropdownMenuItem>
           <DropdownMenuItem onClick={() => state.convert("rust")}>JSON &rarr; Rust</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => state.convert("csv-to-json")}>CSV &rarr; JSON</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("yaml-to-json")}>YAML &rarr; JSON</DropdownMenuItem>
         </ToolDropdown>
 
         <Select

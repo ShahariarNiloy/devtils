@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { parseJson } from "../json-formatter.lib";
+import type { ValidationState } from "../json-formatter.types";
 
 // Below this, parse synchronously in render — identical to the old behaviour,
 // zero added latency for the common case. Above it, offload to the worker.
-const WORKER_THRESHOLD = 256_000; // chars (~256 KB)
+export const WORKER_THRESHOLD = 256_000; // chars (~256 KB)
 
 let workerSingleton: Worker | null = null;
 function getParseWorker(): Worker {
@@ -20,16 +21,27 @@ function getParseWorker(): Worker {
 let seq = 0;
 
 type ParseResponse =
-  | { id: number; ok: true; value: unknown }
-  | { id: number; ok: false };
+  | { id: number; ok: true; value: unknown; bytes: number; lines: number }
+  | { id: number; ok: false; message: string; line: number; col: number };
+
+export interface AsyncParsed {
+  value: unknown;
+  /**
+   * Validation derived from the worker parse — only populated for large
+   * inputs (small inputs are validated synchronously by the caller, so this
+   * stays null and there's no behaviour change for them).
+   */
+  validation: ValidationState | null;
+}
 
 /**
  * Parse `src` to a JS value. Small inputs parse synchronously (no behaviour
- * change). Large inputs go to a worker so JSON.parse never freezes the tab;
- * the last good value is kept until the new parse resolves
- * (stale-while-revalidate) so the views don't flash empty mid-edit.
+ * change). Large inputs go to a worker so JSON.parse never freezes the tab,
+ * and the worker also reports validity/error-position so the main thread
+ * never re-parses the document just for the validation banner. Last good
+ * value is kept until the new parse resolves (stale-while-revalidate).
  */
-export function useAsyncParsed(src: string): unknown {
+export function useAsyncParsed(src: string): AsyncParsed {
   const small = src.length <= WORKER_THRESHOLD;
 
   const sync = useMemo<{ v: unknown } | null>(() => {
@@ -42,7 +54,10 @@ export function useAsyncParsed(src: string): unknown {
     }
   }, [src, small]);
 
-  const [asyncValue, setAsyncValue] = useState<unknown>(null);
+  const [asyncState, setAsyncState] = useState<AsyncParsed>({
+    value: null,
+    validation: null,
+  });
 
   useEffect(() => {
     if (small || !src.trim()) return;
@@ -51,12 +66,32 @@ export function useAsyncParsed(src: string): unknown {
     const onMessage = (e: MessageEvent<ParseResponse>) => {
       const data = e.data;
       if (data.id !== id) return; // stale response from a superseded edit
-      setAsyncValue(data.ok ? data.value : null);
+      if (data.ok) {
+        setAsyncState({
+          value: data.value,
+          validation: {
+            status: "valid",
+            size: data.bytes,
+            lines: data.lines,
+          },
+        });
+      } else {
+        setAsyncState((prev) => ({
+          value: prev.value, // keep stale tree; banner shows the error
+          validation: {
+            status: "invalid",
+            message: data.message,
+            line: data.line,
+            col: data.col,
+          },
+        }));
+      }
     };
     worker.addEventListener("message", onMessage);
     worker.postMessage({ id, src });
     return () => worker.removeEventListener("message", onMessage);
   }, [src, small]);
 
-  return sync ? sync.v : asyncValue;
+  if (sync) return { value: sync.v, validation: null };
+  return asyncState;
 }

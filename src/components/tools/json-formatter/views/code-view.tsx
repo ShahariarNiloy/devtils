@@ -96,7 +96,9 @@ export function CodeView({
     setLocalValue(value);
   }
 
-  const numLines = lineCount(localValue);
+  // O(n) over the whole document — memoize so a resize / cursor / validation
+  // re-render doesn't rescan a multi-MB string every frame.
+  const numLines = useMemo(() => lineCount(localValue), [localValue]);
   const indentSize = indent === "tab" ? 4 : Number(indent);
 
   // ── Highlight ─────────────────────────────────────────────────────────────

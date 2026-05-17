@@ -2,6 +2,7 @@
 
 import {
   lazy,
+  memo,
   startTransition,
   Suspense,
   useCallback,
@@ -55,7 +56,7 @@ interface OutputPanelProps {
   onClearRecent: () => void;
 }
 
-export function OutputPanel({
+function OutputPanelImpl({
   state,
   onLoadSample,
   onLoadFile,
@@ -80,10 +81,13 @@ export function OutputPanel({
   // its own memo so it ONLY re-runs when the parsed tree or indent changes,
   // not on every input keystroke. The composite memo just picks among
   // pre-computed strings.
+  // Only stringify for the Code view. Copy/Download read `output || input`
+  // directly, so Tree/Graph/Path never pay this pass on a large document.
   const formattedFromParsed = useMemo(() => {
+    if (state.viewMode !== "code") return "";
     if (state.parsedValue === null || state.parsedValue === undefined) return "";
     try { return formatJson(state.parsedValue, state.indent); } catch { return ""; }
-  }, [state.parsedValue, state.indent]);
+  }, [state.viewMode, state.parsedValue, state.indent]);
   const displayedCode = state.output || formattedFromParsed || state.input;
   const deferredCode = useDeferredValue(displayedCode);
 
@@ -264,7 +268,12 @@ export function OutputPanel({
       )}
 
       {/* Body */}
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
+        {state.isConverting && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-surface/70 backdrop-blur-[1px] text-sm text-text-faint">
+            <span className="animate-pulse">Converting…</span>
+          </div>
+        )}
         {showEmptyState ? (
           <EmptyState
             onLoadSample={onLoadSample}
@@ -324,3 +333,8 @@ export function OutputPanel({
     </div>
   );
 }
+
+// Memoized: a panel resize re-renders the ResizablePanel subtree every drag
+// frame. Props are stable during a drag, so this bails out instead of
+// re-rendering the heavy output views mid-resize.
+export const OutputPanel = memo(OutputPanelImpl);

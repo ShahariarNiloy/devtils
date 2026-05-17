@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { memo, useCallback, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
   Copy,
+  Globe,
   Maximize2,
   Minimize2,
   MoreHorizontal,
@@ -30,7 +31,7 @@ interface InputPanelProps {
   onOpenFetchUrl: () => void;
 }
 
-export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) {
+function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [jumpNonce, setJumpNonce] = useState(0);
@@ -124,6 +125,17 @@ export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProp
             </button>
           </Tooltip>
 
+          <Tooltip content="Fetch from URL" side="bottom">
+            <button
+              type="button"
+              onClick={onOpenFetchUrl}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+              aria-label="Fetch from URL"
+            >
+              <Globe size={14} />
+            </button>
+          </Tooltip>
+
           <Tooltip content="Copy input" side="bottom">
             <button
               type="button"
@@ -172,7 +184,6 @@ export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProp
               </DropdownMenuTrigger>
             </Tooltip>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onOpenFetchUrl}>Fetch from URL…</DropdownMenuItem>
               <DropdownMenuItem onClick={() => state.validate()}>Validate</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => state.setTreeExpandAll((n) => n + 1)}>
@@ -223,3 +234,8 @@ export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProp
     </div>
   );
 }
+
+// Memoized: a panel resize re-renders the ResizablePanel subtree every drag
+// frame. Props are stable during a drag (parent isn't re-rendering), so this
+// bails out and the multi-MB editor never re-renders mid-resize.
+export const InputPanel = memo(InputPanelImpl);

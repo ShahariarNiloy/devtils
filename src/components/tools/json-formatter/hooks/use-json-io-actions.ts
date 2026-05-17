@@ -14,80 +14,105 @@ import {
   toGo,
   toPython,
   toRust,
-  fromCSV,
-  fromYAML,
 } from "../json-convert";
+import { runConversion } from "../convert-client";
+import { WORKER_THRESHOLD } from "./use-async-parsed";
+import type { ConversionResult } from "../json-formatter.types";
 import type { JsonState } from "./use-json-state";
+
+function runForward(target: ConvertTarget, value: unknown): ConversionResult {
+  switch (target) {
+    case "csv": return toCSV(value);
+    case "yaml": return toYAML(value);
+    case "typescript": return toTypeScript(value);
+    case "xml": return toXML(value);
+    case "zod": return toZod(value);
+    case "schema": return toJsonSchema(value);
+    case "go": return toGo(value);
+    case "python": return toPython(value);
+    case "rust": return toRust(value);
+    default: throw new Error(`Unknown target: ${target as string}`);
+  }
+}
 
 export function useJsonIoActions(state: JsonState) {
   const {
     input, setInput,
     output, setOutput,
     parsedValue, parsedOutput,
+    conversionResult,
     setValidation,
     setMinifyStats, setConversionResult,
     setRepairPreview,
     setFileName,
     setQueryResults,
     setViewMode,
+    setIsConverting,
     queryPath,
   } = state;
 
+  const applyResult = useCallback(
+    (result: ConversionResult, target: ConvertTarget) => {
+      // Batch the state writes into a transition so the heavy CodeView
+      // re-render interleaves with paint. Flip back to Code — the result
+      // is text in a foreign format, so Tree/Table would render the prior
+      // parsed JSON, not the conversion result.
+      startTransition(() => {
+        setOutput(result.output);
+        setConversionResult(result);
+        setMinifyStats(null);
+        setViewMode("code");
+      });
+      toast.success(`Converted to ${target.toUpperCase()}`);
+    },
+    [setOutput, setConversionResult, setMinifyStats, setViewMode],
+  );
+
   const convert = useCallback(
     (target: ConvertTarget) => {
-      const isReverse = target === "csv-to-json" || target === "yaml-to-json";
-
-      try {
-        let result;
-        if (isReverse) {
-          // Reverse conversions need the raw paste — `output` is stale
-          // (it's the previous convert's result, not CSV/YAML).
-          if (!input.trim()) { toast.error("Nothing to convert"); return; }
-          result = target === "csv-to-json" ? fromCSV(input) : fromYAML(input);
-        } else {
-          // Forward (JSON → X): cascade through already-parsed values so we
-          // never re-parse a stale `output` that's no longer JSON (the
-          // breakage the user hit after a previous convert).
-          //   parsedOutput  – latest format / minify / repair result
-          //   parsedValue   – parsed input (what they typed/pasted)
-          //   parseJson(input) – last-resort if deferred memo hasn't caught up
-          let value: unknown = parsedOutput ?? parsedValue;
-          if (value === null || value === undefined) {
-            if (!input.trim()) { toast.error("Nothing to convert"); return; }
-            value = parseJson(input);
-          }
-
-          switch (target) {
-            case "csv": result = toCSV(value); break;
-            case "yaml": result = toYAML(value); break;
-            case "typescript": result = toTypeScript(value); break;
-            case "xml": result = toXML(value); break;
-            case "zod": result = toZod(value); break;
-            case "schema": result = toJsonSchema(value); break;
-            case "go": result = toGo(value); break;
-            case "python": result = toPython(value); break;
-            case "rust": result = toRust(value); break;
-            default: throw new Error(`Unknown target: ${target}`);
-          }
-        }
-
-        // Batch the state writes into a transition so the heavy CodeView
-        // re-render interleaves with paint. Also flip the view back to
-        // Code — the converted output is text in a foreign format, so
-        // Tree/Table/Grid would render the prior parsed JSON, not the
-        // conversion result.
-        startTransition(() => {
-          setOutput(result.output);
-          setConversionResult(result);
-          setMinifyStats(null);
-          setViewMode("code");
-        });
-        toast.success(`Converted to ${target.toUpperCase()}`);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Conversion failed");
+      // The current JSON text: prefer `output` only when it's still JSON
+      // (format/minify/sort/repair). After a previous convert it's a foreign
+      // format, so fall back to the raw input.
+      const jsonText =
+        output.trim() && !conversionResult ? output : input;
+      if (!jsonText.trim()) {
+        toast.error("Nothing to convert");
+        return;
       }
+
+      // Small inputs convert synchronously (instant, no loader) — unchanged
+      // behaviour. Large inputs go to the worker so the JSON → X walk never
+      // freezes the tab; only the resulting string crosses back.
+      if (jsonText.length <= WORKER_THRESHOLD) {
+        try {
+          let value: unknown = parsedOutput ?? parsedValue;
+          if (value === null || value === undefined) value = parseJson(jsonText);
+          applyResult(runForward(target, value), target);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Conversion failed");
+        }
+        return;
+      }
+
+      setIsConverting(true);
+      runConversion(target, jsonText)
+        .then((result) => applyResult(result, target))
+        .catch((err: unknown) =>
+          toast.error(
+            err instanceof Error ? err.message : "Conversion failed",
+          ),
+        )
+        .finally(() => setIsConverting(false));
     },
-    [input, parsedValue, parsedOutput, setOutput, setConversionResult, setMinifyStats, setViewMode],
+    [
+      input,
+      output,
+      conversionResult,
+      parsedValue,
+      parsedOutput,
+      setIsConverting,
+      applyResult,
+    ],
   );
 
   const loadSample = useCallback((key: string) => {

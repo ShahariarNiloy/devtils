@@ -192,18 +192,35 @@ export function countKeys(value: unknown): number {
 
 // ── Path utilities ───────────────────────────────────────────────────────────
 
-/** Get every JSONPath string for every node in the tree. */
-export function getAllPaths(value: unknown, root = "$"): string[] {
-  const paths: string[] = [root];
-  if (Array.isArray(value)) {
-    value.forEach((v, i) => paths.push(...getAllPaths(v, `${root}[${i}]`)));
-  } else if (value !== null && typeof value === "object") {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      // Use bracket notation for keys with special chars, dot notation otherwise
-      const key = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? `.${k}` : `["${k}"]`;
-      paths.push(...getAllPaths(v, `${root}${key}`));
+/**
+ * Get every JSONPath string for every node in the tree. `limit` early-exits
+ * the walk — a 50 MB document has millions of paths, and building/holding
+ * them all blocks the main thread for ~1s and balloons memory. Callers pass
+ * a cap and surface a "first N" note.
+ */
+export function getAllPaths(
+  value: unknown,
+  root = "$",
+  limit = Number.POSITIVE_INFINITY,
+): string[] {
+  const paths: string[] = [];
+  const walk = (v: unknown, p: string): void => {
+    if (paths.length >= limit) return;
+    paths.push(p);
+    if (Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) {
+        if (paths.length >= limit) return;
+        walk(v[i], `${p}[${i}]`);
+      }
+    } else if (v !== null && typeof v === "object") {
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+        if (paths.length >= limit) return;
+        const key = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? `.${k}` : `["${k}"]`;
+        walk(val, `${p}${key}`);
+      }
     }
-  }
+  };
+  walk(value, root);
   return paths;
 }
 

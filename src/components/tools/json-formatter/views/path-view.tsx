@@ -14,6 +14,9 @@ export interface PathViewProps {
 }
 
 const ROW_HEIGHT = 40;
+// Hard cap so a huge document can't build millions of path strings on the
+// main thread. The list is virtualized + filterable, so this is plenty.
+const PATH_CAP = 20_000;
 
 function serializeValue(v: unknown): string {
   if (v === undefined) return "";
@@ -23,7 +26,11 @@ function serializeValue(v: unknown): string {
 export function PathView({ value }: PathViewProps) {
   const [filter, setFilter] = useState("");
 
-  const allPaths = useMemo(() => getAllPaths(value), [value]);
+  const allPaths = useMemo(
+    () => getAllPaths(value, "$", PATH_CAP),
+    [value],
+  );
+  const truncated = allPaths.length >= PATH_CAP;
 
   const filteredPaths = useMemo(() => {
     if (!filter.trim()) return allPaths;
@@ -57,6 +64,9 @@ export function PathView({ value }: PathViewProps) {
         />
         <span className="text-sm text-text-faint font-mono shrink-0">
           {filteredPaths.length} paths
+          {truncated && (
+            <span className="text-text-faint/70"> · first {PATH_CAP}</span>
+          )}
         </span>
       </div>
 

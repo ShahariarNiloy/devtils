@@ -58,8 +58,6 @@ const CONVERT_ITEMS: { kind: string; label: string; group: number }[] = [
   { kind: "go", label: "JSON → Go", group: 2 },
   { kind: "python", label: "JSON → Python", group: 2 },
   { kind: "rust", label: "JSON → Rust", group: 2 },
-  { kind: "csv-to-json", label: "CSV → JSON", group: 3 },
-  { kind: "yaml-to-json", label: "YAML → JSON", group: 3 },
 ];
 
 /**

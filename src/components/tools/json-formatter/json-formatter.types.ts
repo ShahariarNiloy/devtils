@@ -11,9 +11,7 @@ export type ConvertTarget =
   | "schema"
   | "go"
   | "python"
-  | "rust"
-  | "csv-to-json"
-  | "yaml-to-json";
+  | "rust";
 
 export type SortOrder = "asc" | "desc" | "none";
 

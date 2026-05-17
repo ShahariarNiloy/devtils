@@ -16,7 +16,7 @@ import {
   queryJsonPath,
   isArrayOfObjects,
 } from "../json-formatter.lib";
-import { useAsyncParsed } from "./use-async-parsed";
+import { useAsyncParsed, WORKER_THRESHOLD } from "./use-async-parsed";
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
   let timer: ReturnType<typeof setTimeout>;
@@ -37,7 +37,7 @@ export function useJsonState() {
   const [queryResults, setQueryResults] = useState<unknown[]>([]);
   const [diffInput, setDiffInput] = useState("");
   const [repairPreview, setRepairPreview] = useState<RepairPreview | null>(null);
-  const [isProcessing] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   const [inputCursor, setInputCursor] = useState<CursorPosition>({ ln: 1, col: 1 });
   const [outputCursor, setOutputCursor] = useState<CursorPosition>({ ln: 1, col: 1 });
   const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
@@ -52,11 +52,21 @@ export function useJsonState() {
   const deferredOutput = useDeferredValue(output);
 
   // Small inputs parse synchronously here (unchanged); large inputs are
-  // parsed off the main thread so JSON.parse can't freeze the tab.
-  const parsedValue = useAsyncParsed(deferredInput);
-  const parsedOutput = useAsyncParsed(deferredOutput);
+  // parsed off the main thread so JSON.parse can't freeze the tab. The
+  // worker also reports validity, so large inputs don't get re-parsed on
+  // the main thread by the validation pass below.
+  const { value: parsedValue, validation: workerValidation } =
+    useAsyncParsed(deferredInput);
+  const { value: parsedOutput } = useAsyncParsed(deferredOutput);
+  const inputIsLarge = input.length > WORKER_THRESHOLD;
 
-  const isValid = validation.status === "valid";
+  // For large inputs the banner is driven by the worker parse; for small
+  // inputs by the synchronous debounced validate below.
+  const effectiveValidation: ValidationState = inputIsLarge
+    ? workerValidation ?? validation
+    : validation;
+
+  const isValid = effectiveValidation.status === "valid";
   const canUseTableView = isArrayOfObjects(parsedOutput ?? parsedValue);
 
   const validateDebounced = useMemo(
@@ -72,9 +82,12 @@ export function useJsonState() {
     [],
   );
 
+  // Only the synchronous (small-input) path runs the main-thread parse.
+  // Large inputs are validated by the worker (see workerValidation) so we
+  // don't freeze the tab re-parsing the whole document just for the banner.
   useEffect(() => {
-    validateDebounced(input);
-  }, [input, validateDebounced]);
+    if (!inputIsLarge) validateDebounced(input);
+  }, [input, inputIsLarge, validateDebounced]);
 
   const queryDebounced = useMemo(
     () =>
@@ -106,7 +119,7 @@ export function useJsonState() {
     output, setOutput,
     indent, setIndent,
     viewMode, setViewMode,
-    validation,
+    validation: effectiveValidation,
     setValidation: setValidationExternal,
     sortOrder,
     setSortOrder: setSortOrderExternal,
@@ -115,7 +128,7 @@ export function useJsonState() {
     diffInput, setDiffInput,
     repairPreview,
     setRepairPreview: setRepairPreviewExternal,
-    isProcessing,
+    isConverting, setIsConverting,
     inputCursor, setInputCursor,
     outputCursor, setOutputCursor,
     conversionResult,

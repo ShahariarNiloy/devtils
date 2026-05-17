@@ -56,52 +56,6 @@ export function toCSV(value: unknown): ConversionResult {
   return { output, format: "csv", size: byteSize(output) };
 }
 
-/** Parse CSV text back to an array of objects. Type-infers numbers, booleans, nulls. */
-export function fromCSV(raw: string): ConversionResult {
-  const lines = raw.trim().split("\n");
-  if (lines.length < 2) throw new Error("CSV must have at least a header row and one data row");
-
-  const parseRow = (line: string): string[] => {
-    const fields: string[] = [];
-    let cur = "";
-    let inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQuote) {
-        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-        else if (ch === '"') inQuote = false;
-        else cur += ch;
-      } else {
-        if (ch === '"') { inQuote = true; }
-        else if (ch === ",") { fields.push(cur); cur = ""; }
-        else cur += ch;
-      }
-    }
-    fields.push(cur);
-    return fields;
-  };
-
-  const coerce = (v: string): unknown => {
-    if (v === "") return null;
-    if (v === "true") return true;
-    if (v === "false") return false;
-    const n = Number(v);
-    if (!isNaN(n) && v.trim() !== "") return n;
-    return v;
-  };
-
-  const headers = parseRow(lines[0]);
-  const result = lines.slice(1).map((line) => {
-    const vals = parseRow(line);
-    const obj: Record<string, unknown> = {};
-    headers.forEach((h, i) => { obj[h] = coerce(vals[i] ?? ""); });
-    return obj;
-  });
-
-  const output = JSON.stringify(result, null, 2);
-  return { output, format: "csv-to-json", size: byteSize(output) };
-}
-
 // ── YAML ──────────────────────────────────────────────────────────────────────
 
 /** Convert JSON value to YAML string. */
@@ -110,15 +64,6 @@ export function toYAML(value: unknown): ConversionResult {
   const yaml = require("js-yaml") as { dump: (v: unknown, opts: Record<string, unknown>) => string };
   const output = yaml.dump(value, { indent: 2, lineWidth: 120, noRefs: true });
   return { output, format: "yaml", size: byteSize(output) };
-}
-
-/** Parse YAML back to JSON. */
-export function fromYAML(raw: string): ConversionResult {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const yaml = require("js-yaml") as { load: (v: string) => unknown };
-  const parsed = yaml.load(raw);
-  const output = JSON.stringify(parsed, null, 2);
-  return { output, format: "yaml-to-json", size: byteSize(output) };
 }
 
 // ── TypeScript ────────────────────────────────────────────────────────────────

@@ -45,14 +45,16 @@ export function MobileOutputView({
   const deferredSearch = useDeferredValue(searchTerm);
 
   // Same content-picking + highlight pipeline as the desktop panel.
+  // Only stringify for the Code view (copy/download use output||input).
   const formattedFromParsed = useMemo(() => {
+    if (state.viewMode !== "code") return "";
     if (state.parsedValue === null || state.parsedValue === undefined) return "";
     try {
       return formatJson(state.parsedValue, state.indent);
     } catch {
       return "";
     }
-  }, [state.parsedValue, state.indent]);
+  }, [state.viewMode, state.parsedValue, state.indent]);
   const displayedCode = state.output || formattedFromParsed || state.input;
   const deferredCode = useDeferredValue(displayedCode);
 
@@ -93,7 +95,12 @@ export function MobileOutputView({
   }
 
   return (
-    <div className="h-full overflow-hidden bg-surface">
+    <div className="relative h-full overflow-hidden bg-surface">
+      {state.isConverting && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-surface/70 backdrop-blur-[1px] text-sm text-text-faint">
+          <span className="animate-pulse">Converting…</span>
+        </div>
+      )}
       <DeferredMount token={state.viewMode}>
       {state.viewMode === "code" && (
         <CodeView
