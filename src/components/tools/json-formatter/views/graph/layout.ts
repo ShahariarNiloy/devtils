@@ -3,11 +3,11 @@
  *
  * - x (depth axis): each depth gets a column whose width is the widest
  *   node at that depth; columns are laid out left→right with H_GAP.
- * - y (cross axis): post-order walk with a running cursor. Leaves consume
- *   vertical space sequentially (so subtrees never overlap); internal
- *   nodes are centred on the span of their children. Not a full contour
- *   algorithm, but correct (no overlaps) and linear — ample for the
- *   capped node count.
+ * - y (cross axis): block tidy layout. Each subtree reserves
+ *   `max(nodeHeight, childrenBlock)` so a node taller than its children
+ *   never bleeds into a sibling's band; nodes are centred within their
+ *   reserved band. Not a full contour algorithm, but correct (no overlaps)
+ *   and linear — ample for the capped node count.
  */
 
 import type { GraphModel, GraphNode } from "./json-graph.lib";
@@ -62,39 +62,56 @@ export function layoutGraph(model: GraphModel): GraphLayout {
     acc += (maxWAtDepth[d] ?? 0) + H_GAP;
   }
 
-  // ── Y assignment (post-order, cursor) ────────────────────────────────────
+  // ── Y assignment (block tidy layout) ─────────────────────────────────────
+  // Each subtree reserves `max(nodeHeight, childrenBlock)` vertical space so a
+  // node taller than its children (e.g. a 16-row object whose children are a
+  // couple of small nodes) can't overflow into the next sibling's band.
   const pos = new Map<string, { x: number; y: number }>();
-  let cursor = 0;
+  const subtreeH = new Map<string, number>();
 
-  function place(id: string): void {
+  function measure(id: string): number {
+    const node = byId.get(id);
+    if (!node) return 0;
+    const kids = childrenOf.get(id) ?? [];
+    if (kids.length === 0) {
+      subtreeH.set(id, node.height);
+      return node.height;
+    }
+    let block = 0;
+    kids.forEach((c, i) => {
+      block += measure(c);
+      if (i < kids.length - 1) block += V_GAP;
+    });
+    const h = Math.max(node.height, block);
+    subtreeH.set(id, h);
+    return h;
+  }
+  measure(root.id);
+
+  function assign(id: string, top: number): void {
     const node = byId.get(id);
     if (!node) return;
     const depth = depthOf.get(id) ?? 0;
     const x = columnX[depth] ?? 0;
+    const span = subtreeH.get(id) ?? node.height;
+    // Centre the node's own box within the band its subtree reserves.
+    pos.set(id, { x, y: top + (span - node.height) / 2 });
+
     const kids = childrenOf.get(id) ?? [];
+    if (kids.length === 0) return;
 
-    if (kids.length === 0) {
-      pos.set(id, { x, y: cursor });
-      cursor += node.height + V_GAP;
-      return;
-    }
-
-    for (const c of kids) place(c);
-
-    const first = byId.get(kids[0]);
-    const last = byId.get(kids[kids.length - 1]);
-    const firstPos = pos.get(kids[0]);
-    const lastPos = pos.get(kids[kids.length - 1]);
-    if (first && last && firstPos && lastPos) {
-      const top = firstPos.y + first.height / 2;
-      const bottom = lastPos.y + last.height / 2;
-      pos.set(id, { x, y: (top + bottom) / 2 - node.height / 2 });
-    } else {
-      pos.set(id, { x, y: cursor });
-      cursor += node.height + V_GAP;
+    let block = 0;
+    kids.forEach((c, i) => {
+      block += subtreeH.get(c) ?? 0;
+      if (i < kids.length - 1) block += V_GAP;
+    });
+    let run = top + (span - block) / 2;
+    for (const c of kids) {
+      assign(c, run);
+      run += (subtreeH.get(c) ?? 0) + V_GAP;
     }
   }
-  place(root.id);
+  assign(root.id, 0);
 
   // ── Normalize to a 0,0 origin + compute bounds ───────────────────────────
   let minX = Infinity;
