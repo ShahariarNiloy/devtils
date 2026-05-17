@@ -47,6 +47,10 @@ export function useJsonState() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [treeExpandAll, setTreeExpandAll] = useState<number>(0);
   const [treeCollapseAll, setTreeCollapseAll] = useState<number>(0);
+  // null = follow the size-based default; true/false = explicit user choice
+  // that then sticks across documents.
+  const [wrapOverride, setWrapOverride] = useState<boolean | null>(null);
+  const setWrapText = useCallback((v: boolean) => setWrapOverride(v), []);
 
   const deferredInput = useDeferredValue(input);
   const deferredOutput = useDeferredValue(output);
@@ -68,6 +72,10 @@ export function useJsonState() {
 
   const isValid = effectiveValidation.status === "valid";
   const canUseTableView = isArrayOfObjects(parsedOutput ?? parsedValue);
+
+  // Wrap is on by default for normal-size docs (readability) and off for
+  // large ones (keep the virtualized fast path). An explicit toggle wins.
+  const wrapText = wrapOverride ?? !inputIsLarge;
 
   const validateDebounced = useMemo(
     () =>
@@ -141,6 +149,7 @@ export function useJsonState() {
     setFileName: setFileNameExternal,
     treeExpandAll, setTreeExpandAll,
     treeCollapseAll, setTreeCollapseAll,
+    wrapText, setWrapText,
     parsedValue,
     parsedOutput,
     isValid,

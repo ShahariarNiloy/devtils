@@ -12,6 +12,7 @@ import {
 import type { IndentStyle } from "@/components/tools/json-formatter/json-formatter.types";
 import {
   highlight,
+  HIGHLIGHT_SIZE_THRESHOLD,
   highlightWithSearch,
   type Lang,
   lineCount,
@@ -101,18 +102,25 @@ export function CodeView({
   const numLines = useMemo(() => lineCount(localValue), [localValue]);
   const indentSize = indent === "tab" ? 4 : Number(indent);
 
+  // Above the highlight threshold there's no syntax colouring anyway (the
+  // highlighter bails to plain escaped text). Rebuilding a multi-MB overlay
+  // on every keystroke is what makes large input laggy — so drop the overlay
+  // entirely and let the textarea show its own text. No overlay ⇒ no
+  // per-keystroke escape/innerHTML/relayout, and no alignment risk.
+  const plainMode = !isReadOnly && localValue.length > HIGHLIGHT_SIZE_THRESHOLD;
+
   // ── Highlight ─────────────────────────────────────────────────────────────
   // For the read-only branch the parent panel already computes and passes
   // the highlighted HTML in (it owns search). For the editable branch we
   // compute here, synchronously off `localValue`. See the latency note
   // above for why this is NOT wrapped in `useDeferredValue`.
   const editableHighlight = useMemo(() => {
-    if (isReadOnly) return "";
+    if (isReadOnly || plainMode) return "";
     if (search && search.trim().length > 0) {
       return highlightWithSearch(localValue, lang, search);
     }
     return highlight(localValue, lang);
-  }, [localValue, lang, search, isReadOnly]);
+  }, [localValue, lang, search, isReadOnly, plainMode]);
 
   // ── Scroll sync ───────────────────────────────────────────────────────────
   const syncScroll = useCallback(() => {
@@ -356,7 +364,9 @@ export function CodeView({
         </pre>
       ) : (
         <div className="relative flex-1 overflow-hidden">
-          <HighlightOverlay preRef={preRef} html={editableHighlight} />
+          {!plainMode && (
+            <HighlightOverlay preRef={preRef} html={editableHighlight} />
+          )}
           <textarea
             ref={textareaRef}
             value={localValue}
@@ -368,7 +378,7 @@ export function CodeView({
             onClick={handleClick}
             spellCheck={false}
             placeholder="Paste JSON here…"
-            className="code-overlay-textarea absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none overflow-auto whitespace-pre"
+            className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none overflow-auto whitespace-pre`}
           />
         </div>
       )}

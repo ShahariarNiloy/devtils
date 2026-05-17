@@ -18,6 +18,7 @@ import {
   Minimize2,
   Search,
   UnfoldVertical,
+  WrapText,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Tooltip } from "@/components/primitives/tooltip";
@@ -199,6 +200,22 @@ function OutputPanelImpl({
                   <FoldVertical size={15} />
                 </button>
               </Tooltip>
+              <Tooltip content="Wrap long values" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => state.setWrapText(!state.wrapText)}
+                  className={cn(
+                    "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                    state.wrapText
+                      ? "bg-surface-soft text-text"
+                      : "text-text-faint hover:bg-surface-soft hover:text-text",
+                  )}
+                  aria-label="Wrap long values"
+                  aria-pressed={state.wrapText}
+                >
+                  <WrapText size={15} />
+                </button>
+              </Tooltip>
             </>
           )}
 
@@ -300,6 +317,7 @@ function OutputPanelImpl({
                 search={deferredSearch}
                 expandAll={state.treeExpandAll}
                 collapseAll={state.treeCollapseAll}
+                wrap={state.wrapText}
               />
             )}
             {state.viewMode === "table" && state.canUseTableView && (

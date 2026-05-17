@@ -116,6 +116,7 @@ export function MobileOutputView({
           search={deferredSearch}
           expandAll={state.treeExpandAll}
           collapseAll={state.treeCollapseAll}
+          wrap={state.wrapText}
         />
       )}
       {state.viewMode === "table" && state.canUseTableView && (

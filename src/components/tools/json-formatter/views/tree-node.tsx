@@ -56,11 +56,19 @@ interface TreeRowProps {
   row: FlatRow;
   rowHeight: number;
   search?: string;
+  /** Wrap long values onto multiple lines (variable row height). */
+  wrap?: boolean;
   /** Container → toggle expand; leaf → focus. TreeView decides. */
   onActivate: (row: FlatRow) => void;
 }
 
-function TreeRowImpl({ row, rowHeight, search, onActivate }: TreeRowProps) {
+function TreeRowImpl({
+  row,
+  rowHeight,
+  search,
+  wrap = false,
+  onActivate,
+}: TreeRowProps) {
   const { kind, keyLabel, isIndex, depth, value, childCount, preview, expanded } =
     row;
   const isContainer = kind !== "leaf";
@@ -100,11 +108,12 @@ function TreeRowImpl({ row, rowHeight, search, onActivate }: TreeRowProps) {
   return (
     <div
       className={cn(
-        "group/row relative flex items-center gap-2 cursor-pointer select-none",
+        "group/row relative flex gap-2 cursor-pointer select-none",
         "hover:bg-surface-soft",
+        wrap ? "items-start py-1" : "items-center",
       )}
       style={{
-        height: rowHeight,
+        ...(wrap ? { minHeight: rowHeight } : { height: rowHeight }),
         paddingLeft: BASE_PAD + depth * INDENT,
         paddingRight: 12,
       }}
@@ -139,7 +148,14 @@ function TreeRowImpl({ row, rowHeight, search, onActivate }: TreeRowProps) {
           )}
         </>
       ) : (
-        <span className="flex items-baseline gap-2 min-w-0 truncate">
+        <span
+          className={cn(
+            "flex items-baseline gap-2 min-w-0",
+            wrap
+              ? "flex-1 basis-0 flex-wrap break-all [overflow-wrap:anywhere]"
+              : "truncate",
+          )}
+        >
           <PrimitiveValue value={value} />
           <TypeBadge value={value} />
         </span>

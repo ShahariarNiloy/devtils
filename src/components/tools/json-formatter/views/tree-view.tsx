@@ -11,6 +11,12 @@ export interface TreeViewProps {
   search?: string;
   expandAll?: number;
   collapseAll?: number;
+  /**
+   * Wrap long values. Trades virtualization for wrapping (rows then have
+   * variable height, incompatible with fixed-height windowing) — opt-in,
+   * since huge docs are normally explored collapsed anyway.
+   */
+  wrap?: boolean;
 }
 
 const ROW_HEIGHT = 26;
@@ -23,6 +29,7 @@ export function TreeView({
   search,
   expandAll = 0,
   collapseAll = 0,
+  wrap = false,
 }: TreeViewProps) {
   // Focus path drives the breadcrumb. String form so memoized rows see stable
   // identities and the breadcrumb can tokenize it on the fly.
@@ -83,25 +90,41 @@ export function TreeView({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <TreeBreadcrumb path={focusPath} />
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="flex-1 overflow-auto font-mono text-base tracking-tight"
-      >
-        <div style={{ height: totalHeight, position: "relative" }}>
-          <div style={{ transform: `translateY(${offsetY}px)` }}>
-            {slice.map((row) => (
-              <TreeRow
-                key={row.path}
-                row={row}
-                rowHeight={ROW_HEIGHT}
-                search={search}
-                onActivate={handleActivate}
-              />
-            ))}
+      {wrap ? (
+        // Wrap mode: variable-height rows ⇒ no fixed-height windowing.
+        <div className="flex-1 overflow-auto font-mono text-base tracking-tight">
+          {rows.map((row) => (
+            <TreeRow
+              key={row.path}
+              row={row}
+              rowHeight={ROW_HEIGHT}
+              search={search}
+              wrap
+              onActivate={handleActivate}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="flex-1 overflow-auto font-mono text-base tracking-tight"
+        >
+          <div style={{ height: totalHeight, position: "relative" }}>
+            <div style={{ transform: `translateY(${offsetY}px)` }}>
+              {slice.map((row) => (
+                <TreeRow
+                  key={row.path}
+                  row={row}
+                  rowHeight={ROW_HEIGHT}
+                  search={search}
+                  onActivate={handleActivate}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
