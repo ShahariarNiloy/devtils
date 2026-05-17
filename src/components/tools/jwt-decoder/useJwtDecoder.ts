@@ -15,12 +15,12 @@ import type {
 
 const SAMPLE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-  "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFicmFyIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzMwODY0MDAwLCJleHAiOjE3MzA5NTA0MDB9." +
+  "eyJpc3MiOiJkZXZ0b29sYm94LmFwcCIsInN1YiI6ImRldnRvb2xib3giLCJuYW1lIjoiRGV2VG9vbGJveCIsInRhZ2xpbmUiOiJQcml2YWN5LWZpcnN0IGRldmVsb3BlciB1dGlsaXRpZXMsIDEwMCUgY2xpZW50LXNpZGUiLCJ0b29scyI6WyJqc29uLWZvcm1hdHRlciIsImp3dC1kZWNvZGVyIiwiYmFzZTY0IiwicmVnZXgtdGVzdGVyIiwiY29sb3ItY29udmVydGVyIl0sInJvbGUiOiJkZXZlbG9wZXIiLCJpYXQiOjE3MzA4NjQwMDAsImV4cCI6MTczMDk1MDQwMH0." +
   "kJ8YJsHvOmGqXr3vP2zZxK9wD4nF7mLcVbE6tQyR8uA";
 
 const DEFAULT_ENCODE_HEADER = '{\n  "alg": "HS256",\n  "typ": "JWT"\n}';
 const DEFAULT_ENCODE_PAYLOAD =
-  '{\n  "sub": "1234567890",\n  "name": "Abrar",\n  "iat": 1730864000\n}';
+  '{\n  "iss": "devtoolbox.app",\n  "sub": "devtoolbox",\n  "name": "DevToolbox",\n  "iat": 1730864000\n}';
 
 export function useJwtDecoder() {
   const [mode, setMode] = useState<Mode>("decode");

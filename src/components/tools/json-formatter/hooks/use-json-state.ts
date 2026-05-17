@@ -13,10 +13,10 @@ import type {
 } from "../json-formatter.types";
 import {
   validateJson,
-  parseJson,
   queryJsonPath,
   isArrayOfObjects,
 } from "../json-formatter.lib";
+import { useAsyncParsed } from "./use-async-parsed";
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
   let timer: ReturnType<typeof setTimeout>;
@@ -51,15 +51,10 @@ export function useJsonState() {
   const deferredInput = useDeferredValue(input);
   const deferredOutput = useDeferredValue(output);
 
-  const parsedValue = useMemo(() => {
-    if (!deferredInput.trim()) return null;
-    try { return parseJson(deferredInput); } catch { return null; }
-  }, [deferredInput]);
-
-  const parsedOutput = useMemo(() => {
-    if (!deferredOutput.trim()) return null;
-    try { return parseJson(deferredOutput); } catch { return null; }
-  }, [deferredOutput]);
+  // Small inputs parse synchronously here (unchanged); large inputs are
+  // parsed off the main thread so JSON.parse can't freeze the tab.
+  const parsedValue = useAsyncParsed(deferredInput);
+  const parsedOutput = useAsyncParsed(deferredOutput);
 
   const isValid = validation.status === "valid";
   const canUseTableView = isArrayOfObjects(parsedOutput ?? parsedValue);

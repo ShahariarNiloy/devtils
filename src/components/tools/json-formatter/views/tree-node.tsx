@@ -1,10 +1,20 @@
 "use client";
 
 import { memo } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Braces, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { PrimitiveValue } from "./tree-primitive-value";
 import type { FlatRow } from "./tree-flatten";
+
+async function writeClipboard(text: string, label: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(label);
+  } catch {
+    toast.error("Couldn't access clipboard");
+  }
+}
 
 export const INDENT = 18; // px per depth level
 const BASE_PAD = 12; // px gutter before depth indentation
@@ -69,10 +79,28 @@ function TreeRowImpl({ row, rowHeight, search, onActivate }: TreeRowProps) {
       <span className="text-text font-semibold shrink-0">{renderKey()}</span>
     ) : null;
 
+  const copyValue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text =
+      typeof row.raw === "string"
+        ? row.raw
+        : JSON.stringify(row.raw, null, isContainer ? 2 : undefined) ??
+          String(row.raw);
+    void writeClipboard(
+      text,
+      isContainer ? "Subtree copied as JSON" : "Value copied",
+    );
+  };
+
+  const copyPath = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    void writeClipboard(row.path, "Path copied");
+  };
+
   return (
     <div
       className={cn(
-        "flex items-center gap-2 cursor-pointer select-none",
+        "group/row relative flex items-center gap-2 cursor-pointer select-none",
         "hover:bg-surface-soft",
       )}
       style={{
@@ -116,6 +144,27 @@ function TreeRowImpl({ row, rowHeight, search, onActivate }: TreeRowProps) {
           <TypeBadge value={value} />
         </span>
       )}
+
+      <span className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md bg-surface-soft/95 px-1 shadow-card group-hover/row:flex">
+        <button
+          type="button"
+          onClick={copyPath}
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-surface hover:text-text transition-colors"
+          aria-label="Copy path"
+          title="Copy path"
+        >
+          <Copy size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={copyValue}
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-surface hover:text-text transition-colors"
+          aria-label={isContainer ? "Copy subtree as JSON" : "Copy value"}
+          title={isContainer ? "Copy subtree as JSON" : "Copy value"}
+        >
+          <Braces size={12} />
+        </button>
+      </span>
     </div>
   );
 }

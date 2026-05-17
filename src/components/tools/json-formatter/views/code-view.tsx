@@ -4,6 +4,7 @@ import {
   memo,
   startTransition,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -25,6 +26,11 @@ export interface CodeViewProps {
   indent: IndentStyle;
   onCursorChange?: (pos: { ln: number; col: number }) => void;
   errorLine?: number;
+  /**
+   * Imperative "jump to error": bump `nonce` to move the caret to
+   * `line`/`col`, focus the editor, and scroll the line into view.
+   */
+  jumpToError?: { line: number; col: number; nonce: number };
   /** Called with the auto-formatted value when valid JSON is pasted. */
   onPasteFormatted?: (formatted: string) => void;
   /** Language for syntax highlighting. Defaults to JSON. */
@@ -66,6 +72,7 @@ export function CodeView({
   indent,
   onCursorChange,
   errorLine,
+  jumpToError,
   onPasteFormatted,
   lang = "json",
   search,
@@ -292,6 +299,35 @@ export function CodeView({
     (e: React.MouseEvent<HTMLTextAreaElement>) => trackCursor(e.currentTarget),
     [trackCursor],
   );
+
+  // Jump to the parse-error position when the banner is clicked. Caret +
+  // scroll are imperative DOM (no state), so this stays out of the render
+  // path and never competes with typing.
+  const jumpNonce = jumpToError?.nonce;
+  useEffect(() => {
+    if (jumpToError === undefined || isReadOnly) return;
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const text = ta.value;
+    let idx = 0;
+    for (let ln = 1; ln < jumpToError.line; ln++) {
+      const nl = text.indexOf("\n", idx);
+      if (nl === -1) {
+        idx = text.length;
+        break;
+      }
+      idx = nl + 1;
+    }
+    const offset = Math.min(text.length, idx + Math.max(0, jumpToError.col - 1));
+    ta.focus();
+    ta.setSelectionRange(offset, offset);
+    const lh =
+      Number.parseFloat(getComputedStyle(ta).lineHeight) || 22;
+    ta.scrollTop = Math.max(0, (jumpToError.line - 3) * lh);
+    syncScroll();
+    // `jumpNonce` is the intentional trigger; line/col are read fresh above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpNonce, isReadOnly, syncScroll]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

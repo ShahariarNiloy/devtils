@@ -33,6 +33,7 @@ interface InputPanelProps {
 export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [jumpNonce, setJumpNonce] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleCopy = useCallback(async () => {
@@ -185,14 +186,22 @@ export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProp
         </div>
       </div>
 
-      {/* Validation banner */}
+      {/* Validation banner — click to jump the caret to the error */}
       {v.status === "invalid" && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-          <AlertCircle size={13} />
+        <button
+          type="button"
+          onClick={() => setJumpNonce((n) => n + 1)}
+          className="group flex w-full shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger/15"
+          title="Jump to error"
+        >
+          <AlertCircle size={13} className="shrink-0" />
           <span className="truncate">
             Line {v.line}, col {v.col}: {v.message}
           </span>
-        </div>
+          <span className="ml-auto shrink-0 text-sm font-medium opacity-60 transition-opacity group-hover:opacity-100">
+            Jump →
+          </span>
+        </button>
       )}
 
       {/* Editor */}
@@ -203,6 +212,11 @@ export function InputPanel({ state, onLoadFile, onOpenFetchUrl }: InputPanelProp
           indent={state.indent}
           onCursorChange={state.setInputCursor}
           errorLine={errorLine}
+          jumpToError={
+            v.status === "invalid"
+              ? { line: v.line, col: v.col, nonce: jumpNonce }
+              : undefined
+          }
           onPasteFormatted={state.formatFrom}
         />
       </div>

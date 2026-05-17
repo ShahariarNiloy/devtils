@@ -253,7 +253,7 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
                   onOpenFetchUrl={() => setFetchUrlOpen(true)}
                 />
               </ResizablePanel>
-              <ResizableHandle />
+              <ResizableHandle withHandle />
               <ResizablePanel defaultSize={62} minSize={30}>
                 <OutputPanel
                   state={state}

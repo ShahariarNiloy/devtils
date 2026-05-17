@@ -27,11 +27,20 @@ function buildSample(): string {
   const header = b64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = b64urlEncode(
     JSON.stringify({
-      sub: "1234567890",
-      name: "Abrar",
+      iss: "devtoolbox.app",
+      sub: "devtoolbox",
+      name: "DevToolbox",
+      tagline: "Privacy-first developer utilities, 100% client-side",
+      tools: [
+        "json-formatter",
+        "jwt-decoder",
+        "base64",
+        "regex-tester",
+        "color-converter",
+      ],
+      role: "developer",
       iat: 1730864000,
       exp: 1730950400,
-      role: "admin",
     }),
   );
   return `${header}.${payload}.kJ8YJsHvOmGqXr3vP2zZxK9wD4nF7mLcVbE6tQyR8uA`;

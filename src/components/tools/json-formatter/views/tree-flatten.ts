@@ -20,6 +20,8 @@ export interface FlatRow {
   kind: TreeKind;
   /** Leaf primitive. `undefined` for containers. */
   value: unknown;
+  /** The actual value at this node (primitive or subtree) — for copy. */
+  raw: unknown;
   /** Entry count for containers. */
   childCount: number;
   /** Collapsed-object preview (first few keys), else null. */
@@ -63,6 +65,7 @@ export function flattenTree(
         depth,
         kind,
         value,
+        raw: value,
         childCount: 0,
         preview: null,
         expanded: false,
@@ -85,6 +88,7 @@ export function flattenTree(
       depth,
       kind,
       value: undefined,
+      raw: value,
       childCount: entries.length,
       preview,
       expanded,
