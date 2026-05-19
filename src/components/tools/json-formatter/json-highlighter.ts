@@ -4,7 +4,7 @@
  * those just forward into the new pipeline.
  */
 
-import { highlight, highlightWithSearch, lineCount as _lineCount } from "./highlight";
+import { highlight, lineCount as _lineCount } from "./highlight";
 
 export function highlightJson(source: string): string {
   return highlight(source, "json");

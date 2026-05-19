@@ -5,6 +5,7 @@ import { JsonFormatter } from '@/components/tools/json-formatter/json-formatter'
 import { JwtDecoder } from '@/components/tools/jwt-decoder';
 import { RegexTester } from '@/components/tools/regex-tester/regex-tester';
 import { TextCase } from '@/components/tools/text-case/text-case';
+import { TimestampConverter } from '@/components/tools/timestamp-converter';
 import type { Tool } from "./tools-registry";
 
 export type ToolComponent = ComponentType<{ tool: Tool }>;
@@ -22,6 +23,7 @@ export const COMPONENT_MAP: Record<string, ToolComponent> = {
   base64: Base64,
   "regex-tester": RegexTester,
   "color-converter": ColorConverter,
+  "timestamp-converter": TimestampConverter,
 };
 
 export const IMPLEMENTED_TOOL_SLUGS: ReadonlySet<string> = new Set(
