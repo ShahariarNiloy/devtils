@@ -3,14 +3,18 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { ToolShell } from '@/components/layout/tool-shell';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/primitives/resizable";
 import { useShortcut } from "@/lib/keyboard";
-import { ActionColumn } from './panes/action-column';
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { Base64Guide } from './components/base64-guide';
-import { CharsetSelector } from './components/charset-selector';
-import { DirectionToggle } from './components/direction-toggle';
+import { MobileBase64 } from './mobile/mobile-base64';
 import { InputPane } from './panes/input-pane';
 import { OutputPane } from './panes/output-pane';
-import { VariantSelector } from './components/variant-selector';
+import { TopActionBar } from './panes/top-action-bar';
 import { useBase64 } from "./use-base64";
 import type { Tool } from "@/lib/tools-registry";
 
@@ -18,6 +22,7 @@ const URL_SAFE_CYCLE = ["standard", "url-safe"] as const;
 
 export function Base64({ tool }: { tool: Tool }) {
   const s = useBase64();
+  const isMobile = useIsMobile();
 
   const onCopy = useCallback(async () => {
     if (!s.output) {
@@ -50,67 +55,79 @@ export function Base64({ tool }: { tool: Tool }) {
   useShortcut({ key: "u", meta: true, shift: true }, (e) => { e.preventDefault(); onToggleUrlSafe(); });
 
   return (
-    <ToolShell tool={tool} classNames={{ body: "max-w-auto" }}>
+    <ToolShell tool={tool} classNames={{ header: "hidden md:block" }}>
+      {isMobile ? (
+        <MobileBase64 tool={tool} s={s} onCopy={onCopy} onShare={onShare} />
+      ) : (
       <div className="flex flex-col gap-3">
-        {/* ── Topbar ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 overflow-x-auto">
-          <DirectionToggle value={s.direction} onChange={s.setDirection} />
-          <div className="h-5 w-px bg-border shrink-0" aria-hidden />
-          <VariantSelector value={s.variant} onChange={s.setVariant} />
-          <div className="h-5 w-px bg-border shrink-0" aria-hidden />
-          <CharsetSelector value={s.charset} onChange={s.setCharset} />
-          {s.isProcessing && (
-            <span className="text-sm font-mono text-text-faint shrink-0" aria-live="polite">
-              processing…
-            </span>
-          )}
-          <Base64Guide />
+        {/* Detached top action bar — matches the JSON formatter scaffold. */}
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border shadow-card bg-surface">
+            <TopActionBar
+              direction={s.direction}
+              setDirection={s.setDirection}
+              variant={s.variant}
+              setVariant={s.setVariant}
+              charset={s.charset}
+              setCharset={s.setCharset}
+              isProcessing={s.isProcessing}
+              onCopy={onCopy}
+              onDownload={s.download}
+              onShare={onShare}
+              onSwap={s.swapPanes}
+              onStripWhitespace={s.applyStripWhitespace}
+              onPreset={s.loadPreset}
+              onLoadFile={s.loadFile}
+              roundTripOk={s.roundTripOk}
+              showRoundTrip={!!s.input}
+            />
+          </div>
+          <div className="ml-auto">
+            <Base64Guide />
+          </div>
         </div>
 
-        {/* ── Three-column editor panel (json-formatter pattern) ─────────── */}
+        {/* Editor card — resizable input / output split. */}
         <div
-          className="flex overflow-hidden rounded-xl border border-border shadow-card"
-          style={{ height: "max(520px, calc(100dvh - var(--spacing-header)))" }}
+          className="flex flex-col overflow-hidden rounded-xl border border-border shadow-card bg-surface"
+          style={{
+            height: "max(520px, calc(100dvh - var(--spacing-header) - 88px))",
+          }}
         >
-          <InputPane
-            value={s.input}
-            onChange={s.setInput}
-            onClear={s.clearInput}
-            onPaste={s.pasteFromClipboard}
-            validation={s.validation}
-            inputCharCount={s.inputCharCount}
-            inputByteCount={s.inputByteCount}
-          />
-
-          <ActionColumn
-            onSwap={s.swapPanes}
-            onStripWhitespace={s.applyStripWhitespace}
-            onCopy={onCopy}
-            onDownload={s.download}
-            onShare={onShare}
-            onPreset={s.loadPreset}
-            onLoadFile={s.loadFile}
-            roundTripOk={s.roundTripOk}
-            showRoundTrip={!!s.input}
-          />
-
-          <OutputPane
-            output={s.output}
-            outputBytes={s.outputBytes}
-            imageMime={s.imageMime}
-            activeTab={s.activeTab}
-            onTabChange={s.setActiveTab}
-            charset={s.charset}
-            outputCharCount={s.outputCharCount}
-            outputByteCount={s.inputByteCount}
-            sizeDelta={s.sizeDelta}
-            onCopy={onCopy}
-            onDownload={s.download}
-            originalInput={s.direction === "encode" ? s.input : s.output}
-            isEncoded={s.direction === "encode"}
-          />
+          <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+            <ResizablePanel defaultSize={50} minSize={25}>
+              <InputPane
+                value={s.input}
+                onChange={s.setInput}
+                onClear={s.clearInput}
+                onPaste={s.pasteFromClipboard}
+                validation={s.validation}
+                inputCharCount={s.inputCharCount}
+                inputByteCount={s.inputByteCount}
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={50} minSize={25}>
+              <OutputPane
+                output={s.output}
+                outputBytes={s.outputBytes}
+                imageMime={s.imageMime}
+                activeTab={s.activeTab}
+                onTabChange={s.setActiveTab}
+                charset={s.charset}
+                outputCharCount={s.outputCharCount}
+                outputByteCount={s.inputByteCount}
+                sizeDelta={s.sizeDelta}
+                onCopy={onCopy}
+                onDownload={s.download}
+                originalInput={s.direction === "encode" ? s.input : s.output}
+                isEncoded={s.direction === "encode"}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </div>
       </div>
+      )}
     </ToolShell>
   );
 }

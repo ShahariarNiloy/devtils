@@ -89,14 +89,19 @@ export const CHEATSHEET: CheatsheetGroup[] = [
   },
 ];
 
+// One calm, neutral chip for every token type — the type is conveyed by the
+// `label` text, not a rainbow of hues. (Kept as a map so the per-type label
+// stays accurate and callers don't change.)
+const NEUTRAL = { bg: "bg-surface-soft", text: "text-text-muted" } as const;
+
 export const TOKEN_STYLE: Record<TokenType, { bg: string; text: string; label: string }> = {
-  anchor:       { bg: "bg-[var(--color-token-anchor-bg)]",   text: "text-[var(--color-token-anchor-text)]",   label: "Anchor"     },
-  "char-class": { bg: "bg-[var(--color-token-class-bg)]",    text: "text-[var(--color-token-class-text)]",    label: "Class"      },
-  group:        { bg: "bg-[var(--color-token-group-bg)]",    text: "text-[var(--color-token-group-text)]",    label: "Group"      },
-  "group-end":  { bg: "bg-[var(--color-token-group-bg)]",    text: "text-[var(--color-token-group-text)]",    label: "Group"      },
-  quantifier:   { bg: "bg-[var(--color-token-quant-bg)]",    text: "text-[var(--color-token-quant-text)]",    label: "Quantifier" },
-  escape:       { bg: "bg-[var(--color-token-class-bg)]",    text: "text-[var(--color-token-class-text)]",    label: "Escape"     },
-  special:      { bg: "bg-[var(--color-token-anchor-bg)]",   text: "text-[var(--color-token-anchor-text)]",   label: "Special"    },
-  alternation:  { bg: "bg-border-subtle",                    text: "text-text-muted",                         label: "Or"         },
-  literal:      { bg: "bg-[var(--color-token-literal-bg)]",  text: "text-[var(--color-token-literal-text)]",  label: "Literal"    },
+  anchor:       { ...NEUTRAL, label: "Anchor"     },
+  "char-class": { ...NEUTRAL, label: "Class"      },
+  group:        { ...NEUTRAL, label: "Group"      },
+  "group-end":  { ...NEUTRAL, label: "Group"      },
+  quantifier:   { ...NEUTRAL, label: "Quantifier" },
+  escape:       { ...NEUTRAL, label: "Escape"     },
+  special:      { ...NEUTRAL, label: "Special"    },
+  alternation:  { ...NEUTRAL, label: "Or"         },
+  literal:      { ...NEUTRAL, label: "Literal"    },
 };

@@ -3,6 +3,7 @@
 import {
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,15 +11,21 @@ import {
 import { toast } from "sonner";
 import {
   compile,
-  matchAll,
-  replaceText,
-  splitText,
   detectReDoS,
   explainPattern,
   formatMatches,
   PATTERN_LIBRARY,
   type CopyFormat,
 } from "../regex.lib";
+import type { RegexMatch } from "../regex.lib";
+import { runRegex } from "../regex-client";
+
+const EMPTY_MATCHES: RegexMatch[] = [];
+
+// Above this test-string size the inline match overlay (up to ~10k React
+// nodes rebuilt per keystroke) is skipped — the match list / extract still
+// work; only the highlight backgrounds drop. Keeps big inputs responsive.
+const HIGHLIGHT_TEXT_LIMIT = 200_000;
 import { useShortcut } from "@/lib/keyboard";
 import type { MobileView } from "../mobile/types";
 import { SAMPLE_TEXT, saveHistory, type HistoryEntry } from "./use-regex-state";
@@ -41,7 +48,6 @@ export function useRegexTester() {
   const [replacement, setReplacement]     = useState("[$&]");
   const [patternSearch, setPatternSearch] = useState("");
   const [patternsOpen, setPatternsOpen]   = useState(false);
-  const [hoveredToken, setHoveredToken]   = useState<number | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<number | null>(null);
   const [showExamples, setShowExamples]   = useState(false);
   const [history, setHistory]             = useState<HistoryEntry[]>([]);
@@ -54,7 +60,6 @@ export function useRegexTester() {
   const patternRef   = useRef<HTMLInputElement>(null);
   const lineNumRef   = useRef<HTMLDivElement>(null);
   const marksPreRef  = useRef<HTMLPreElement>(null);
-  const breakdownRef = useRef<HTMLDivElement>(null);
 
   const deferredPattern     = useDeferredValue(pattern);
   const deferredText        = useDeferredValue(text);
@@ -62,24 +67,58 @@ export function useRegexTester() {
   const flagsKey            = flags.join("");
 
   const compiled = useMemo(() => compile(deferredPattern, flagsKey), [deferredPattern, flagsKey]);
+  const compiledOk = compiled.ok;
 
-  const { matches, execMs } = useMemo(() => {
-    if (!compiled.ok) return { matches: [] as ReturnType<typeof matchAll>, execMs: 0 };
-    // eslint-disable-next-line react-hooks/purity
-    const t0 = performance.now();
-    const m = matchAll(compiled.regex, deferredText);
-    // eslint-disable-next-line react-hooks/purity
-    return { matches: m, execMs: Math.round((performance.now() - t0) * 10) / 10 };
-  }, [compiled, deferredText]);
+  // Matching runs in a worker with a hard timeout. A catastrophic pattern
+  // can't be aborted from JS, so the only safe escape is terminating the
+  // worker — which turns a frozen tab into a "pattern too slow" message.
+  // Results are kept until the next ones arrive (stale-while-revalidate).
+  const [run, setRun] = useState<{
+    matches: RegexMatch[];
+    execMs: number;
+    replaced: string;
+    parts: string[];
+    timedOut: boolean;
+  }>({ matches: EMPTY_MATCHES, execMs: 0, replaced: "", parts: [], timedOut: false });
 
-  const replaced = useMemo(
-    () => (compiled.ok ? replaceText(compiled.regex, deferredText, deferredReplacement) : deferredText),
-    [compiled, deferredText, deferredReplacement],
-  );
-  const parts = useMemo(
-    () => (compiled.ok ? splitText(compiled.regex, deferredText) : [deferredText]),
-    [compiled, deferredText],
-  );
+  useEffect(() => {
+    if (!compiledOk) return;
+    let cancelled = false;
+    void runRegex({
+      pattern: deferredPattern,
+      flags: flagsKey,
+      text: deferredText,
+      replacement: deferredReplacement,
+      mode,
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.status === "ok") {
+        setRun({
+          matches: res.matches,
+          execMs: res.execMs,
+          replaced: res.replaced ?? deferredText,
+          parts: res.parts ?? [deferredText],
+          timedOut: false,
+        });
+      } else if (res.status === "timeout") {
+        setRun({ matches: [], execMs: 0, replaced: deferredText, parts: [deferredText], timedOut: true });
+      } else {
+        // Exec/compile error — the `compiled` banner already explains it.
+        setRun({ matches: [], execMs: 0, replaced: deferredText, parts: [deferredText], timedOut: false });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [compiledOk, deferredPattern, flagsKey, deferredText, deferredReplacement, mode]);
+
+  const matches = compiledOk ? run.matches : EMPTY_MATCHES;
+  const execMs = compiledOk ? run.execMs : 0;
+  const replaced = compiledOk && run.replaced ? run.replaced : deferredText;
+  const parts =
+    compiledOk && run.parts.length ? run.parts : [deferredText];
+  const regexTimedOut = compiledOk ? run.timedOut : false;
+
   const redos = useMemo(
     () => (deferredPattern ? detectReDoS(deferredPattern) : { safe: true, warning: null }),
     [deferredPattern],
@@ -98,8 +137,13 @@ export function useRegexTester() {
     : null;
 
   const highlighted = useMemo<React.ReactNode[] | null>(
-    () => (matches.length && compiled.ok ? buildHighlighted(matches, deferredText, validSelected) : null),
-    [matches, deferredText, compiled.ok, validSelected],
+    () =>
+      matches.length &&
+      compiledOk &&
+      deferredText.length <= HIGHLIGHT_TEXT_LIMIT
+        ? buildHighlighted(matches, deferredText, validSelected)
+        : null,
+    [matches, deferredText, compiledOk, validSelected],
   );
 
   const filteredLibrary = useMemo(() => {
@@ -134,10 +178,6 @@ export function useRegexTester() {
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
 
-  function scrollToBreakdown() {
-    breakdownRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   function applyHistoryEntry(entry: HistoryEntry) {
     setPattern(entry.pattern);
     setFlags(entry.flags.split("").filter(Boolean));
@@ -170,13 +210,14 @@ export function useRegexTester() {
   return {
     pattern, setPattern, flags, setFlags, mode, setMode, text, setText,
     replacement, setReplacement, patternSearch, setPatternSearch,
-    patternsOpen, setPatternsOpen, hoveredToken, setHoveredToken,
+    patternsOpen, setPatternsOpen,
     selectedMatch, setSelectedMatch, showExamples, setShowExamples,
     history, setHistory, historyOpen, setHistoryOpen, copyOpen, setCopyOpen,
     splitDirection, mobileActiveView, setMobileActiveView, isKeyboardOpen,
-    patternRef, lineNumRef, marksPreRef, breakdownRef,
+    patternRef, lineNumRef, marksPreRef,
     flagsKey, compiled, matches, execMs, replaced, parts, redos, tokens,
+    regexTimedOut,
     execMsDisplay, validSelected, highlighted, filteredLibrary, lineCount,
-    scrollToBreakdown, applyHistoryEntry, clearHistory, handleCopyMatches, handleShare,
+    applyHistoryEntry, clearHistory, handleCopyMatches, handleShare,
   };
 }

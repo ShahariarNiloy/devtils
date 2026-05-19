@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import { Textarea } from "@/components/primitives/textarea";
@@ -13,7 +14,18 @@ import { MatchPanel } from "../panels/match-panel";
 import { ReplacePanel } from "../panels/replace-panel";
 import { SplitPanel } from "../panels/split-panel";
 import { ExtractPanel } from "../panels/extract-panel";
-import type { RegexMatch, CopyFormat } from "../regex.lib";
+import { BreakdownContent } from "./breakdown-content";
+import { CheatsheetContent } from "./cheatsheet-content";
+import type { RegexMatch, CopyFormat, ExplainToken } from "../regex.lib";
+
+type RightTab = "result" | "breakdown" | "cheatsheet";
+
+const RESULT_LABEL: Record<string, string> = {
+  match: "Matches",
+  replace: "Replace",
+  split: "Split",
+  extract: "Extract",
+};
 
 interface TestPanelProps {
   text: string;
@@ -32,6 +44,7 @@ interface TestPanelProps {
   handleCopyMatches: (fmt: CopyFormat) => void;
   replaced: string;
   parts: string[];
+  tokens: ExplainToken[];
 }
 
 export function TestPanel({
@@ -51,7 +64,17 @@ export function TestPanel({
   handleCopyMatches,
   replaced,
   parts,
+  tokens,
 }: TestPanelProps) {
+  const [rightTab, setRightTab] = useState<RightTab>("result");
+
+  // One text node instead of one <div> per line — a big paste was rebuilding
+  // thousands of elements whenever the line count changed.
+  const gutterContent = useMemo(
+    () => Array.from({ length: lineCount }, (_, i) => i + 1).join("\n"),
+    [lineCount],
+  );
+
   return (
     <div className="rounded-xl border border-border bg-surface overflow-hidden flex flex-col">
       {/* Replace input row */}
@@ -103,15 +126,12 @@ export function TestPanel({
                 className="w-12 shrink-0 bg-surface-soft/60 border-r border-border-subtle py-3 pr-3 select-none"
                 style={{ overflowY: "hidden" }}
               >
-                {Array.from({ length: lineCount }, (_, i) => (
-                  <div
-                    key={i}
-                    className="font-mono text-sm text-text-faint text-right"
-                    style={{ lineHeight: "1.65", height: "calc(1.65 * 14px)" }}
-                  >
-                    {i + 1}
-                  </div>
-                ))}
+                <pre
+                  className="m-0 font-mono text-sm text-text-faint text-right whitespace-pre"
+                  style={{ lineHeight: "1.65" }}
+                >
+                  {gutterContent}
+                </pre>
               </div>
               {/* Editor: textarea on top, match backgrounds painted by pre underneath */}
               <div className="relative flex-1">
@@ -136,6 +156,9 @@ export function TestPanel({
                   className={cn(
                     "absolute inset-0 border-0 rounded-none bg-transparent caret-text resize-none",
                     "font-mono text-sm leading-[1.65] px-4 py-3 text-text regex-highlighted",
+                    // It's an embedded editor, not a form field — kill the
+                    // primitive's brand focus ring/border.
+                    "outline-none focus:border-0 focus:shadow-none",
                   )}
                   placeholder="Paste or type test text…"
                 />
@@ -146,38 +169,76 @@ export function TestPanel({
 
         <ResizableHandle withHandle />
 
-        {/* Right — mode panels */}
+        {/* Right — tabbed inspector: mode result · breakdown · cheatsheet */}
         <ResizablePanel defaultSize="32%" minSize="20%" maxSize="60%">
           <div className="flex flex-col h-full overflow-hidden">
-            <TabsContent
-              value="match"
-              className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <MatchPanel
-                matches={matches}
-                selectedMatch={validSelected}
-                onSelect={setSelectedMatch}
-                onCopy={handleCopyMatches}
-              />
-            </TabsContent>
-            <TabsContent
-              value="replace"
-              className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <ReplacePanel replaced={replaced} />
-            </TabsContent>
-            <TabsContent
-              value="split"
-              className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <SplitPanel parts={parts} />
-            </TabsContent>
-            <TabsContent
-              value="extract"
-              className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <ExtractPanel matches={matches} />
-            </TabsContent>
+            <div className="flex items-center gap-1 px-2 h-10 border-b border-border-subtle shrink-0">
+              {(
+                [
+                  { id: "result", label: RESULT_LABEL[mode] ?? "Result", badge: null },
+                  { id: "breakdown", label: "Breakdown", badge: tokens.length || null },
+                  { id: "cheatsheet", label: "Cheatsheet", badge: null },
+                ] as { id: RightTab; label: string; badge: number | null }[]
+              ).map((t) => {
+                const active = rightTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setRightTab(t.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 h-7 rounded-md px-2.5 text-sm font-medium transition-colors cursor-pointer",
+                      active
+                        ? "bg-surface-soft text-text"
+                        : "text-text-faint hover:bg-surface-soft/60 hover:text-text",
+                    )}
+                  >
+                    {t.label}
+                    {t.badge != null && (
+                      <span className="text-text-faint font-normal">
+                        {t.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {rightTab === "result" && (
+              <>
+                <TabsContent
+                  value="match"
+                  className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
+                >
+                  <MatchPanel
+                    matches={matches}
+                    selectedMatch={validSelected}
+                    onSelect={setSelectedMatch}
+                    onCopy={handleCopyMatches}
+                  />
+                </TabsContent>
+                <TabsContent
+                  value="replace"
+                  className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
+                >
+                  <ReplacePanel replaced={replaced} />
+                </TabsContent>
+                <TabsContent
+                  value="split"
+                  className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
+                >
+                  <SplitPanel parts={parts} />
+                </TabsContent>
+                <TabsContent
+                  value="extract"
+                  className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden"
+                >
+                  <ExtractPanel matches={matches} />
+                </TabsContent>
+              </>
+            )}
+            {rightTab === "breakdown" && <BreakdownContent tokens={tokens} />}
+            {rightTab === "cheatsheet" && <CheatsheetContent />}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

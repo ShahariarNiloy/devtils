@@ -26,6 +26,7 @@ interface OutputPaneProps {
   onDownload: () => void;
   originalInput: string;
   isEncoded: boolean;
+  hideTitle?: boolean;
 }
 
 const JSON_PREFILL_KEY = "devtils_json_prefill";
@@ -33,7 +34,7 @@ const JSON_PREFILL_KEY = "devtils_json_prefill";
 export function OutputPane({
   output, outputBytes, imageMime, activeTab, onTabChange,
   charset, outputCharCount, outputByteCount, sizeDelta,
-  onCopy, onDownload, originalInput, isEncoded,
+  onCopy, onDownload, originalInput, isEncoded, hideTitle,
 }: OutputPaneProps) {
   const router = useRouter();
   const hasImage = !!imageMime && outputBytes.length > 0;
@@ -57,7 +58,7 @@ export function OutputPane({
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-surface">
+    <div className="flex h-full flex-col overflow-hidden bg-surface">
       {/* Toolbar */}
       <OutputToolbar
         activeTab={activeTab}
@@ -65,6 +66,7 @@ export function OutputPane({
         onTabChange={onTabChange}
         onCopy={onCopy}
         onDownload={onDownload}
+        hideTitle={hideTitle}
       />
 
       {/* Content */}
@@ -74,7 +76,7 @@ export function OutputPane({
       )}>
         {activeTab === "text" && (
           <div className="px-3 py-3">
-            <pre className="m-0 font-mono text-sm leading-relaxed text-text whitespace-pre-wrap break-all">
+            <pre className="m-0 font-mono text-base leading-relaxed text-text whitespace-pre-wrap break-all">
               {output || <span className="text-text-faint italic">Output appears here…</span>}
             </pre>
             {isJson && (
@@ -93,7 +95,7 @@ export function OutputPane({
 
         {activeTab === "data-uri" && (
           <div className="px-3 py-3 relative">
-            <pre className="m-0 font-mono text-sm leading-relaxed text-text whitespace-pre-wrap break-all">
+            <pre className="m-0 font-mono text-base leading-relaxed text-text whitespace-pre-wrap break-all">
               {dataUri || <span className="text-text-faint italic">Run an encode to see a data URI…</span>}
             </pre>
             {dataUri && (

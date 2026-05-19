@@ -23,7 +23,7 @@ export function InputPane({
   inputCharCount, inputByteCount,
 }: InputPaneProps) {
   return (
-    <div className="flex flex-1 flex-col overflow-hidden border-r border-border-subtle bg-surface">
+    <div className="flex h-full flex-col overflow-hidden bg-surface">
       {/* Toolbar */}
       <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
         <span className="ml-1 text-sm uppercase tracking-wider font-semibold text-text-faint">
@@ -86,7 +86,7 @@ export function InputPane({
         autoCorrect="off"
         placeholder="Paste text or Base64 here…"
         aria-label="Input"
-        className="flex-1 min-h-0 px-3 py-3 bg-transparent border-0 outline-none resize-none font-mono text-sm leading-relaxed text-text placeholder:text-text-faint"
+        className="flex-1 min-h-0 px-3 py-3 bg-transparent border-0 outline-none resize-none font-mono text-base leading-relaxed text-text placeholder:text-text-faint"
       />
 
       {/* Status bar */}

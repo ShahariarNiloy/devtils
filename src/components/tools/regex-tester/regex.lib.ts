@@ -30,25 +30,39 @@ export interface RegexMatch {
   line: number;
 }
 
-/** Run the regex against text, return every match. Capped at 5 000. */
+export const MATCH_CAP = 5000;
+
+/**
+ * Run the regex against text, return every match (capped at MATCH_CAP).
+ *
+ * Line numbers are computed with a single forward-moving newline counter
+ * instead of `text.slice(0, m.index).split("\n")` per match — the old form
+ * was O(n·m) (a full slice + split allocation for every match) and made a
+ * large test string with many matches crawl.
+ */
 export function matchAll(regex: RegExp, text: string): RegexMatch[] {
   const r = regex.global ? regex : new RegExp(regex.source, regex.flags + "g");
   const out: RegexMatch[] = [];
   let lastIndex = -1;
   let m: RegExpExecArray | null;
+  let scanPos = 0; // how far the newline counter has consumed
+  let lineNo = 1;
   while ((m = r.exec(text))) {
     if (m.index === lastIndex) { r.lastIndex += 1; continue; }
     lastIndex = m.index;
-    const line = text.slice(0, m.index).split("\n").length;
+    // Advance the line counter up to this match (matches arrive in order).
+    for (; scanPos < m.index; scanPos++) {
+      if (text.charCodeAt(scanPos) === 10) lineNo++;
+    }
     out.push({
       index: m.index,
       end: m.index + m[0].length,
       match: m[0],
       groups: m.slice(1).map((g) => g ?? ""),
       named: { ...(m.groups ?? {}) },
-      line,
+      line: lineNo,
     });
-    if (out.length >= 5000) break;
+    if (out.length >= MATCH_CAP) break;
     if (m[0].length === 0) r.lastIndex += 1;
   }
   return out;

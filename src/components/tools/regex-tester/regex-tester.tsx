@@ -12,7 +12,6 @@ import type { Tool } from "@/lib/tools-registry";
 import { useRegexTester } from "./hooks/use-regex-tester";
 import { PatternBar } from "./desktop/pattern-bar";
 import { StatusBar } from "./desktop/status-bar";
-import { BreakdownPanel } from "./desktop/breakdown-panel";
 import { TestPanel } from "./desktop/test-panel";
 import { ToolbarRow } from "./desktop/toolbar-row";
 
@@ -27,7 +26,6 @@ export function RegexTester({ tool }: { tool: Tool }) {
     replacement, setReplacement,
     patternSearch, setPatternSearch,
     patternsOpen, setPatternsOpen,
-    hoveredToken, setHoveredToken,
     selectedMatch, setSelectedMatch,
     showExamples, setShowExamples,
     history,
@@ -39,7 +37,6 @@ export function RegexTester({ tool }: { tool: Tool }) {
     patternRef,
     lineNumRef,
     marksPreRef,
-    breakdownRef,
     compiled,
     matches,
     execMs,
@@ -47,12 +44,12 @@ export function RegexTester({ tool }: { tool: Tool }) {
     parts,
     redos,
     tokens,
+    regexTimedOut,
     execMsDisplay,
     validSelected,
     highlighted,
     filteredLibrary,
     lineCount,
-    scrollToBreakdown,
     applyHistoryEntry,
     clearHistory,
     handleCopyMatches,
@@ -80,7 +77,7 @@ export function RegexTester({ tool }: { tool: Tool }) {
     isKeyboardOpen,
   }), [
     pattern, flags, text, replacement, selectedMatch, mode,
-    compiled, matches, tokens, highlighted, replaced, parts,
+    compiled, matches, tokens, highlighted, replaced, parts, execMs,
     mobileActiveView, isKeyboardOpen,
     setPattern, setFlags, setText, setReplacement, setSelectedMatch, setMode,
     setMobileActiveView,
@@ -117,6 +114,7 @@ export function RegexTester({ tool }: { tool: Tool }) {
                 tokens={tokens}
                 execMsDisplay={execMsDisplay}
                 redos={redos}
+                timedOut={regexTimedOut}
                 history={history}
                 historyOpen={historyOpen}
                 setHistoryOpen={setHistoryOpen}
@@ -141,7 +139,6 @@ export function RegexTester({ tool }: { tool: Tool }) {
               setSelectedMatch={setSelectedMatch}
               showExamples={showExamples}
               setShowExamples={setShowExamples}
-              scrollToBreakdown={scrollToBreakdown}
             />
 
             {/* ── Card 3: Content area ───────────────────────────────────────── */}
@@ -179,16 +176,9 @@ export function RegexTester({ tool }: { tool: Tool }) {
                 handleCopyMatches={handleCopyMatches}
                 replaced={replaced}
                 parts={parts}
+                tokens={tokens}
               />
             </div>
-
-            {/* ── Card 4: Pattern breakdown ──────────────────────────────────── */}
-            <BreakdownPanel
-              tokens={tokens}
-              hoveredToken={hoveredToken}
-              setHoveredToken={setHoveredToken}
-              breakdownRef={breakdownRef}
-            />
 
           </div>
         )}

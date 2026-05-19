@@ -56,9 +56,13 @@ export function ToolShell({ tool, actions, children, classNames }: Props) {
         <ToolShellHeader tool={tool} classNames={classNames} />
 
         {/* ─── Tool body ────────────────────────────────── */}
+        {/* min-h-dvh guarantees the page is always tall enough that the
+            scroll-into-view below can bring the body to the top even for a
+            short tool — no filler content needed. A short tool then sits in
+            a full-height workspace canvas, which is the intended look. */}
         <section
           ref={bodyRef}
-          className="bg-canvas"
+          className="bg-canvas min-h-dvh"
           style={{ scrollMarginTop: "var(--spacing-header)" }}
         >
           <div

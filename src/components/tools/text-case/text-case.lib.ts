@@ -14,7 +14,12 @@ export type CaseId =
   | "snake"
   | "kebab"
   | "screamingSnake"
-  | "dot";
+  | "dot"
+  | "train"
+  | "cobol"
+  | "path"
+  | "toggle"
+  | "alternating";
 
 export interface CaseDef {
   id: CaseId;
@@ -109,5 +114,43 @@ export const cases: CaseDef[] = [
     label: "dot.case",
     example: "hello.world",
     convert: join("."),
+  },
+  {
+    id: "train",
+    label: "Train-Case",
+    example: "Hello-World",
+    convert: (s) => tokenize(s).map(cap).join("-"),
+  },
+  {
+    id: "cobol",
+    label: "COBOL-CASE",
+    example: "HELLO-WORLD",
+    convert: (s) => tokenize(s).join("-").toUpperCase(),
+  },
+  {
+    id: "path",
+    label: "path/case",
+    example: "hello/world",
+    convert: join("/"),
+  },
+  {
+    id: "toggle",
+    label: "tOGGLE cASE",
+    example: "hELLO WORLD",
+    convert: (s) =>
+      s.replace(/[a-z]/gi, (ch) =>
+        ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase(),
+      ),
+  },
+  {
+    id: "alternating",
+    label: "aLtErNaTiNg",
+    example: "hElLo WoRlD",
+    convert: (s) => {
+      let i = 0;
+      return s.replace(/[a-z]/gi, (ch) =>
+        i++ % 2 === 0 ? ch.toLowerCase() : ch.toUpperCase(),
+      );
+    },
   },
 ];

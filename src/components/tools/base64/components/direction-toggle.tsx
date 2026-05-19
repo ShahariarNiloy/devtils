@@ -14,18 +14,8 @@ export function DirectionToggle({ value, onChange }: DirectionToggleProps) {
     <div
       role="tablist"
       aria-label="Conversion direction"
-      className="relative inline-flex items-center gap-1 rounded-lg border border-border bg-surface p-1"
+      className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface p-1"
     >
-      {/* sliding indicator — width = half the container minus padding (4px each side) and half gap (2px each side) */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute top-1 bottom-1 left-1 rounded-md bg-brand transition-transform duration-200 ease-out"
-        style={{
-          width: "calc(50% - 6px)",
-          transform: value === "decode" ? "translateX(calc(100% + 4px))" : "translateX(0)",
-        }}
-      />
-
       <Pill
         active={value === "encode"}
         onClick={() => onChange("encode")}
@@ -63,8 +53,10 @@ function Pill({
       onClick={onClick}
       title={title}
       className={cn(
-        "relative z-10 inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium transition-colors cursor-pointer",
-        active ? "text-bg" : "text-text-muted hover:text-text",
+        "inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium transition-colors cursor-pointer",
+        active
+          ? "bg-brand text-bg"
+          : "text-text-muted hover:text-text",
       )}
     >
       {icon}

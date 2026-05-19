@@ -18,14 +18,18 @@ interface OutputToolbarProps {
   onTabChange: (t: OutputTab) => void;
   onCopy: () => void;
   onDownload: () => void;
+  /** Hide the "Output" label (mobile already labels the pane via its switch). */
+  hideTitle?: boolean;
 }
 
-export function OutputToolbar({ activeTab, hasImage, onTabChange, onCopy, onDownload }: OutputToolbarProps) {
+export function OutputToolbar({ activeTab, hasImage, onTabChange, onCopy, onDownload, hideTitle }: OutputToolbarProps) {
   return (
     <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
-      <span className="ml-1 text-sm uppercase tracking-wider font-semibold text-text-faint mr-3">
-        Output
-      </span>
+      {!hideTitle && (
+        <span className="ml-1 text-sm uppercase tracking-wider font-semibold text-text-faint mr-3">
+          Output
+        </span>
+      )}
 
       <div className="flex items-center gap-0.5 flex-1">
         {STATIC_TABS.map(({ mode, label, tip }) => {

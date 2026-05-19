@@ -4,7 +4,6 @@ import { ListChecks } from "lucide-react";
 import { Button } from "@/components/primitives/button";
 import { TabsList, TabsTrigger } from "@/components/primitives/tabs";
 import { PatternsDialog } from "./patterns-dialog";
-import { CheatsheetDialog } from "./cheatsheet-dialog";
 import type { PatternCategory } from "../regex.lib";
 
 interface ToolbarRowProps {
@@ -18,7 +17,6 @@ interface ToolbarRowProps {
   setSelectedMatch: (v: number | null) => void;
   showExamples: boolean;
   setShowExamples: React.Dispatch<React.SetStateAction<boolean>>;
-  scrollToBreakdown: () => void;
 }
 
 export function ToolbarRow({
@@ -32,7 +30,6 @@ export function ToolbarRow({
   setSelectedMatch,
   showExamples,
   setShowExamples,
-  scrollToBreakdown,
 }: ToolbarRowProps) {
   return (
     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -53,31 +50,6 @@ export function ToolbarRow({
           setFlags={setFlags}
           setSelectedMatch={setSelectedMatch}
         />
-
-        <CheatsheetDialog />
-
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={scrollToBreakdown}
-        >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 3v18" />
-            <path d="M3 12h18" />
-            <path d="m18 6-12 12" />
-            <path d="m6 6 12 12" />
-          </svg>
-          Explain
-        </Button>
 
         {/* Divider */}
         <div className="w-px h-5 bg-border-subtle mx-1" />
