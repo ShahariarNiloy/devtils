@@ -7,21 +7,33 @@ import {
   parseHsl,
   parseOklch,
   parseRgb,
+  parseLab,
+  parseLch,
   relativeLuminance,
   rgbToCmyk,
   rgbToHex,
   rgbToHsl,
   rgbToHsb,
   rgbToOklch,
+  rgbToLab,
+  rgbToLch,
   rgbToString,
   cmykToString,
   hslToString,
   hsbToString,
   oklchToString,
+  labToString,
+  lchToString,
   contrastRatio,
   type RGB,
 } from "./color.lib";
-import type { Format, ShadeEntry, WcagResult, TailwindMatch } from "./color-converter.types";
+import type {
+  Format,
+  ShadeEntry,
+  WcagResult,
+  TailwindMatch,
+  NamedMatch,
+} from "./color-converter.types";
 
 // ── Named CSS colors ───────────────────────────────────────────────
 const NAMED: Record<string, string> = {
@@ -81,9 +93,11 @@ export function parseAnyColor(input: string): RGB | null {
   if (/^hs[bv]a?/i.test(s)) { const r = parseHsb(s); if (r) return r; }
   if (/^oklch/i.test(s)) { const r = parseOklch(s); if (r) return r; }
   if (/^cmyk/i.test(s)) { const r = parseCmyk(s); if (r) return r; }
+  if (/^lab/i.test(s))   { const r = parseLab(s);   if (r) return r; }
+  if (/^lch/i.test(s))   { const r = parseLch(s);   if (r) return r; }
   const bareRgb = parseBareRgb(s);
   if (bareRgb) return bareRgb;
-  const named = NAMED[s.toLowerCase()];
+  const named = NAMED[s.toLowerCase().replace(/\s+/g, "")];
   if (named) return parseHex(named);
   return null;
 }
@@ -96,6 +110,12 @@ export function formatColor(rgb: RGB, fmt: Format): string {
     case "hsb":   return hsbToString(rgbToHsb(rgb));
     case "oklch": return oklchToString(rgbToOklch(rgb));
     case "cmyk":  return cmykToString(rgbToCmyk(rgb));
+    case "lab":   return labToString(rgbToLab(rgb));
+    case "lch":   return lchToString(rgbToLch(rgb));
+    case "named": {
+      const m = closestNamedColor(rgb);
+      return m.exact ? m.name : `~ ${m.name}`;
+    }
   }
 }
 
@@ -111,6 +131,13 @@ export function parseFormatInput(val: string, fmt: Format): RGB | null {
     case "hsb":   return parseHsb(s);
     case "oklch": return parseOklch(s);
     case "cmyk":  return parseCmyk(s);
+    case "lab":   return parseLab(s);
+    case "lch":   return parseLch(s);
+    case "named": {
+      const key = s.toLowerCase().replace(/[~\s]+/g, "");
+      const hex = NAMED[key];
+      return hex ? parseHex(hex) : null;
+    }
   }
 }
 
@@ -119,6 +146,7 @@ export function generateShades(hue: number, sat: number, bri: number): ShadeEntr
   const { l: L0, c: C0, h: H0 } = rgbToOklch(orig);
 
   const config: [number, number, number][] = [
+    [ 50, 0.98,  0.02],
     [100, 0.97,  0.05],
     [200, 0.90,  0.18],
     [300, 0.82,  0.44],
@@ -243,6 +271,64 @@ const TW: [string, number, number, number][] = [
   // white / black
   ["white",255,255,255],["black",0,0,0],
 ];
+
+// ── Closest CSS named color ────────────────────────────────────────
+// Heuristic split into spaces — works for common compound names like
+// "cornflowerblue" → "Cornflower Blue", "darkkhaki" → "Dark Khaki".
+const NAME_PREFIXES = [
+  "light", "dark", "medium", "pale", "deep", "hot", "cold",
+  "lemon", "navajo", "papaya", "peach", "powder", "lavender",
+  "alice", "antique", "blanched", "burly", "cadet", "corn",
+  "rebecca", "rosy", "royal", "saddle", "sandy", "sea",
+  "sky", "slate", "spring", "steel", "midnight", "forest",
+  "floral", "ghost", "golden", "indian", "mint", "misty",
+  "old", "olive", "orange", "yellow",
+];
+const NAME_SUFFIXES = [
+  "blue", "green", "red", "yellow", "white", "gray", "grey",
+  "black", "pink", "violet", "purple", "orange", "cyan",
+  "almond", "wood", "rod", "chiffon", "lace", "smoke",
+  "drab", "puff", "stitch", "whip", "wood", "cream",
+  "brick", "salmon", "khaki", "drab",
+];
+function prettyName(name: string): string {
+  const lower = name.toLowerCase();
+  for (const p of NAME_PREFIXES) {
+    if (lower.startsWith(p) && lower.length > p.length) {
+      return cap(p) + " " + cap(lower.slice(p.length));
+    }
+  }
+  for (const s of NAME_SUFFIXES) {
+    if (lower.endsWith(s) && lower.length > s.length) {
+      return cap(lower.slice(0, -s.length)) + " " + cap(s);
+    }
+  }
+  return cap(lower);
+}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export function closestNamedColor(rgb: RGB): NamedMatch {
+  let best: { name: string; hex: string; dist: number } | null = null;
+  for (const [name, hex] of Object.entries(NAMED)) {
+    const p = parseHex(hex);
+    if (!p) continue;
+    const dr = p.r - rgb.r;
+    const dg = p.g - rgb.g;
+    const db = p.b - rgb.b;
+    // 2.4·R, 4·G, 3·B weights (rough perceptual) — keeps green dominant
+    // and matches human sensitivity better than plain Euclidean.
+    const dist = Math.sqrt(2.4 * dr * dr + 4 * dg * dg + 3 * db * db);
+    if (!best || dist < best.dist) best = { name, hex, dist };
+  }
+  if (!best) return { name: "black", display: "Black", hex: "#000000", exact: false, distance: Infinity };
+  return {
+    name: best.name,
+    display: prettyName(best.name),
+    hex: best.hex,
+    exact: best.dist < 0.5,
+    distance: best.dist,
+  };
+}
 
 export function nearestTailwindColor(rgb: RGB): TailwindMatch {
   let best = { name: TW[0][0] as string, dist: Infinity, r: TW[0][1] as number, g: TW[0][2] as number, b: TW[0][3] as number };

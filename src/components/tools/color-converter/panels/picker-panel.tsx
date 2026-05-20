@@ -73,13 +73,13 @@ export function PickerPanel({
   const shortHex = previewHex.length === 9 ? previewHex.slice(0, 7) : previewHex;
 
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden p-4 flex flex-col gap-3">
+    <div className="rounded-xl border border-border bg-surface overflow-hidden p-3 flex flex-col gap-2.5">
       {/* SB gradient square */}
       <div
         ref={pickerRef}
         className="relative w-full rounded-lg cursor-crosshair select-none overflow-hidden"
         style={{
-          aspectRatio: "1",
+          aspectRatio: "5 / 4",
           background: `
             linear-gradient(to bottom, transparent 0%, #000 100%),
             linear-gradient(to right, #fff 0%, hsl(${Math.round(hue)},100%,50%) 100%)
@@ -123,16 +123,16 @@ export function PickerPanel({
       />
 
       {/* Swatch row */}
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex items-center gap-2.5">
         <div
-          className="h-11 w-11 shrink-0 rounded-lg border border-border-subtle"
+          className="h-9 w-9 shrink-0 rounded-lg border border-border-subtle"
           style={{ background: previewHex }}
         />
         <div className="min-w-0 flex-1">
           <p className="font-mono text-sm font-semibold text-text leading-none">
             {previewHex.toUpperCase()}
           </p>
-          <p className="text-sm text-text-faint mt-1">α {Math.round(alpha * 100)}%</p>
+          <p className="text-[11px] text-text-muted mt-1 leading-none">α {Math.round(alpha * 100)}%</p>
         </div>
         <div className="flex items-center gap-1">
           <button

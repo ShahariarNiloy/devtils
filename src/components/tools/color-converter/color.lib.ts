@@ -273,6 +273,124 @@ export function parseOklch(input: string): RGB | null {
   return oklchToRgb({ l, c, h, a: clamp(a, 0, 1) });
 }
 
+// CIE Lab / LCH (D65) — perceptual; used for "designer-complete" outputs.
+interface Lab { l: number; a: number; b: number; alpha: number }
+interface Lch { l: number; c: number; h: number; alpha: number }
+
+const D65 = { x: 0.95047, y: 1.0, z: 1.08883 };
+const LAB_DELTA = 6 / 29;
+const LAB_DELTA3 = LAB_DELTA * LAB_DELTA * LAB_DELTA;
+
+const labF = (t: number) =>
+  t > LAB_DELTA3 ? Math.cbrt(t) : t / (3 * LAB_DELTA * LAB_DELTA) + 4 / 29;
+const labFInv = (t: number) =>
+  t > LAB_DELTA ? t * t * t : (t - 4 / 29) * 3 * LAB_DELTA * LAB_DELTA;
+
+function rgbToXyz({ r, g, b }: RGB) {
+  const lr = linearize(r), lg = linearize(g), lb = linearize(b);
+  return {
+    x: 0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb,
+    y: 0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb,
+    z: 0.0193339 * lr + 0.1191920 * lg + 0.9503041 * lb,
+  };
+}
+
+function xyzToRgb(x: number, y: number, z: number, a: number): RGB {
+  const lr =  3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
+  const lg = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
+  const lb =  0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
+  return {
+    r: clamp(delinearize(lr), 0, 255),
+    g: clamp(delinearize(lg), 0, 255),
+    b: clamp(delinearize(lb), 0, 255),
+    a,
+  };
+}
+
+export function rgbToLab(rgb: RGB): Lab {
+  const { x, y, z } = rgbToXyz(rgb);
+  const fx = labF(x / D65.x);
+  const fy = labF(y / D65.y);
+  const fz = labF(z / D65.z);
+  return {
+    l: 116 * fy - 16,
+    a: 500 * (fx - fy),
+    b: 200 * (fy - fz),
+    alpha: rgb.a,
+  };
+}
+
+export function labToRgb({ l, a, b, alpha }: Lab): RGB {
+  const fy = (l + 16) / 116;
+  const fx = a / 500 + fy;
+  const fz = fy - b / 200;
+  return xyzToRgb(
+    D65.x * labFInv(fx),
+    D65.y * labFInv(fy),
+    D65.z * labFInv(fz),
+    alpha,
+  );
+}
+
+export function rgbToLch(rgb: RGB): Lch {
+  const lab = rgbToLab(rgb);
+  const c = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
+  let h = (Math.atan2(lab.b, lab.a) * 180) / Math.PI;
+  if (h < 0) h += 360;
+  return { l: lab.l, c, h, alpha: lab.alpha };
+}
+
+export function lchToRgb({ l, c, h, alpha }: Lch): RGB {
+  const hr = (h * Math.PI) / 180;
+  return labToRgb({ l, a: Math.cos(hr) * c, b: Math.sin(hr) * c, alpha });
+}
+
+export function labToString({ l, a, b, alpha }: Lab): string {
+  const f = (n: number, d = 2) => Number(n.toFixed(d));
+  const core = `${f(l)}% ${f(a)} ${f(b)}`;
+  return alpha >= 1 ? `lab(${core})` : `lab(${core} / ${alpha.toFixed(2)})`;
+}
+
+export function lchToString({ l, c, h, alpha }: Lch): string {
+  const f = (n: number, d = 2) => Number(n.toFixed(d));
+  const core = `${f(l)}% ${f(c)} ${f(h, 1)}`;
+  return alpha >= 1 ? `lch(${core})` : `lch(${core} / ${alpha.toFixed(2)})`;
+}
+
+export function parseLab(input: string): RGB | null {
+  const m = input.match(/lab\(([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const l = Number(parts[0].replace("%", ""));
+  const a = Number(parts[1]);
+  const b = Number(parts[2]);
+  if ([l, a, b].some(Number.isNaN)) return null;
+  let alpha = 1;
+  if (parts[3]) {
+    alpha = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
+    if (Number.isNaN(alpha)) alpha = 1;
+  }
+  return labToRgb({ l, a, b, alpha: clamp(alpha, 0, 1) });
+}
+
+export function parseLch(input: string): RGB | null {
+  const m = input.match(/lch\(([^)]+)\)/i);
+  if (!m) return null;
+  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const l = Number(parts[0].replace("%", ""));
+  const c = Number(parts[1]);
+  const h = Number(parts[2]);
+  if ([l, c, h].some(Number.isNaN)) return null;
+  let alpha = 1;
+  if (parts[3]) {
+    alpha = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
+    if (Number.isNaN(alpha)) alpha = 1;
+  }
+  return lchToRgb({ l, c, h, alpha: clamp(alpha, 0, 1) });
+}
+
 // HWB (CSS Color Level 4)
 interface HWB { h: number; w: number; b: number; a: number }
 
