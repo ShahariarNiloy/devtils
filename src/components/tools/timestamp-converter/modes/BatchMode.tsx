@@ -100,7 +100,7 @@ export function BatchMode() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="border-b border-border-subtle px-3 py-2 text-sm text-text-faint">
+        <div className="border-b border-border-subtle px-3 py-2 text-sm text-text-muted">
           {rows.length > RENDER_CAP
             ? `Showing first ${RENDER_CAP} of ${rows.length}`
             : `${rows.length} rows`}
@@ -111,7 +111,7 @@ export function BatchMode() {
               key={`${i}-${r.input}`}
               className="flex items-center gap-3 border-b border-border-subtle px-3 py-1.5 text-sm last:border-0"
             >
-              <span className="w-40 shrink-0 truncate font-mono text-text-faint">
+              <span className="w-40 shrink-0 truncate font-mono text-text-muted">
                 {r.input}
               </span>
               <span
@@ -122,7 +122,7 @@ export function BatchMode() {
               >
                 {r.ok ? r.iso : "unparseable"}
               </span>
-              <span className="shrink-0 text-[11px] text-text-faint">
+              <span className="shrink-0 text-[11px] text-text-muted">
                 {r.format}
               </span>
             </div>

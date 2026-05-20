@@ -1,13 +1,26 @@
 "use client";
 
+import {
+  Calculator,
+  Clock,
+  List,
+  Rows3,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ToolMode } from "../timestamp-converter.types";
 
-const TABS: { id: ToolMode; label: string }[] = [
-  { id: "single", label: "Single" },
-  { id: "compare", label: "Compare" },
-  { id: "arithmetic", label: "Arithmetic" },
-  { id: "batch", label: "Batch" },
+interface TabDef {
+  id: ToolMode;
+  label: string;
+  icon: LucideIcon;
+}
+
+const TABS: TabDef[] = [
+  { id: "single", label: "Single", icon: Clock },
+  { id: "compare", label: "Compare", icon: Rows3 },
+  { id: "arithmetic", label: "Arithmetic", icon: Calculator },
+  { id: "batch", label: "Batch", icon: List },
 ];
 
 interface Props {
@@ -20,9 +33,10 @@ export function ModeTabs({ mode, onMode }: Props) {
     <div
       role="tablist"
       aria-label="Tool mode"
-      className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface p-1"
+      className="flex items-center justify-center gap-1 border-b border-border-subtle"
     >
-      {TABS.map((t, i) => {
+      {TABS.map((t) => {
+        const Icon = t.icon;
         const active = mode === t.id;
         return (
           <button
@@ -32,15 +46,17 @@ export function ModeTabs({ mode, onMode }: Props) {
             aria-selected={active}
             onClick={() => onMode(t.id)}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors cursor-pointer",
+              "-mb-px inline-flex h-10 items-center gap-2 border-b-2 px-4 text-sm font-medium transition-colors cursor-pointer",
               active
-                ? "bg-surface-soft text-text"
-                : "text-text-muted hover:text-text",
+                ? "border-brand text-text"
+                : "border-transparent text-text-muted hover:text-text",
             )}
           >
-            <span className="font-mono text-[11px] text-text-faint">
-              ⌘{i + 1}
-            </span>
+            <Icon
+              size={14}
+              aria-hidden
+              className={active ? "text-brand" : undefined}
+            />
             {t.label}
           </button>
         );

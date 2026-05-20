@@ -7,7 +7,6 @@ import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
 import { useTimestampConverter } from "./useTimestampConverter";
 import { HeroInput } from "./components/HeroInput";
-import { RelativeFocus } from "./components/RelativeFocus";
 import { ModeTabs } from "./components/ModeTabs";
 import { StatusBar } from "./components/StatusBar";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
@@ -78,19 +77,21 @@ export function TimestampConverter({ tool }: { tool: Tool }) {
 
   return (
     <ToolShell tool={tool}>
-      <div id="main-content" className="flex flex-col gap-6">
-        <HeroInput
-          ref={inputRef}
-          value={s.rawInput}
-          onChange={s.setRawInput}
-          onUseNow={s.useNow}
-          onClear={s.clear}
-          onOverride={s.overrideFormat}
-          parseResult={s.parseResult}
-          nowUnix={s.nowUnix}
-        />
+      <div id="main-content" className="flex flex-col gap-10">
 
-        <RelativeFocus parseResult={s.parseResult} nowUnix={s.nowUnix} />
+        <div className="mx-auto w-full max-w-3xl">
+          <HeroInput
+            ref={inputRef}
+            value={s.rawInput}
+            onChange={s.setRawInput}
+            onUseNow={s.useNow}
+            onClear={s.clear}
+            onOverride={s.overrideFormat}
+            parseResult={s.parseResult}
+            primaryTz={s.primaryTz}
+            nowUnix={s.nowUnix}
+          />
+        </div>
 
         <ModeTabs mode={s.mode} onMode={s.setMode} />
 

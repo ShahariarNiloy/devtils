@@ -55,6 +55,10 @@ export interface TimezoneView {
   iso8601: string;
   /** Friendly long form, e.g. "Thursday, November 16, 2023 at 11:50:56 AM". */
   human: string;
+  /** Time of day, e.g. "8:15:56 AM" — the hero scan target on the card. */
+  time: string;
+  /** Date, e.g. "Friday, March 26, 2286". */
+  date: string;
   dayOfWeek: string;
   dayOfYear: number;
   weekOfYear: number;

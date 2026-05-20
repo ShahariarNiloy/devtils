@@ -14,7 +14,7 @@ import { SUPPORTED_LANGUAGES } from "../timestamp-converter.constants";
 import type { ParseResult } from "../timestamp-converter.types";
 
 const TOKEN_CLASS: Record<TokenType, string> = {
-  comment: "text-text-faint italic",
+  comment: "text-text-muted italic",
   string: "text-sage-olive",
   number: "text-brand",
   keyword: "text-olive-ink font-medium",
@@ -82,7 +82,7 @@ export function CodePanel({
               "shrink-0 rounded-md px-2.5 py-1 text-sm font-medium transition-colors cursor-pointer",
               l.id === activeLanguage
                 ? "bg-surface-soft text-text"
-                : "text-text-faint hover:text-text",
+                : "text-text-muted hover:text-text",
             )}
           >
             {l.label}
@@ -92,7 +92,7 @@ export function CodePanel({
           type="button"
           onClick={onCopy}
           aria-label="Copy snippet"
-          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
+          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
         >
           {copied ? (
             <Check size={14} className="text-brand" />

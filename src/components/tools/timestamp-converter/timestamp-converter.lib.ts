@@ -325,17 +325,33 @@ export function getTimezoneView(
   }).formatToParts(new Date(instant.epochMilliseconds));
   const abbreviation =
     parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  const d = new Date(instant.epochMilliseconds);
   const human = new Intl.DateTimeFormat("en-US", {
     dateStyle: "full",
     timeStyle: "medium",
     timeZone: iana,
-  }).format(new Date(instant.epochMilliseconds));
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: iana,
+  }).format(d);
+  const date = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: iana,
+  }).format(d);
   return {
     iana,
     abbreviation,
     offset: zdt.offset,
     iso8601: zdt.toString({ timeZoneName: "never" }),
     human,
+    time,
+    date,
     dayOfWeek: WEEKDAYS[zdt.dayOfWeek - 1],
     dayOfYear: zdt.dayOfYear,
     weekOfYear: zdt.weekOfYear ?? 0,

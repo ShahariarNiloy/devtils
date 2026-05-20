@@ -106,7 +106,7 @@ export function AddSubtractPanel({ primaryTz, secondaryTz, cal }: Props) {
             }
             aria-label="Remove row"
             disabled={rows.length <= 1}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-danger disabled:opacity-30 cursor-pointer"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-muted hover:bg-surface-soft hover:text-danger disabled:opacity-30 cursor-pointer"
           >
             <Trash2 size={15} aria-hidden />
           </button>

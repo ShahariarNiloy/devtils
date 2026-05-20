@@ -8,15 +8,15 @@
   --color-olive-ink: #3d4435;
   --color-sage-olive: #7e8a6c;
   --color-mist-sage: #dde0d0;
-  --color-bone-cream: #f5f0e5;
+  --color-bone-cream: #f6f2ea;
   --color-clay: #c58e5e;
   --color-charcoal: #1a1a18;
 
   /* ── Color: surfaces ──────────────────────────────── */
-  --color-bg: #f5f0e5;
+  --color-bg: #f6f2ea;
   /* Tool workspace canvas — deeper sand so white panels visibly float.
      Scoped to ToolShell; the rest of the app stays on the lighter --bg. */
-  --color-canvas: #f5f0e5;
+  --color-canvas: #f6f2ea;
   --color-surface: #fbfaf5;
   --color-surface-soft: #ebede5;
   --color-surface-sage: #dde0d0;
@@ -29,7 +29,7 @@
   --color-text: #1a1a18;
   --color-text-muted: #3d4435;
   --color-text-faint: #6b7264;
-  --color-text-on-sage: #f5f0e5;
+  --color-text-on-sage: #f6f2ea;
 
   /* ── Color: borders ───────────────────────────────── */
   --color-border: #d6d2c2;
@@ -157,7 +157,7 @@
   --color-surface-soft: #2d2e28;
   --color-surface-sage: #3d4435;
   --color-silver: #2d2e28;
-  --color-text: #f5f0e5;
+  --color-text: #f6f2ea;
   --color-text-muted: #dde0d0;
   --color-text-faint: #8a9080;
   --color-text-on-sage: #1a1a18;
@@ -165,7 +165,7 @@
   --color-border-subtle: #2c3127;
   --color-border-strong: #7e8a6c;
   --color-brand: #adb99a;
-  --color-brand-hover: #f5f0e5;
+  --color-brand-hover: #f6f2ea;
   --color-accent-soft: #3d3528;
   --color-tier-free-bg: #2c3127;
   --color-tier-free-text: #dde0d0;
@@ -340,7 +340,7 @@ textarea:focus,
   --btn-upload-text: #fbf8f0;
   --btn-upload-border: transparent;
   --btn-format-bg: #3d4435;
-  --btn-format-text: #f5f0e5;
+  --btn-format-text: #f6f2ea;
   --btn-format-border: transparent;
   --btn-sage-bg: #c8d4b4;
   --btn-sage-text: #2c3820;

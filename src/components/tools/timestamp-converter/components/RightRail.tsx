@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, Pin, Trash2, X } from "lucide-react";
+import { Temporal } from "@js-temporal/polyfill";
 import { cn } from "@/lib/cn";
+import {
+  addDuration,
+  roundTo,
+  subtractDuration,
+} from "../timestamp-converter.lib";
 import type { UseTimestampConverter } from "../useTimestampConverter";
+
+function toUnix(i: Temporal.Instant): string {
+  return (i.epochNanoseconds / BigInt(1_000_000_000)).toString();
+}
 
 interface Props {
   s: UseTimestampConverter;
@@ -13,6 +23,27 @@ interface Props {
 export function RightRail({ s }: Props) {
   const canPin = s.parseResult.ok && s.rawInput.trim().length > 0;
   const [open, setOpen] = useState(false);
+
+  const common = useMemo(() => {
+    const now = Temporal.Instant.fromEpochMilliseconds(s.nowUnix * 1000);
+    const todayStart = roundTo(now, "day", "floor", s.primaryTz);
+    return [
+      { label: "Right now", instant: now },
+      { label: "Start of today", instant: todayStart },
+      {
+        label: "7 days ago",
+        instant: subtractDuration(now, Temporal.Duration.from({ days: 7 })),
+      },
+      {
+        label: "30 days ago",
+        instant: subtractDuration(now, Temporal.Duration.from({ days: 30 })),
+      },
+      {
+        label: "Tomorrow midnight",
+        instant: addDuration(todayStart, Temporal.Duration.from({ days: 1 })),
+      },
+    ];
+  }, [s.nowUnix, s.primaryTz]);
 
   return (
     <aside className="w-full lg:w-[300px] lg:shrink-0">
@@ -31,14 +62,41 @@ export function RightRail({ s }: Props) {
       </button>
       <div
         className={cn(
-          "flex-col gap-4",
+          "flex-col gap-5",
           open ? "flex" : "hidden",
           "lg:flex",
         )}
       >
       <section className="rounded-xl border border-border bg-surface">
         <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
-          <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
+          <span className="text-sm font-semibold uppercase tracking-wider text-text-muted">
+            Common timestamps
+          </span>
+        </header>
+        <ul>
+          {common.map((c) => (
+            <li
+              key={c.label}
+              className="flex items-center gap-2 border-b border-border-subtle px-3 py-2 last:border-0"
+            >
+              <button
+                type="button"
+                onClick={() => s.setRawInput(toUnix(c.instant))}
+                className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left text-sm text-text-muted hover:text-text cursor-pointer"
+              >
+                <span className="truncate">{c.label}</span>
+                <span className="shrink-0 font-mono text-text-muted">
+                  {toUnix(c.instant)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface">
+        <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
+          <span className="text-sm font-semibold uppercase tracking-wider text-text-muted">
             Pinned
           </span>
           <button
@@ -53,7 +111,7 @@ export function RightRail({ s }: Props) {
         </header>
         <ul className="max-h-64 overflow-y-auto">
           {s.pinned.length === 0 && (
-            <li className="px-3 py-3 text-sm text-text-faint">
+            <li className="px-3 py-3 text-sm text-text-muted">
               Nothing pinned.
             </li>
           )}
@@ -73,7 +131,7 @@ export function RightRail({ s }: Props) {
                 type="button"
                 onClick={() => s.unpin(p.raw)}
                 aria-label="Unpin"
-                className="shrink-0 text-text-faint hover:text-danger cursor-pointer"
+                className="shrink-0 text-text-muted hover:text-danger cursor-pointer"
               >
                 <X size={14} aria-hidden />
               </button>
@@ -84,7 +142,7 @@ export function RightRail({ s }: Props) {
 
       <section className="rounded-xl border border-border bg-surface">
         <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
-          <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
+          <span className="text-sm font-semibold uppercase tracking-wider text-text-muted">
             History
           </span>
           <button
@@ -99,7 +157,7 @@ export function RightRail({ s }: Props) {
         </header>
         <ul className="max-h-72 overflow-y-auto">
           {s.history.length === 0 && (
-            <li className="px-3 py-3 text-sm text-text-faint">
+            <li className="px-3 py-3 text-sm text-text-muted">
               No history yet.
             </li>
           )}
@@ -116,7 +174,7 @@ export function RightRail({ s }: Props) {
                 <span className="truncate font-mono text-sm text-text">
                   {h.raw}
                 </span>
-                <span className="text-[11px] text-text-faint">{h.format}</span>
+                <span className="text-[11px] text-text-muted">{h.format}</span>
               </button>
             </li>
           ))}

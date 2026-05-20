@@ -48,7 +48,7 @@ export function TimezonePicker({ value, onChange }: Props) {
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-lg border border-border bg-surface shadow-card">
           <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
-            <Search size={14} aria-hidden className="text-text-faint" />
+            <Search size={14} aria-hidden className="text-text-muted" />
             <input
               autoFocus
               value={query}
@@ -76,14 +76,14 @@ export function TimezonePicker({ value, onChange }: Props) {
                   )}
                 >
                   <span className="truncate">{t.iana}</span>
-                  <span className="shrink-0 font-mono text-[11px] text-text-faint">
+                  <span className="shrink-0 font-mono text-[11px] text-text-muted">
                     {t.offset}
                   </span>
                 </button>
               </li>
             ))}
             {results.length === 0 && (
-              <li className="px-3 py-3 text-center text-sm text-text-faint">
+              <li className="px-3 py-3 text-center text-sm text-text-muted">
                 No match
               </li>
             )}

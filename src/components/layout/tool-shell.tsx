@@ -1,5 +1,6 @@
 "use client";
 
+import { RelatedToolsFooter } from "@/components/layout/related-tools-footer";
 import { ToolShellHeader } from "@/components/layout/tool-shell-header";
 import { pushRecent } from "@/components/primitives/command-palette";
 import { cn } from "@/lib/cn";
@@ -74,6 +75,9 @@ export function ToolShell({ tool, actions, children, classNames }: Props) {
             <div className="space-y-4">{children}</div>
           </div>
         </section>
+
+        {/* ─── Related tools footer ─────────────────────── */}
+        <RelatedToolsFooter tool={tool} />
       </motion.div>
 
       {/* ─── Sticky action bar ──────────────────────────── */}

@@ -37,14 +37,14 @@ export function CompareMode({ s }: Props) {
                 {v.iso8601}
               </span>
               <span className="text-sm text-text-muted">{v.dayOfWeek}</span>
-              <span className="text-sm text-text-faint">{v.relativeTime}</span>
+              <span className="text-sm text-text-muted">{v.relativeTime}</span>
               <span className="ml-auto flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => s.moveCompareZone(tz, -1)}
                   disabled={i === 0}
                   aria-label={`Move ${tz} up`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronUp size={15} aria-hidden />
                 </button>
@@ -53,7 +53,7 @@ export function CompareMode({ s }: Props) {
                   onClick={() => s.moveCompareZone(tz, 1)}
                   disabled={i === s.compareZones.length - 1}
                   aria-label={`Move ${tz} down`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronDown size={15} aria-hidden />
                 </button>
@@ -62,7 +62,7 @@ export function CompareMode({ s }: Props) {
                   onClick={() => s.removeCompareZone(tz)}
                   disabled={s.compareZones.length <= 1}
                   aria-label={`Remove ${tz}`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-danger disabled:opacity-30 cursor-pointer"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-soft hover:text-danger disabled:opacity-30 cursor-pointer"
                 >
                   <X size={15} aria-hidden />
                 </button>
@@ -72,10 +72,10 @@ export function CompareMode({ s }: Props) {
         })}
       </div>
       {atFull ? (
-        <p className="text-sm text-text-faint">Maximum of 6 zones.</p>
+        <p className="text-sm text-text-muted">Maximum of 6 zones.</p>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-text-faint">Add timezone:</span>
+          <span className="text-sm text-text-muted">Add timezone:</span>
           <TimezonePicker value="Select…" onChange={s.addCompareZone} />
         </div>
       )}

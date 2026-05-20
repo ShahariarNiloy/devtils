@@ -1,7 +1,8 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useMemo } from "react";
 import { AlertCircle, Clock, ScanLine, Trash2 } from "lucide-react";
+import { Temporal } from "@js-temporal/polyfill";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
 import { cn } from "@/lib/cn";
+import { getRelativeTime } from "../timestamp-converter.lib";
 import type { DetectedFormat, ParseResult } from "../timestamp-converter.types";
 
 const OVERRIDES: { id: DetectedFormat; label: string }[] = [
@@ -41,22 +43,53 @@ interface Props {
   onClear: () => void;
   onOverride: (f: DetectedFormat) => void;
   parseResult: ParseResult;
+  primaryTz: string;
   nowUnix: number;
 }
 
 export const HeroInput = forwardRef<HTMLInputElement, Props>(
   function HeroInput(
-    { value, onChange, onUseNow, onClear, onOverride, parseResult, nowUnix },
+    {
+      value,
+      onChange,
+      onUseNow,
+      onClear,
+      onOverride,
+      parseResult,
+      primaryTz,
+      nowUnix,
+    },
     ref,
   ) {
     const ok = parseResult.ok;
     const empty = value.trim().length === 0;
     const invalid = !empty && !ok;
 
+    // The headline read for the band: a tight humanized absolute in the
+    // primary zone, plus a live-ticking relative phrase computed against
+    // nowUnix so it refreshes once a second.
+    const headline = useMemo(() => {
+      if (!ok || !parseResult.instant) return null;
+      const absolute = new Intl.DateTimeFormat("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZone: primaryTz,
+      }).format(new Date(parseResult.instant.epochMilliseconds));
+      const relative = getRelativeTime(
+        parseResult.instant,
+        Temporal.Instant.fromEpochMilliseconds(nowUnix * 1000),
+      );
+      return { absolute, relative };
+    }, [ok, parseResult.instant, primaryTz, nowUnix]);
+
     return (
       <div className="flex flex-col gap-2.5">
-        <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-text-faint">
-          <span className="mr-1.5 text-text-faint/60">•</span>
+        <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
+          <span className="mr-1.5 text-text-muted/60">•</span>
           Paste any timestamp · Unix · ISO 8601 · RFC · or type “now”,
           “yesterday”, “+3 days”
         </p>
@@ -81,7 +114,7 @@ export const HeroInput = forwardRef<HTMLInputElement, Props>(
             type="button"
             onClick={onClear}
             disabled={empty}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm text-text-muted transition-colors hover:bg-surface-soft hover:text-text disabled:opacity-30 cursor-pointer"
           >
             <Trash2 size={15} aria-hidden />
             Clear
@@ -108,7 +141,7 @@ export const HeroInput = forwardRef<HTMLInputElement, Props>(
                     <ScanLine size={13} aria-hidden />
                     Detected: {FORMAT_LABEL[parseResult.detectedFormat]}
                     {parseResult.ambiguous && (
-                      <span className="font-normal normal-case text-text-faint">
+                      <span className="font-normal normal-case text-text-muted">
                         · ambiguous
                       </span>
                     )}
@@ -131,13 +164,22 @@ export const HeroInput = forwardRef<HTMLInputElement, Props>(
                 {parseResult.error ?? "Unrecognised"}
               </span>
             ))}
-          {!empty && ok && (
-            <span className="text-sm text-text-faint">
-              Click chip to override
-            </span>
+          {ok && headline && (
+            <>
+              <span aria-hidden className="text-text-muted/60">·</span>
+              <span
+                aria-live="polite"
+                className="text-[14px] font-medium text-text"
+              >
+                {headline.absolute}
+              </span>
+              <span className="text-[12px] text-text-muted">
+                ({headline.relative})
+              </span>
+            </>
           )}
 
-          <span className="ml-auto flex items-center gap-1.5 text-[12px] text-text-faint">
+          <span className="ml-auto flex items-center gap-1.5 text-[12px] text-text-muted">
             <span
               aria-hidden
               className="inline-block h-1.5 w-1.5 rounded-full bg-success"
@@ -145,7 +187,7 @@ export const HeroInput = forwardRef<HTMLInputElement, Props>(
             Now
             <span className="font-mono text-text-muted">{nowUnix}</span>
           </span>
-          <span className="flex items-center gap-1 text-[12px] text-text-faint">
+          <span className="flex items-center gap-1 text-[12px] text-text-muted">
             <kbd className="rounded border border-border-subtle bg-surface-soft px-1 font-mono text-[11px]">
               ⌘
             </kbd>

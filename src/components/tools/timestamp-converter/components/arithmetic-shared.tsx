@@ -6,7 +6,7 @@ export const FIELD =
 export function Stat({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-text-faint">{k}</dt>
+      <dt className="text-text-muted">{k}</dt>
       <dd className="font-mono text-text break-all">{v}</dd>
     </div>
   );

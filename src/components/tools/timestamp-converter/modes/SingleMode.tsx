@@ -13,9 +13,9 @@ interface Props {
 
 export function SingleMode({ s }: Props) {
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
-      <div className="flex min-w-0 flex-1 flex-col gap-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="flex min-w-0 flex-1 flex-col gap-8">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <TimezoneCard
             title="Primary"
             isPrimary
