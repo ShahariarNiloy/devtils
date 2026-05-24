@@ -1,9 +1,4 @@
-import {
-  CATEGORIES,
-  CATEGORY_COUNTS,
-  TIER_COUNTS,
-  TOOL_COUNT,
-} from "@/lib/tools-registry";
+import { CATEGORIES, CATEGORY_COUNTS, TOOL_COUNT } from "@/lib/tools-registry";
 import Link from "next/link";
 
 /**
@@ -41,9 +36,8 @@ export function HomeFooter() {
             keyboard-first, and built quietly.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-text-faint">
-            <Stat label="free" value={TIER_COUNTS.free} />
-            <Stat label="pro" value={TIER_COUNTS.pro} />
-            <Stat label="ai" value={TIER_COUNTS.ai} />
+            <Stat label="tools" value={TOOL_COUNT} />
+            <Stat label="categories" value={CATEGORIES.length} />
           </div>
         </div>
 
@@ -54,7 +48,11 @@ export function HomeFooter() {
             {colA.map((c) => (
               <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
                 {c}
-                <span className="text-text-faint"> · {CATEGORY_COUNTS[c]}</span>
+                <span className="text-text-faint">
+                  {CATEGORY_COUNTS[c] === 0
+                    ? " · soon"
+                    : ` · ${CATEGORY_COUNTS[c]}`}
+                </span>
               </FooterLink>
             ))}
           </ul>
@@ -67,7 +65,11 @@ export function HomeFooter() {
             {colB.map((c) => (
               <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
                 {c}
-                <span className="text-text-faint"> · {CATEGORY_COUNTS[c]}</span>
+                <span className="text-text-faint">
+                  {CATEGORY_COUNTS[c] === 0
+                    ? " · soon"
+                    : ` · ${CATEGORY_COUNTS[c]}`}
+                </span>
               </FooterLink>
             ))}
           </ul>
@@ -78,9 +80,9 @@ export function HomeFooter() {
           <FooterHeading>Resources</FooterHeading>
           <ul className="space-y-2">
             <FooterLink href="/tools">All tools</FooterLink>
-            <FooterLink href="/#pricing">Pricing</FooterLink>
-            <FooterLink href="/#changelog">Changelog</FooterLink>
-            <FooterLink href="/#api">API</FooterLink>
+            <FooterLink href="/#featured">Featured</FooterLink>
+            <FooterLink href="/#why">Privacy</FooterLink>
+            <FooterLink href="/#faq">FAQ</FooterLink>
           </ul>
         </div>
       </div>

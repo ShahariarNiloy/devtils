@@ -141,25 +141,29 @@ export function parseFormatInput(val: string, fmt: Format): RGB | null {
   }
 }
 
+// Fixed OKLCH lightness targets per stop — tuned to mirror Tailwind v3's
+// perceptual progression so the ramp stays monotonic light→dark no matter
+// what base color the user picked. Chroma is scaled from the base
+// color's chroma so vivid inputs produce vivid ramps and muted inputs
+// produce muted ramps, while the curve (peak vividness around 500–600,
+// taper at the extremes) stays consistent.
+const RAMP: Array<{ stop: number; l: number; cScale: number }> = [
+  { stop:  50, l: 0.97, cScale: 0.08 },
+  { stop: 100, l: 0.93, cScale: 0.18 },
+  { stop: 200, l: 0.88, cScale: 0.35 },
+  { stop: 300, l: 0.80, cScale: 0.55 },
+  { stop: 400, l: 0.70, cScale: 0.80 },
+  { stop: 500, l: 0.62, cScale: 1.00 },
+  { stop: 600, l: 0.54, cScale: 1.00 },
+  { stop: 700, l: 0.47, cScale: 0.95 },
+  { stop: 800, l: 0.40, cScale: 0.80 },
+  { stop: 900, l: 0.32, cScale: 0.60 },
+];
+
 export function generateShades(hue: number, sat: number, bri: number): ShadeEntry[] {
-  const orig = hsbToRgb(hue, sat, bri, 1);
-  const { l: L0, c: C0, h: H0 } = rgbToOklch(orig);
-
-  const config: [number, number, number][] = [
-    [ 50, 0.98,  0.02],
-    [100, 0.97,  0.05],
-    [200, 0.90,  0.18],
-    [300, 0.82,  0.44],
-    [400, 0.72,  0.74],
-    [500, L0,    1.00],
-    [600, L0 * 0.80, 1.05],
-    [700, L0 * 0.62, 1.05],
-    [800, L0 * 0.46, 0.98],
-    [900, L0 * 0.32, 0.88],
-  ];
-
-  return config.map(([stop, L, cScale]) => {
-    const l = Math.max(0.02, Math.min(0.999, L));
+  const base = hsbToRgb(hue, sat, bri, 1);
+  const { c: C0, h: H0 } = rgbToOklch(base);
+  return RAMP.map(({ stop, l, cScale }) => {
     const c = Math.max(0, C0 * cScale);
     const rgb = oklchToRgb({ l, c, h: H0, a: 1 });
     return { stop, rgb, hex: rgbToHex(rgb) };

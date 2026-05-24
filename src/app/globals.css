@@ -69,6 +69,11 @@
   /* 36px → text-4xl | 48px → text-5xl  | 60px → text-6xl */
   /* 72px → text-7xl */
 
+  /* Small-typography fills for Tailwind's gaps */
+  --text-2xs: 0.6875rem; /* 11px — micro labels */
+  --text-xs-plus: 0.78125rem; /* 12.5px — status bar, file meta */
+  --text-sm-plus: 0.84375rem; /* 13.5px — settings labels */
+
   /* Heading scale — sizes not in Tailwind's default set */
   --text-h2: 1.75rem; /* 28px — section headings */
   --text-page: 2rem; /* 32px — page h1 medium */
@@ -147,12 +152,34 @@
   --animate-scale-in: scale-in 180ms cubic-bezier(0.2, 0.9, 0.4, 1) both;
   --animate-scale-out: scale-out 140ms ease-in both;
   --animate-slide-up: slide-up 220ms cubic-bezier(0.2, 0.9, 0.4, 1) both;
+
+  /* ── Easing curves ────────────────────────────────── */
+  /* Per Emil Kowalski: built-in easings lack the punch that makes
+     animations feel intentional. These compose stronger variants of the
+     standard curves. Use as Tailwind `ease-out-strong`, etc. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* ── DARK THEME ───────────────────────────────────────────────────
+   Updated values vs. previous version:
+   1. --color-canvas: #10130d → #15140f
+      The old value was indistinguishable from pure black on typical
+      monitors, collapsing the canvas < bg < surface hierarchy.
+   2. --color-border: #3d4435 → #3a3833
+      Olive-ink at low luminance read as "near-black with green cast"
+      and made card edges invisible (2:1 contrast against bg). The
+      neutral charcoal value sits cleanly between bg and text without
+      fighting the warm cream type.
+   3. --color-border-subtle: #2c3127 → #2c2b27 (same reasoning)
+   4. Status colors explicitly redefined for dark mode — previously
+      inherited light values that read dim on dark surfaces.
+   ───────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
   --color-bg: #1a1a18;
   /* Darker than --surface so tool panels lift on the workspace. */
-  --color-canvas: #10130d;
+  --color-canvas: #1a1a1a;
   --color-surface: #242420;
   --color-surface-soft: #2d2e28;
   --color-surface-sage: #3d4435;
@@ -161,8 +188,8 @@
   --color-text-muted: #dde0d0;
   --color-text-faint: #8a9080;
   --color-text-on-sage: #1a1a18;
-  --color-border: #3d4435;
-  --color-border-subtle: #2c3127;
+  --color-border: #3a3833;
+  --color-border-subtle: #2c2b27;
   --color-border-strong: #7e8a6c;
   --color-brand: #adb99a;
   --color-brand-hover: #f6f2ea;
@@ -173,6 +200,14 @@
   --color-tier-pro-text: #efe0cc;
   --color-tier-ai-bg: #2c3127;
   --color-tier-ai-text: #dde0d0;
+
+  /* Status — explicit dark-mode values. Old behaviour inherited the
+     light values which read dim/muddy on dark surfaces. */
+  --color-success: #a8b894;
+  --color-warning: #d4904a;
+  --color-danger: #d27460;
+  --color-info: #8a9bab;
+
   --shadow-focus: 0 0 0 3px rgba(61, 68, 53, 0.4);
 
   /* ── Dusty-rose dark mode ─────────────────────────── */
@@ -330,6 +365,36 @@ textarea:focus,
   }
   to {
     transform: translateY(100%);
+  }
+}
+
+/* Indeterminate progress sweep for in-flight work (e.g. image compression). */
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+/* Right-edge sheet drawer (e.g. settings panel). Uses the iOS-style
+   drawer curve from Ionic Framework, recommended by Emil Kowalski for
+   sheet motion. */
+@keyframes sheet-right-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-right-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
   }
 }
 
@@ -851,6 +916,30 @@ mark.regex-match-active {
 }
 .ti-d6 {
   animation-delay: 1.8s;
+}
+
+/* Scroll-reveal — CSS scroll-driven, progressive-enhancement only. The hide
+   state lives entirely inside @supports + no-preference, so browsers without
+   scroll-timeline and reduced-motion users render the content fully visible
+   (no JS, no hydration flash, no blank sections). */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal-on-scroll {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 32%;
+    }
+  }
 }
 
 /* ── Accessibility + scrollbar utilities ──────────────── */

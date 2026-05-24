@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { ToolIcon } from "../shared/tool-icon";
 
 /**
@@ -93,21 +93,9 @@ const DECK: DeckCard[] = [
 const SHEEN =
   "linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 36%, rgba(0,0,0,0.12) 100%)";
 
-// Layered colour-mesh backdrop. Accents use theme-ADAPTIVE tokens
-// (surface-sage flips dark) and modest mixes, so it stays a calm glow in
-// both light and dark instead of a pale wash on the dark base.
-const MESH = [
-  "radial-gradient(90% 70% at 88% 4%, color-mix(in oklab, var(--color-surface-sage) 55%, transparent) 0%, transparent 60%)",
-  "radial-gradient(85% 70% at 4% 100%, color-mix(in oklab, var(--color-sage-olive) 20%, transparent) 0%, transparent 58%)",
-  "linear-gradient(160deg, var(--color-surface) 0%, var(--color-surface-soft) 100%)",
-].join(",");
-
 export function HeroPreview() {
   return (
-    <div
-      className="relative flex h-full min-h-[520px] items-center justify-center overflow-hidden rounded-2xl border border-border px-8"
-      style={{ background: MESH }}
-    >
+    <div className="relative flex h-full min-h-[520px] items-center justify-center overflow-hidden rounded-2xl px-8">
       <div className="relative w-full max-w-[348px]">
         {DECK.map((card, i) => {
           const isFront = i === DECK.length - 1;
@@ -127,7 +115,10 @@ export function HeroPreview() {
                 <span
                   aria-hidden
                   className="pointer-events-none absolute -inset-3 rounded-2xl blur-2xl"
-                  style={{ background: "var(--color-sage-olive)", opacity: 0.4 }}
+                  style={{
+                    background: "var(--color-sage-olive)",
+                    opacity: 0.4,
+                  }}
                 />
               )}
 
@@ -164,7 +155,11 @@ export function HeroPreview() {
                       style={{ background: card.chip }}
                       aria-hidden
                     >
-                      <ToolIcon name={card.icon} size={17} style={{ color: card.fg }} />
+                      <ToolIcon
+                        name={card.icon}
+                        size={17}
+                        style={{ color: card.fg }}
+                      />
                     </span>
 
                     <span className="min-w-0 flex-1">

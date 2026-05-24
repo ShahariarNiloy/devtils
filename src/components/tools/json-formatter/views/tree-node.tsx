@@ -1,11 +1,11 @@
 "use client";
 
-import { memo } from "react";
-import { Braces, ChevronDown, ChevronRight, Copy } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { PrimitiveValue } from "./tree-primitive-value";
+import { Braces, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { memo } from "react";
+import { toast } from "sonner";
 import type { FlatRow } from "./tree-flatten";
+import { PrimitiveValue } from "./tree-primitive-value";
 
 async function writeClipboard(text: string, label: string): Promise<void> {
   try {
@@ -23,13 +23,31 @@ const BASE_PAD = 12; // px gutter before depth indentation
 
 const TypeBadge = memo(function TypeBadge({ value }: { value: unknown }) {
   if (value === null)
-    return <span className="text-text-faint text-sm font-mono opacity-50">null</span>;
+    return (
+      <span className="text-text-faint text-sm font-mono opacity-50">null</span>
+    );
   if (typeof value === "boolean")
-    return <span className="text-sm font-mono opacity-50" style={{ color: "var(--color-clay)" }}>bool</span>;
+    return (
+      <span
+        className="text-sm font-mono opacity-50"
+        style={{ color: "var(--color-clay)" }}
+      >
+        bool
+      </span>
+    );
   if (typeof value === "number")
-    return <span className="text-sm font-mono opacity-50" style={{ color: "var(--color-clay)" }}>num</span>;
+    return (
+      <span
+        className="text-sm font-mono opacity-50"
+        style={{ color: "var(--color-clay)" }}
+      >
+        num
+      </span>
+    );
   if (typeof value === "string")
-    return <span className="text-text-faint text-sm font-mono opacity-50">str</span>;
+    return (
+      <span className="text-text-faint text-sm font-mono opacity-50">str</span>
+    );
   return null;
 });
 
@@ -69,14 +87,23 @@ function TreeRowImpl({
   wrap = false,
   onActivate,
 }: TreeRowProps) {
-  const { kind, keyLabel, isIndex, depth, value, childCount, preview, expanded } =
-    row;
+  const {
+    kind,
+    keyLabel,
+    isIndex,
+    depth,
+    value,
+    childCount,
+    preview,
+    expanded,
+  } = row;
   const isContainer = kind !== "leaf";
   const countLabel = kind === "array" ? `[${childCount}]` : `{${childCount}}`;
 
   const renderKey = (): React.ReactNode => {
     if (keyLabel === null) return null;
-    if (search) return highlightMatch(isIndex ? `[${keyLabel}]` : keyLabel, search);
+    if (search)
+      return highlightMatch(isIndex ? `[${keyLabel}]` : keyLabel, search);
     if (isIndex)
       return <span className="text-text-faint font-normal">[{keyLabel}]</span>;
     return keyLabel;
@@ -92,11 +119,11 @@ function TreeRowImpl({
     const text =
       typeof row.raw === "string"
         ? row.raw
-        : JSON.stringify(row.raw, null, isContainer ? 2 : undefined) ??
-          String(row.raw);
+        : (JSON.stringify(row.raw, null, isContainer ? 2 : undefined) ??
+          String(row.raw));
     void writeClipboard(
       text,
-      isContainer ? "Subtree copied as JSON" : "Value copied",
+      isContainer ? "Subtree copied as JSON" : "Value copied"
     );
   };
 
@@ -110,7 +137,7 @@ function TreeRowImpl({
       className={cn(
         "group/row relative flex gap-2 cursor-pointer select-none",
         "hover:bg-surface-soft",
-        wrap ? "items-start py-1" : "items-center",
+        wrap ? "items-start py-1" : "items-center"
       )}
       style={{
         ...(wrap ? { minHeight: rowHeight } : { height: rowHeight }),
@@ -122,11 +149,14 @@ function TreeRowImpl({
       tabIndex={-1}
     >
       {isContainer ? (
-        <span className="w-4 shrink-0 flex items-center justify-center text-text-faint">
+        // h-6 matches the text-base line-height (24px) so the icon centers on
+        // the key's first line in both wrap (items-start) and non-wrap
+        // (items-center) rows — without it the arrow floats above the key.
+        <span className="h-6 w-4 shrink-0 flex items-center justify-center text-text-faint">
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
       ) : (
-        <span className="w-4 shrink-0" />
+        <span className="h-6 w-4 shrink-0" />
       )}
 
       {keySpan && (
@@ -138,7 +168,7 @@ function TreeRowImpl({
 
       {isContainer ? (
         <>
-          <span className="text-sm font-mono text-text-faint shrink-0">
+          <span className="text-sm font-mono text-text-faint shrink-0 leading-6">
             {countLabel}
           </span>
           {!expanded && preview && (
@@ -153,7 +183,7 @@ function TreeRowImpl({
             "flex items-baseline gap-2 min-w-0",
             wrap
               ? "flex-1 basis-0 flex-wrap break-all [overflow-wrap:anywhere]"
-              : "truncate",
+              : "truncate"
           )}
         >
           <PrimitiveValue value={value} />

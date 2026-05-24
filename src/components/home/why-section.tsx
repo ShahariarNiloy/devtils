@@ -98,21 +98,23 @@ export function WhySection() {
   const timing = result.ms < 1 ? "<1 ms" : `${result.ms.toFixed(1)} ms`;
 
   return (
-    <Band aria-label="Why devtils" className="pt-14 pb-16">
+    <Band id="why" tone="soft" aria-label="Why devtils" className="pt-16 pb-20">
       <SectionHeading
+        index="01"
         eyebrow="Why devtils"
-        title="Try one before you trust us."
-        hint="A real, working JWT decoder. Right here on the homepage. Nothing uploaded — open your network tab and watch."
+        title="Proof, not promises."
+        hint="This JWT decoder runs entirely in your browser. Open your network tab — zero requests, every time."
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-        {/* Tool header */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        {/* Tool header — reads like a real app title bar; the live badge is
+            the proof, so it gets a pulse + prominence. */}
         <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle bg-surface-soft px-4 py-3">
           <span
             className="flex h-9 w-9 items-center justify-center rounded-lg"
             style={{
-              background: "var(--color-mist-sage)",
-              color: "var(--color-olive-ink)",
+              background: "var(--color-accent-soft)",
+              color: "var(--color-clay)",
             }}
             aria-hidden
           >
@@ -126,18 +128,23 @@ export function WhySection() {
               /tools/jwt-decoder
             </span>
           </span>
-          <span className="ml-auto flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 text-xs text-text-faint">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: "var(--color-success)" }}
-                aria-hidden
-              />
+          <span className="ml-auto flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted">
+              <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70"
+                  style={{ background: "var(--color-success)" }}
+                />
+                <span
+                  className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                  style={{ background: "var(--color-success)" }}
+                />
+              </span>
               Running locally
             </span>
             <Link
               href="/tools/jwt-decoder"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition-colors hover:text-text"
+              className="hidden items-center gap-1 text-xs font-semibold text-text-muted transition-colors hover:text-text sm:inline-flex"
             >
               Open full tool
               <ArrowUpRight size={12} aria-hidden />

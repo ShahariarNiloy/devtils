@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { Base64 } from '@/components/tools/base64/base64';
 import { ColorConverter } from '@/components/tools/color-converter/color-converter';
+import { ImageCompressor } from '@/components/tools/image-compressor';
 import { JsonFormatter } from '@/components/tools/json-formatter/json-formatter';
 import { JwtDecoder } from '@/components/tools/jwt-decoder';
 import { RegexTester } from '@/components/tools/regex-tester/regex-tester';
@@ -24,6 +25,7 @@ export const COMPONENT_MAP: Record<string, ToolComponent> = {
   "regex-tester": RegexTester,
   "color-converter": ColorConverter,
   "timestamp-converter": TimestampConverter,
+  "image-compressor": ImageCompressor,
 };
 
 export const IMPLEMENTED_TOOL_SLUGS: ReadonlySet<string> = new Set(

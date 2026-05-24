@@ -1,7 +1,7 @@
-import { ChevronDown } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
+import Link from "next/link";
 import { TOOL_COUNT } from "@/lib/tools-registry";
 import { Band } from "./band";
-import { SectionHeading } from "./section-heading";
 
 const FAQ: { q: string; a: string }[] = [
   {
@@ -10,7 +10,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is it really free?",
-    a: `Yes. All ${TOOL_COUNT} tools are $0 with no account and no usage caps. Pro and AI tools are also unlocked at $0 while we're in beta.`,
+    a: `Yes. All ${TOOL_COUNT} tools are $0 — no trials, no credit card, no usage caps. Everything is unlocked, including the heavier and AI-assisted utilities.`,
   },
   {
     q: "Do I need an account?",
@@ -26,32 +26,74 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
-/** Static, zero-JS FAQ using native <details> disclosures. */
+/** Static, zero-JS FAQ — editorial two-column: sticky intro left, list right. */
 export function FaqSection() {
   return (
-    <Band tone="soft" aria-label="Frequently asked questions" className="pt-14 pb-16">
-      <SectionHeading
-        eyebrow="FAQ"
-        title="Questions, answered"
-        hint="The short version: it's private, free, and yours to use."
-      />
-      <div className="mx-auto flex max-w-3xl flex-col gap-2.5">
-        {FAQ.map(({ q, a }) => (
-          <details
-            key={q}
-            className="group rounded-xl border border-border bg-surface px-5 [&_summary::-webkit-details-marker]:hidden"
+    <Band id="faq" tone="soft" aria-label="Frequently asked questions" className="pt-16 pb-20">
+      <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+        {/* Left — sticky intro */}
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <span className="inline-flex items-center gap-2.5 font-mono text-xs font-bold uppercase tracking-eyebrow text-text-faint">
+            <span
+              className="h-3.5 w-[3px] rounded-full"
+              style={{ background: "var(--color-sage-olive)" }}
+              aria-hidden
+            />
+            <span className="text-clay">05</span>
+            <span aria-hidden className="text-text-faint/40">
+              /
+            </span>
+            FAQ
+          </span>
+          <h2 className="display mt-3.5 text-balance text-page font-semibold tracking-tight text-text sm:text-4xl">
+            Questions,
+            <br className="hidden sm:block" /> answered
+          </h2>
+          <p className="mt-3 max-w-sm text-sm leading-desc text-text-faint">
+            The short version: it&apos;s private, free, and yours to use. Still
+            curious? The fastest answer is to open a tool and watch your network
+            tab.
+          </p>
+          <Link
+            href="/tools"
+            className="group mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted transition-colors hover:text-text"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-text">
-              {q}
-              <ChevronDown
-                size={16}
-                aria-hidden
-                className="shrink-0 text-text-faint transition-transform duration-200 group-open:rotate-180"
-              />
-            </summary>
-            <p className="pb-4 text-sm leading-snug-2 text-text-muted">{a}</p>
-          </details>
-        ))}
+            Browse all tools
+            <ArrowUpRight
+              size={14}
+              aria-hidden
+              className="transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          </Link>
+        </div>
+
+        {/* Right — disclosure list */}
+        <div className="flex flex-col gap-2.5">
+          {FAQ.map(({ q, a }, i) => (
+            <details
+              key={q}
+              className="group rounded-xl border border-border bg-surface transition-colors duration-150 open:border-border-strong hover:border-border-strong [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-4">
+                <span className="shrink-0 font-mono text-xs tabular-nums text-text-faint/50">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="flex-1 text-[15px] font-semibold text-text">
+                  {q}
+                </span>
+                <span
+                  aria-hidden
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-border text-text-faint transition-all duration-200 ease-out-strong group-open:rotate-45 group-open:border-clay group-open:text-clay"
+                >
+                  <Plus size={14} strokeWidth={2} />
+                </span>
+              </summary>
+              <p className="pb-4 pl-[3.25rem] pr-5 text-sm leading-snug-2 text-text-muted">
+                {a}
+              </p>
+            </details>
+          ))}
+        </div>
       </div>
     </Band>
   );

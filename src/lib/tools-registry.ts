@@ -739,6 +739,10 @@ export const TOOLS: Tool[] = [
     tags: ['image', 'compress', 'optimize'],
     wasm: true,
     featured: true,
+    isNew: true,
+    shortcut: 'g i',
+    order: 12,
+    showcase: true,
   },
   {
     slug: 'image-crop',

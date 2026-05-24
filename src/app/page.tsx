@@ -3,11 +3,11 @@ import { Hero } from "@/components/layout/hero";
 import { HomeFooter } from "@/components/layout/home-footer";
 import { WhySection } from "@/components/home/why-section";
 import { CategoriesSection } from "@/components/home/categories-section";
-import { FeaturedSection } from "@/components/home/featured-section";
-import { RecentlyAddedSection } from "@/components/home/recently-added-section";
-import { PricingSection } from "@/components/home/pricing-section";
+import { ManifestoSection } from "@/components/home/manifesto-section";
+import { DifferenceSection } from "@/components/home/difference-section";
 import { FaqSection } from "@/components/home/faq-section";
 import { ClosingCta } from "@/components/home/closing-cta";
+import { Reveal } from "@/components/home/reveal";
 import { Suspense } from "react";
 
 export default function Home() {
@@ -19,13 +19,24 @@ export default function Home() {
 
       <main id="main" className="flex-1">
         <Hero />
-        <WhySection />
-        <CategoriesSection />
-        <FeaturedSection />
-        <RecentlyAddedSection />
-        <PricingSection />
-        <FaqSection />
-        <ClosingCta />
+        <Reveal>
+          <WhySection />
+        </Reveal>
+        <Reveal>
+          <CategoriesSection />
+        </Reveal>
+        <Reveal>
+          <ManifestoSection />
+        </Reveal>
+        <Reveal>
+          <DifferenceSection />
+        </Reveal>
+        <Reveal>
+          <FaqSection />
+        </Reveal>
+        <Reveal>
+          <ClosingCta />
+        </Reveal>
         <HomeFooter />
       </main>
     </div>

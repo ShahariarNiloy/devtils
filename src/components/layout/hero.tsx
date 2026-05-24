@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { CATEGORIES, TIER_COUNTS } from "@/lib/tools-registry";
+import { CATEGORIES, TOOL_COUNT } from "@/lib/tools-registry";
 import { ToolIcon } from "@/components/shared/tool-icon";
 import { HeroLeft, type StatItem } from "./hero-left";
 import { HeroPreview } from "./hero-preview";
@@ -29,19 +29,19 @@ const MOBILE_QUICK = [
 export function Hero() {
   const stats: StatItem[] = [
     {
-      value: TIER_COUNTS.free,
-      label: "Free tools",
+      value: TOOL_COUNT,
+      label: "Tools",
       dotColor: "var(--color-tier-free-text)",
-    },
-    {
-      value: TIER_COUNTS.pro,
-      label: "Pro tools",
-      dotColor: "var(--color-tier-pro-text)",
     },
     {
       value: CATEGORIES.length,
       label: "Categories",
       dotColor: "var(--color-text-faint)",
+    },
+    {
+      value: "$0",
+      label: "Forever",
+      dotColor: "var(--color-success)",
     },
   ];
 
@@ -54,7 +54,7 @@ export function Hero() {
         style={{ background: "var(--color-sage-olive)" }}
       />
 
-      <div className="mx-auto max-w-8xl px-6 sm:px-10 py-12 lg:py-16">
+      <div className="mx-auto max-w-8xl px-6 sm:px-10 py-14 lg:py-20">
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-10">
           {/* Left — plain content, no card chrome */}
           <div className="lg:pr-8">
