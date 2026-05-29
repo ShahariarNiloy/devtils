@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ToolShell } from "@/components/layout/tool-shell";
 import { Tabs } from "@/components/primitives/tabs";
+import { RegexTesterContent } from "./content";
 import { ExamplesPanel } from "./panels/examples-panel";
 import { MobileRegexTester } from "./mobile/mobile-regex-tester";
 import type { MobileState } from "./mobile/types";
@@ -183,6 +184,7 @@ export function RegexTester({ tool }: { tool: Tool }) {
           </div>
         )}
       </Tabs>
+      <RegexTesterContent />
     </ToolShell>
   );
 }

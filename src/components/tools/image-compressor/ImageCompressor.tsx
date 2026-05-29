@@ -8,6 +8,7 @@ import { useState } from "react";
 import { DropZone } from "./components/DropZone";
 import { FileQueue } from "./components/FileQueue/FileQueue";
 import { SettingsDrawer } from "./components/Settings/SettingsDrawer";
+import { ImageCompressorContent } from "./content";
 import { StatusBar } from "./components/StatusBar";
 import { useImageCompressor } from "./useImageCompressor";
 
@@ -88,6 +89,8 @@ export function ImageCompressor({ tool }: { tool: Tool }) {
         ) : (
           <DropZone onFiles={s.addFiles} />
         )}
+
+        <ImageCompressorContent />
 
         {/* Trailing breathing room so the status bar isn't kissing the page bottom. */}
         <div className="h-12" />

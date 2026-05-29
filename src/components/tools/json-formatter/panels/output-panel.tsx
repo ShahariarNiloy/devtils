@@ -32,7 +32,7 @@ import type { JsonFormatterState } from "../use-json-formatter";
 import type { HistoryEntry } from "../hooks/use-history";
 import { OutputSearchBar } from "./output-search-bar";
 import { EmptyState } from "./empty-state";
-import { applySearchHighlight, highlightJson } from "../json-highlighter";
+import { applySearchHighlight, highlight, langForOutput } from "../json-highlighter";
 import { formatJson } from "../json-formatter.lib";
 
 // Graph is a heavier SVG view — only its chunk loads when the tab opens.
@@ -92,7 +92,11 @@ function OutputPanelImpl({
   const displayedCode = state.output || formattedFromParsed || state.input;
   const deferredCode = useDeferredValue(displayedCode);
 
-  const highlightedOutput = useMemo(() => highlightJson(deferredCode), [deferredCode]);
+  const outputLang = langForOutput(state.conversionResult?.format);
+  const highlightedOutput = useMemo(
+    () => highlight(deferredCode, outputLang),
+    [deferredCode, outputLang],
+  );
   const highlightedWithSearch = useMemo(
     () =>
       deferredSearch

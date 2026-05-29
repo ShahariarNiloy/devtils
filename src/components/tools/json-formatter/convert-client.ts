@@ -22,11 +22,13 @@ type ConvertResponse =
  * Run a JSON → X conversion in the worker. Resolves with the converted
  * string; rejects on parse/convert failure. Used only for large inputs —
  * small inputs convert synchronously on the main thread (instant, no
- * loader), so there's no behaviour change for the common case.
+ * loader), so there's no behaviour change for the common case. Options is
+ * forwarded straight to the matching emitter.
  */
 export function runConversion(
   target: ConvertTarget,
   jsonText: string,
+  options?: unknown,
 ): Promise<ConversionResult> {
   return new Promise((resolve, reject) => {
     const worker = getConvertWorker();
@@ -39,6 +41,6 @@ export function runConversion(
       else reject(new Error(data.message));
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({ id, target, jsonText });
+    worker.postMessage({ id, target, jsonText, options });
   });
 }

@@ -11,6 +11,7 @@ import {
 import { useShortcut } from "@/lib/keyboard";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { Base64Guide } from './components/base64-guide';
+import { Base64Content } from './content';
 import { MobileBase64 } from './mobile/mobile-base64';
 import { InputPane } from './panes/input-pane';
 import { OutputPane } from './panes/output-pane';
@@ -126,6 +127,7 @@ export function Base64({ tool }: { tool: Tool }) {
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
+        <Base64Content />
       </div>
       )}
     </ToolShell>

@@ -85,10 +85,22 @@ function detectFormat(s: string): string | undefined {
 // ── Canonical key for dedup ──────────────────────────────────────────────────
 // JSON.stringify with a stable key order — same schema → identical string.
 // This is how we dedupe item schemas in arrays without comparing trees in
-// O(N²) fashion.
+// O(N²) fashion. The replacer is a *function* (not an array): an array-style
+// replacer filters keys at every nesting level, which silently drops nested
+// schema differences and causes merge logic to collapse non-equivalent
+// shapes into one.
 
 function canon(schema: JsonSchema): string {
-  return JSON.stringify(schema, Object.keys(schema).sort());
+  return JSON.stringify(schema, (_key, value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const sorted: Record<string, unknown> = {};
+      for (const k of Object.keys(value).sort()) {
+        sorted[k] = (value as Record<string, unknown>)[k];
+      }
+      return sorted;
+    }
+    return value;
+  });
 }
 
 // ── Merge two schemas ────────────────────────────────────────────────────────

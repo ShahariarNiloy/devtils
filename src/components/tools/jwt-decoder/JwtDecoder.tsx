@@ -7,6 +7,7 @@ import type { Tool } from "@/lib/tools-registry";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { JwtDecoderContent } from "./content";
 import type { Mode } from "./jwt-decoder.types";
 import { MobileAppBar } from "./mobile/mobile-app-bar";
 import { EncodePanel } from "./panels/EncodePanel";
@@ -136,6 +137,7 @@ export function JwtDecoder({ tool }: { tool: Tool }) {
             </div>
           )}
         </div>
+        <JwtDecoderContent />
       </div>
     </ToolShell>
   );

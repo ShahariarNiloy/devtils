@@ -18,10 +18,24 @@ const TYPES = new Set([
   "NonNullable","Parameters","ReturnType","Awaited","ReadonlyArray",
 ]);
 
+/**
+ * Catches user-declared types so a name introduced by `interface Foo` or
+ * `type Foo = ...` highlights with the same `--tok-type` colour as built-ins
+ * everywhere else in the source. Cheap regex pre-scan — generated codegen
+ * output is at most a few KB and the cost is dwarfed by DOM creation.
+ */
+const DECL = /\b(?:interface|type|class|enum)\s+([A-Za-z_$][\w$]*)/g;
+
+function collectUserTypes(source: string): Set<string> {
+  const names = new Set(TYPES);
+  for (const m of source.matchAll(DECL)) names.add(m[1]);
+  return names;
+}
+
 export function tokenizeTypeScript(source: string): Token[] {
   return tokenizeCLike(source, {
     keywords: KW,
-    types: TYPES,
+    types: collectUserTypes(source),
     singleQuoteStrings: true,
     backtickStrings: true,
   });

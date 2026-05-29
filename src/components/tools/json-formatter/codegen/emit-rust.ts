@@ -7,7 +7,7 @@
 
 import type { CollectResult, TypeRef } from "./collect";
 
-function refToRust(ref: TypeRef): string {
+function baseRust(ref: TypeRef): string {
   switch (ref.kind) {
     case "object": return ref.name ?? "serde_json::Value";
     case "array": return ref.item ? `Vec<${refToRust(ref.item)}>` : "Vec<serde_json::Value>";
@@ -28,6 +28,12 @@ function refToRust(ref: TypeRef): string {
     case "null":
       return "serde_json::Value";
   }
+}
+
+function refToRust(ref: TypeRef): string {
+  const base = baseRust(ref);
+  // serde_json::Value already represents JSON null, no Option<> needed.
+  return ref.nullable && base !== "serde_json::Value" ? `Option<${base}>` : base;
 }
 
 const RUST_KEYWORDS = new Set([
@@ -57,7 +63,23 @@ function snake(s: string): string {
     .toLowerCase();
 }
 
-export function emitRust(collected: CollectResult): string {
+export interface RustEmitOptions {
+  /** Extra trait names to add to the derive list (e.g. `Default`, `PartialEq`). */
+  extraDerives?: string[];
+  /** Add `#[serde(deny_unknown_fields)]` on each struct. */
+  denyUnknownFields?: boolean;
+}
+
+const DEFAULT_DERIVES = ["Serialize", "Deserialize", "Debug", "Clone"];
+
+export function emitRust(
+  collected: CollectResult,
+  opts: RustEmitOptions = {},
+): string {
+  const extra = opts.extraDerives ?? [];
+  const derives = [...DEFAULT_DERIVES, ...extra];
+  const deriveList = derives.join(", ");
+
   const lines: string[] = [];
   lines.push(`use serde::{Deserialize, Serialize};`, "");
 
@@ -66,7 +88,8 @@ export function emitRust(collected: CollectResult): string {
   }
 
   for (const t of collected.types) {
-    lines.push(`#[derive(Serialize, Deserialize, Debug, Clone)]`);
+    lines.push(`#[derive(${deriveList})]`);
+    if (opts.denyUnknownFields) lines.push(`#[serde(deny_unknown_fields)]`);
     lines.push(`pub struct ${t.name} {`);
     for (const p of t.properties) {
       const fieldName = isSnakeCase(p.key) ? p.key : snake(p.key);
@@ -74,14 +97,20 @@ export function emitRust(collected: CollectResult): string {
       const renameAttr = safeField === p.key
         ? null
         : `#[serde(rename = "${p.key.replace(/"/g, '\\"')}")]`;
-      const rustType = refToRust(p.ref);
-      if (p.optional) {
+      // refToRust already wraps nullable refs in Option<>; the field wrapper
+      // only adds Option<> for optional (missing-key) semantics, never both.
+      const innerType = refToRust(p.ref);
+      const alreadyOption = innerType.startsWith("Option<");
+      const wrapWithOption = p.optional && !alreadyOption;
+      const rustType = wrapWithOption ? `Option<${innerType}>` : innerType;
+      const isOption = alreadyOption || wrapWithOption;
+      if (isOption) {
         if (renameAttr) {
           lines.push(`    #[serde(rename = "${p.key.replace(/"/g, '\\"')}", skip_serializing_if = "Option::is_none")]`);
         } else {
           lines.push(`    #[serde(skip_serializing_if = "Option::is_none")]`);
         }
-        lines.push(`    pub ${safeField}: Option<${rustType}>,`);
+        lines.push(`    pub ${safeField}: ${rustType},`);
       } else {
         if (renameAttr) lines.push(`    ${renameAttr}`);
         lines.push(`    pub ${safeField}: ${rustType},`);

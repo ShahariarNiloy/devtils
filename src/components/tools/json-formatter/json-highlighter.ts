@@ -5,6 +5,29 @@
  */
 
 import { highlight, lineCount as _lineCount } from "./highlight";
+import type { Lang } from "./highlight";
+import type { ConvertTarget } from "./json-formatter.types";
+
+/**
+ * Maps the output panel's conversion target onto a highlighter language so
+ * converted output (TypeScript, Go, YAML, …) gets the right tokenizer instead
+ * of being painted with the JSON one. `zod` → TypeScript and `schema` → JSON
+ * because their outputs are valid in those languages.
+ */
+export function langForOutput(target: ConvertTarget | null | undefined): Lang {
+  switch (target) {
+    case "typescript":
+    case "zod": return "typescript";
+    case "yaml": return "yaml";
+    case "xml": return "xml";
+    case "csv": return "csv";
+    case "go": return "go";
+    case "python": return "python";
+    case "rust": return "rust";
+    case "schema":
+    default: return "json";
+  }
+}
 
 export function highlightJson(source: string): string {
   return highlight(source, "json");

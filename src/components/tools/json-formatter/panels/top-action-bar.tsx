@@ -7,12 +7,15 @@ import {
   ArrowDownAZ,
   BarChart2,
   ChevronDown,
+  ExternalLink,
   Link2,
   Minimize2,
   RotateCcw,
   Search,
   Wand2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { stashHandoffInput } from "@/components/json-converter";
 import { cn } from "@/lib/cn";
 import { Kbd } from "@/components/primitives/kbd";
 import { Tooltip } from "@/components/primitives/tooltip";
@@ -167,16 +170,16 @@ export function TopActionBar({
           tooltip="Convert format"
           menuClassName="min-w-[200px]"
         >
-          <DropdownMenuItem onClick={() => state.convert("csv")}>JSON &rarr; CSV</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("yaml")}>JSON &rarr; YAML</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("typescript")}>JSON &rarr; TypeScript</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("xml")}>JSON &rarr; XML</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("zod")}>JSON &rarr; Zod</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("schema")}>JSON &rarr; JSON Schema</DropdownMenuItem>
+          <ConvertItem state={state} target="csv"        slug="json-to-csv"        label="CSV" />
+          <ConvertItem state={state} target="yaml"       slug="json-to-yaml"       label="YAML" />
+          <ConvertItem state={state} target="typescript" slug="json-to-typescript" label="TypeScript" />
+          <ConvertItem state={state} target="xml"        slug="json-to-xml"        label="XML" />
+          <ConvertItem state={state} target="zod"        slug="json-to-zod"        label="Zod" />
+          <ConvertItem state={state} target="schema"     slug="json-schema"        label="JSON Schema" />
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => state.convert("go")}>JSON &rarr; Go</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("python")}>JSON &rarr; Python</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => state.convert("rust")}>JSON &rarr; Rust</DropdownMenuItem>
+          <ConvertItem state={state} target="go"     slug="json-to-go"     label="Go" />
+          <ConvertItem state={state} target="python" slug="json-to-python" label="Python" />
+          <ConvertItem state={state} target="rust"   slug="json-to-rust"   label="Rust" />
         </ToolDropdown>
 
         <Select
@@ -201,6 +204,53 @@ export function TopActionBar({
 }
 
 // ── Internal building blocks ────────────────────────────────────────────────
+
+interface ConvertItemProps {
+  state: JsonFormatterState;
+  target: ConvertTargetForState;
+  slug: string;
+  label: string;
+}
+
+/**
+ * Dropdown row with two affordances: clicking the label converts the input
+ * in place (existing behaviour); clicking the ↗ icon opens the dedicated
+ * tool page in the same tab, handing off the current input via
+ * sessionStorage so the user doesn't paste twice.
+ */
+function ConvertItem({ state, target, slug, label }: ConvertItemProps) {
+  const router = useRouter();
+  const openDedicated = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentInput =
+      state.parsedValue !== null && state.parsedValue !== undefined
+        ? JSON.stringify(state.parsedValue, null, 2)
+        : state.input;
+    if (currentInput.trim()) stashHandoffInput(currentInput);
+    router.push(`/tools/${slug}`);
+  };
+  return (
+    <DropdownMenuItem
+      onClick={() => state.convert(target)}
+      className="group flex items-center justify-between gap-2 pr-1"
+    >
+      <span>JSON &rarr; {label}</span>
+      <Tooltip content={`Open ${label} tool with this input`} side="right">
+        <button
+          type="button"
+          onClick={openDedicated}
+          aria-label={`Open dedicated ${label} tool`}
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
+        >
+          <ExternalLink size={12} aria-hidden />
+        </button>
+      </Tooltip>
+    </DropdownMenuItem>
+  );
+}
+
+type ConvertTargetForState = Parameters<JsonFormatterState["convert"]>[0];
 
 function Divider() {
   return <div className="mx-1 h-4 w-px bg-border-subtle/70" aria-hidden />;

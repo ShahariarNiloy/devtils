@@ -11,6 +11,7 @@ import type { Tool } from "@/lib/tools-registry";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { JsonFormatterContent } from "./content";
 import { useDraftAutosave } from "./hooks/use-draft-autosave";
 import { useHistory, type HistoryEntry } from "./hooks/use-history";
 import { SAMPLE_DATA } from "./json-formatter.lib";
@@ -297,6 +298,8 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
         onApply={state.applyRepair}
         onCancel={state.cancelRepair}
       />
+
+      <JsonFormatterContent />
     </ToolShell>
   );
 }

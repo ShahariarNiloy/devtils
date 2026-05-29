@@ -1,10 +1,19 @@
 /**
- * Python emitter. Uses dataclasses (stdlib, no deps) plus typing imports.
- * String formats are mapped to datetime / date / UUID types where the
- * mapping is unambiguous — saves the consumer from re-parsing dates.
+ * Python emitter. Defaults to dataclasses (stdlib, no deps); TypedDict and
+ * Pydantic v2 BaseModel are available as opt-ins. String formats map to
+ * datetime / date / UUID where the mapping is unambiguous, sparing the
+ * consumer a re-parse pass.
  */
 
 import type { CollectResult, CollectedType, TypeRef } from "./collect";
+
+export type PythonClassKind = "dataclass" | "typeddict" | "pydantic";
+
+export interface PythonEmitOptions {
+  classKind?: PythonClassKind;
+  /** dataclass-only: emit `slots=True` for the ~20% memory win. */
+  useSlots?: boolean;
+}
 
 interface Ctx {
   needsOptional: boolean;
@@ -12,9 +21,11 @@ interface Ctx {
   needsDatetime: boolean;
   needsDate: boolean;
   needsUuid: boolean;
+  needsTypedDict: boolean;
+  needsPydantic: boolean;
 }
 
-function refToPy(ref: TypeRef, ctx: Ctx): string {
+function basePy(ref: TypeRef, ctx: Ctx): string {
   switch (ref.kind) {
     case "object": return ref.name ?? "Any";
     case "array": {
@@ -42,16 +53,27 @@ function refToPy(ref: TypeRef, ctx: Ctx): string {
   }
 }
 
-function emitClass(t: CollectedType, ctx: Ctx): string[] {
+function refToPy(ref: TypeRef, ctx: Ctx): string {
+  const base = basePy(ref, ctx);
+  if (ref.nullable && base !== "Any") {
+    ctx.needsOptional = true;
+    return `Optional[${base}]`;
+  }
+  return base;
+}
+
+function emitDataclass(t: CollectedType, ctx: Ctx, useSlots: boolean): string[] {
   // Required fields first (no defaults), optional after (default = None).
   // Python's dataclass refuses fields-without-default after a default field,
-  // so this ordering is non-negotiable.
-  const req = t.properties.filter((p) => !p.optional);
-  const opt = t.properties.filter((p) => p.optional);
+  // so this ordering is non-negotiable. Nullable-but-required fields are
+  // grouped with optional so the dataclass stays well-formed.
+  const isOpt = (p: { optional: boolean; ref: TypeRef }) =>
+    p.optional || !!p.ref.nullable;
+  const req = t.properties.filter((p) => !isOpt(p));
+  const opt = t.properties.filter((p) => isOpt(p));
 
-  const lines: string[] = [];
-  lines.push(`@dataclass`);
-  lines.push(`class ${t.name}:`);
+  const decorator = useSlots ? `@dataclass(slots=True)` : `@dataclass`;
+  const lines: string[] = [decorator, `class ${t.name}:`];
   if (req.length === 0 && opt.length === 0) {
     lines.push(`    pass`);
     return lines;
@@ -60,10 +82,52 @@ function emitClass(t: CollectedType, ctx: Ctx): string[] {
     lines.push(`    ${safeIdent(p.key)}: ${refToPy(p.ref, ctx)}`);
   }
   for (const p of opt) {
+    const inner = basePy(p.ref, ctx);
     ctx.needsOptional = true;
-    lines.push(
-      `    ${safeIdent(p.key)}: Optional[${refToPy(p.ref, ctx)}] = None`,
-    );
+    const wrapped = inner === "Any" ? inner : `Optional[${inner}]`;
+    lines.push(`    ${safeIdent(p.key)}: ${wrapped} = None`);
+  }
+  return lines;
+}
+
+function emitTypedDict(t: CollectedType, ctx: Ctx): string[] {
+  ctx.needsTypedDict = true;
+  // TypedDict treats missing keys as type errors by default. For records with
+  // any optional fields, switch to `total=False`. (TypedDict supports partial
+  // totality declarations but the syntax is verbose — using class-level
+  // `total=False` plus `Required[…]` would be cleaner if we needed mixed.)
+  const anyOptional = t.properties.some((p) => p.optional);
+  const header = anyOptional
+    ? `class ${t.name}(TypedDict, total=False):`
+    : `class ${t.name}(TypedDict):`;
+  const lines: string[] = [header];
+  if (t.properties.length === 0) {
+    lines.push(`    pass`);
+    return lines;
+  }
+  for (const p of t.properties) {
+    lines.push(`    ${safeIdent(p.key)}: ${refToPy(p.ref, ctx)}`);
+  }
+  return lines;
+}
+
+function emitPydantic(t: CollectedType, ctx: Ctx): string[] {
+  ctx.needsPydantic = true;
+  const lines: string[] = [`class ${t.name}(BaseModel):`];
+  if (t.properties.length === 0) {
+    lines.push(`    pass`);
+    return lines;
+  }
+  for (const p of t.properties) {
+    const optionalKey = p.optional || !!p.ref.nullable;
+    const inner = basePy(p.ref, ctx);
+    if (optionalKey) {
+      ctx.needsOptional = true;
+      const wrapped = inner === "Any" ? inner : `Optional[${inner}]`;
+      lines.push(`    ${safeIdent(p.key)}: ${wrapped} = None`);
+    } else {
+      lines.push(`    ${safeIdent(p.key)}: ${refToPy(p.ref, ctx)}`);
+    }
   }
   return lines;
 }
@@ -83,28 +147,43 @@ function safeIdent(s: string): string {
   return n;
 }
 
-export function emitPython(collected: CollectResult): string {
+export function emitPython(
+  collected: CollectResult,
+  opts: PythonEmitOptions = {},
+): string {
+  const classKind = opts.classKind ?? "dataclass";
+  const useSlots = !!opts.useSlots;
+
   const ctx: Ctx = {
     needsOptional: false,
     needsAny: false,
     needsDatetime: false,
     needsDate: false,
     needsUuid: false,
+    needsTypedDict: false,
+    needsPydantic: false,
   };
 
-  // Run emit first to populate `ctx.needsX`. We collect emitted blocks then
-  // prepend imports.
-  const blocks = collected.types.map((t) => emitClass(t, ctx).join("\n"));
+  const pickEmitter = (t: CollectedType): string[] => {
+    if (classKind === "typeddict") return emitTypedDict(t, ctx);
+    if (classKind === "pydantic") return emitPydantic(t, ctx);
+    return emitDataclass(t, ctx, useSlots);
+  };
+  const blocks = collected.types.map((t) => {
+    const emit = pickEmitter(t);
+    return emit.join("\n");
+  });
 
-  const imports: string[] = [
-    "from __future__ import annotations",
-    "from dataclasses import dataclass",
-  ];
+  const imports: string[] = ["from __future__ import annotations"];
+  if (classKind === "dataclass") imports.push("from dataclasses import dataclass");
 
   const typing: string[] = [];
   if (ctx.needsOptional) typing.push("Optional");
   if (ctx.needsAny) typing.push("Any");
+  if (ctx.needsTypedDict) typing.push("TypedDict");
   if (typing.length > 0) imports.push(`from typing import ${typing.join(", ")}`);
+
+  if (ctx.needsPydantic) imports.push("from pydantic import BaseModel");
 
   if (ctx.needsDatetime || ctx.needsDate) {
     const dt = [

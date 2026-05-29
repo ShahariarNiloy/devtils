@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { ColorConverterContent } from "./content";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
 import { useColorConverter } from "./useColorConverter";
@@ -127,6 +128,7 @@ export function ColorConverter({ tool }: { tool: Tool }) {
         {/* ─── Ramp (full width) ─────────────────────────── */}
         <ShadesPanel shades={s.shades} />
 
+        <ColorConverterContent />
       </div>
     </ToolShell>
   );

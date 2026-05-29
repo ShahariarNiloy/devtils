@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, ChevronLeft, Clipboard, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { CaseConverterContent } from "./content";
 import { useShortcut } from "@/lib/keyboard";
 import { cases } from "./text-case.lib";
 import type { Tool } from "@/lib/tools-registry";
@@ -161,6 +162,7 @@ export function TextCase({ tool }: { tool: Tool }) {
             );
           })}
         </div>
+        <CaseConverterContent />
       </div>
     </ToolShell>
   );

@@ -7,7 +7,7 @@ import { TreeView } from "../views/tree-view";
 import { TableView } from "../views/table-view";
 import { PathView } from "../views/path-view";
 import { EmptyState } from "../panels/empty-state";
-import { applySearchHighlight, highlightJson } from "../json-highlighter";
+import { applySearchHighlight, highlight, langForOutput } from "../json-highlighter";
 import { formatJson } from "../json-formatter.lib";
 import type { JsonFormatterState } from "../use-json-formatter";
 
@@ -58,9 +58,10 @@ export function MobileOutputView({
   const displayedCode = state.output || formattedFromParsed || state.input;
   const deferredCode = useDeferredValue(displayedCode);
 
+  const outputLang = langForOutput(state.conversionResult?.format);
   const highlightedOutput = useMemo(
-    () => highlightJson(deferredCode),
-    [deferredCode],
+    () => highlight(deferredCode, outputLang),
+    [deferredCode, outputLang],
   );
   const highlightedWithSearch = useMemo(
     () =>

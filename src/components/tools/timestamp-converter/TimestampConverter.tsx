@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { TimestampConverterContent } from "./content";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
 import { useTimestampConverter } from "./useTimestampConverter";
@@ -101,6 +102,8 @@ export function TimestampConverter({ tool }: { tool: Tool }) {
         {s.mode === "batch" && <BatchMode />}
 
         <StatusBar dstWarning={s.dstWarning} />
+
+        <TimestampConverterContent />
       </div>
 
       <ShortcutsOverlay open={helpOpen} onOpenChange={setHelpOpen} />

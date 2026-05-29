@@ -2,9 +2,11 @@ import type { ConversionResult } from "./json-formatter.types";
 import { byteLength as byteSize } from "./json-formatter.lib";
 import { inferJsonSchema } from "./schema-infer";
 import { collect } from "./codegen/collect";
-import { emitGo } from "./codegen/emit-go";
-import { emitPython } from "./codegen/emit-python";
-import { emitRust } from "./codegen/emit-rust";
+import { emitGo, type GoEmitOptions } from "./codegen/emit-go";
+import { emitPython, type PythonEmitOptions } from "./codegen/emit-python";
+import { emitRust, type RustEmitOptions } from "./codegen/emit-rust";
+import { emitTypeScript, type TypeScriptEmitOptions } from "./codegen/emit-typescript";
+import { emitZod, type ZodEmitOptions } from "./codegen/emit-zod";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -12,16 +14,21 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
-/** Flatten a nested object with dot-notation keys. */
+/** Flatten a nested object using the provided delimiter as the key joiner. */
 function flattenObject(
   obj: Record<string, unknown>,
+  delimiter: string,
   prefix = "",
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k;
+    const key = prefix ? `${prefix}${delimiter}${k}` : k;
     if (isPlainObject(v)) {
-      Object.assign(out, flattenObject(v as Record<string, unknown>, key));
+      Object.assign(out, flattenObject(v as Record<string, unknown>, delimiter, key));
+    } else if (Array.isArray(v)) {
+      // Arrays serialise as JSON inside the cell — preserves data without
+      // exploding the column count, which would happen with index suffixes.
+      out[key] = JSON.stringify(v);
     } else {
       out[key] = v === null || v === undefined ? "" : String(v);
     }
@@ -29,8 +36,8 @@ function flattenObject(
   return out;
 }
 
-function csvEscape(v: string): string {
-  if (v.includes(",") || v.includes('"') || v.includes("\n")) {
+function csvEscape(v: string, delimiter: string): string {
+  if (v.includes(delimiter) || v.includes('"') || v.includes("\n") || v.includes("\r")) {
     return `"${v.replace(/"/g, '""')}"`;
   }
   return v;
@@ -38,169 +45,130 @@ function csvEscape(v: string): string {
 
 // ── CSV ───────────────────────────────────────────────────────────────────────
 
-/** Convert array-of-objects JSON to CSV. Nested objects are flattened with dot notation. */
-export function toCSV(value: unknown): ConversionResult {
+export interface CsvOptions {
+  /** Column separator (`,` default). */
+  delimiter?: string;
+  /** Joiner for nested keys (`.` default). */
+  flattenDelimiter?: string;
+  /** Include a leading header row (default true). */
+  includeHeader?: boolean;
+  /** Prefix a UTF-8 BOM so Excel detects encoding. */
+  bom?: boolean;
+  /** Line separator (`\n` default, set to `\r\n` for CRLF). */
+  newline?: "\n" | "\r\n";
+}
+
+/** Convert array-of-objects JSON to CSV. Nested objects are flattened. */
+export function toCSV(value: unknown, opts: CsvOptions = {}): ConversionResult {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error("CSV conversion requires a non-empty array of objects");
   }
+  const delimiter = opts.delimiter ?? ",";
+  const flattenDelim = opts.flattenDelimiter ?? ".";
+  const includeHeader = opts.includeHeader ?? true;
+  const newline = opts.newline ?? "\n";
+
   const rows = value.map((item) => {
     if (!isPlainObject(item)) throw new Error("All array items must be objects");
-    return flattenObject(item as Record<string, unknown>);
+    return flattenObject(item as Record<string, unknown>, flattenDelim);
   });
   const headers = Array.from(new Set(rows.flatMap(Object.keys)));
-  const csvRows = [
-    headers.map(csvEscape).join(","),
-    ...rows.map((row) => headers.map((h) => csvEscape(row[h] ?? "")).join(",")),
-  ];
-  const output = csvRows.join("\n");
+  const headerLine = includeHeader
+    ? headers.map((h) => csvEscape(h, delimiter)).join(delimiter)
+    : null;
+  const bodyLines = rows.map((row) =>
+    headers.map((h) => csvEscape(row[h] ?? "", delimiter)).join(delimiter),
+  );
+  const lines = headerLine ? [headerLine, ...bodyLines] : bodyLines;
+  const body = lines.join(newline);
+  const output = opts.bom ? `﻿${body}` : body;
   return { output, format: "csv", size: byteSize(output) };
 }
 
 // ── YAML ──────────────────────────────────────────────────────────────────────
 
+export interface YamlOptions {
+  indent?: number;
+  lineWidth?: number;
+  /** Sort object keys alphabetically (default false — preserve insertion). */
+  sortKeys?: boolean;
+  /**
+   * Number of objects to expand into block style before switching to flow.
+   * `-1` (default) keeps everything in block style — most legible.
+   */
+  flowLevel?: number;
+  /** Use `'` or `"` for explicit string quotes (default auto). */
+  quotingType?: "'" | '"';
+}
+
 /** Convert JSON value to YAML string. */
-export function toYAML(value: unknown): ConversionResult {
+export function toYAML(value: unknown, opts: YamlOptions = {}): ConversionResult {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const yaml = require("js-yaml") as { dump: (v: unknown, opts: Record<string, unknown>) => string };
-  const output = yaml.dump(value, { indent: 2, lineWidth: 120, noRefs: true });
+  const dumpOpts: Record<string, unknown> = {
+    indent: opts.indent ?? 2,
+    lineWidth: opts.lineWidth ?? 120,
+    noRefs: true,
+    sortKeys: !!opts.sortKeys,
+    flowLevel: opts.flowLevel ?? -1,
+  };
+  if (opts.quotingType) dumpOpts.quotingType = opts.quotingType;
+  const output = yaml.dump(value, dumpOpts);
   return { output, format: "yaml", size: byteSize(output) };
 }
 
 // ── TypeScript ────────────────────────────────────────────────────────────────
 
-type TSType = string;
-
-function inferTsType(value: unknown, depth: number, refs: Map<string, string>): TSType {
-  if (value === null) return "null";
-  if (typeof value === "string") return "string";
-  if (typeof value === "number") return "number";
-  if (typeof value === "boolean") return "boolean";
-  if (Array.isArray(value)) {
-    if (value.length === 0) return "unknown[]";
-    const types = [...new Set(value.map((v) => inferTsType(v, depth, refs)))];
-    const inner = types.length === 1 ? types[0] : `(${types.join(" | ")})`;
-    return `${inner}[]`;
-  }
-  if (isPlainObject(value)) {
-    return buildInterface(value as Record<string, unknown>, depth + 1, refs);
-  }
-  return "unknown";
-}
-
-/** Collect all keys across an array of objects to detect optional fields. */
-function buildInterface(
-  obj: Record<string, unknown>,
-  depth: number,
-  refs: Map<string, string>,
-  allItems?: Record<string, unknown>[],
-): string {
-  const indent = "  ".repeat(depth);
-  const outerIndent = "  ".repeat(depth - 1);
-  const lines: string[] = ["{"];
-  const universalKeys = allItems
-    ? new Set(allItems.flatMap(Object.keys).filter((k) => allItems.every((item) => k in item)))
-    : new Set(Object.keys(obj));
-
-  for (const [k, v] of Object.entries(obj)) {
-    const isOptional = !universalKeys.has(k);
-    const tsType = inferTsType(v, depth, refs);
-    const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? k : `"${k}"`;
-    lines.push(`${indent}${safeKey}${isOptional ? "?" : ""}: ${tsType};`);
-  }
-  lines.push(`${outerIndent}}`);
-  return lines.join("\n");
+export interface TypeScriptOptions extends TypeScriptEmitOptions {
+  rootName?: string;
 }
 
 /** Generate TypeScript interface(s) from a JSON value. */
-export function toTypeScript(value: unknown, rootName = "Root"): ConversionResult {
-  const refs = new Map<string, string>();
-  let tsBody: string;
-
-  if (isPlainObject(value)) {
-    tsBody = `export interface ${rootName} ${buildInterface(value as Record<string, unknown>, 1, refs)}`;
-  } else if (Array.isArray(value) && value.length > 0 && isPlainObject(value[0])) {
-    const allItems = value.filter(isPlainObject) as Record<string, unknown>[];
-    const merged: Record<string, unknown> = {};
-    for (const item of allItems) for (const [k, v] of Object.entries(item)) if (!(k in merged)) merged[k] = v;
-    tsBody = `export interface ${rootName} ${buildInterface(merged, 1, refs, allItems)}\n\nexport type ${rootName}Array = ${rootName}[];`;
-  } else {
-    const tsType = inferTsType(value, 0, refs);
-    tsBody = `export type ${rootName} = ${tsType};`;
-  }
-
-  const output = tsBody;
+export function toTypeScript(
+  value: unknown,
+  optsOrRootName: TypeScriptOptions | string = {},
+): ConversionResult {
+  // String overload preserves the original `toTypeScript(value, "MyRoot")` API.
+  const opts: TypeScriptOptions = typeof optsOrRootName === "string"
+    ? { rootName: optsOrRootName }
+    : optsOrRootName;
+  const rootName = opts.rootName ?? "Root";
+  const collected = collect(inferJsonSchema(value), rootName);
+  const output = emitTypeScript(collected, opts);
   return { output, format: "typescript", size: byteSize(output) };
 }
 
 // ── Zod ───────────────────────────────────────────────────────────────────────
 
-function inferZodType(value: unknown, depth: number, allSiblings?: Record<string, unknown>[]): string {
-  if (value === null) return "z.null()";
-  if (typeof value === "string") return "z.string()";
-  if (typeof value === "number") return "z.number()";
-  if (typeof value === "boolean") return "z.boolean()";
-  if (Array.isArray(value)) {
-    if (value.length === 0) return "z.array(z.unknown())";
-    const types = [...new Set(value.map((v) => inferZodType(v, depth)))];
-    const inner = types.length === 1 ? types[0] : `z.union([${types.join(", ")}])`;
-    return `z.array(${inner})`;
-  }
-  if (isPlainObject(value)) {
-    return buildZodObject(value as Record<string, unknown>, depth + 1, allSiblings);
-  }
-  return "z.unknown()";
-}
-
-function buildZodObject(
-  obj: Record<string, unknown>,
-  depth: number,
-  allItems?: Record<string, unknown>[],
-): string {
-  const indent = "  ".repeat(depth);
-  const outerIndent = "  ".repeat(depth - 1);
-  const universalKeys = allItems
-    ? new Set(allItems.flatMap(Object.keys).filter((k) => allItems.every((item) => k in item)))
-    : new Set(Object.keys(obj));
-  const lines: string[] = ["z.object({"];
-  for (const [k, v] of Object.entries(obj)) {
-    const isOptional = !universalKeys.has(k);
-    const zodType = inferZodType(v, depth);
-    const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k) ? k : `"${k}"`;
-    lines.push(`${indent}${safeKey}: ${zodType}${isOptional ? ".optional()" : ""},`);
-  }
-  lines.push(`${outerIndent}})`);
-  return lines.join("\n");
-}
+export type ZodOptions = ZodEmitOptions;
 
 /** Generate a Zod schema from a JSON value. */
-export function toZod(value: unknown, rootName = "root"): ConversionResult {
-  let schemaExpr: string;
-
-  if (isPlainObject(value)) {
-    schemaExpr = buildZodObject(value as Record<string, unknown>, 1);
-  } else if (Array.isArray(value) && value.length > 0 && isPlainObject(value[0])) {
-    const allItems = value.filter(isPlainObject) as Record<string, unknown>[];
-    const merged: Record<string, unknown> = {};
-    for (const item of allItems) for (const [k, v] of Object.entries(item)) if (!(k in merged)) merged[k] = v;
-    const itemSchema = buildZodObject(merged, 1, allItems);
-    schemaExpr = `z.array(\n  ${itemSchema}\n)`;
-  } else {
-    schemaExpr = inferZodType(value, 0);
-  }
-
-  const typeName = rootName.charAt(0).toUpperCase() + rootName.slice(1);
-  const output = [
-    `import { z } from "zod";`,
-    ``,
-    `export const ${rootName}Schema = ${schemaExpr};`,
-    ``,
-    `export type ${typeName} = z.infer<typeof ${rootName}Schema>;`,
-  ].join("\n");
-
+export function toZod(
+  value: unknown,
+  optsOrRootName: ZodOptions | string = {},
+): ConversionResult {
+  const opts: ZodOptions = typeof optsOrRootName === "string"
+    ? { rootName: optsOrRootName }
+    : optsOrRootName;
+  const rootName = opts.rootName ?? "root";
+  // Collect with PascalCase'd root so subtypes get reasonable names.
+  const pascalRoot = rootName.charAt(0).toUpperCase() + rootName.slice(1);
+  const collected = collect(inferJsonSchema(value), pascalRoot);
+  const output = emitZod(collected, opts);
   return { output, format: "zod", size: byteSize(output) };
 }
 
 // ── XML ───────────────────────────────────────────────────────────────────────
+
+export interface XmlOptions {
+  rootTag?: string;
+  /** Tag used for array items (default `item`). */
+  itemTag?: string;
+  /** Emit `<?xml version="1.0" encoding="UTF-8"?>` (default true). */
+  declaration?: boolean;
+  /** Indentation width in spaces (default 2). */
+  indent?: number;
+}
 
 function xmlEscape(s: string): string {
   return s
@@ -211,20 +179,28 @@ function xmlEscape(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function toXmlNode(value: unknown, tag: string, depth: number): string {
-  const indent = "  ".repeat(depth);
+function toXmlNode(
+  value: unknown,
+  tag: string,
+  depth: number,
+  itemTag: string,
+  indentStr: string,
+): string {
+  const indent = indentStr.repeat(depth);
 
   if (value === null) return `${indent}<${tag} nil="true"/>`;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return `${indent}<${tag}>${xmlEscape(String(value))}</${tag}>`;
   }
   if (Array.isArray(value)) {
-    const items = value.map((v) => toXmlNode(v, "item", depth + 1)).join("\n");
+    const items = value.map((v) => toXmlNode(v, itemTag, depth + 1, itemTag, indentStr)).join("\n");
     return `${indent}<${tag}>\n${items}\n${indent}</${tag}>`;
   }
   if (isPlainObject(value)) {
     const children = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => toXmlNode(v, /^[a-zA-Z_]/.test(k) ? k : `_${k}`, depth + 1))
+      .map(([k, v]) =>
+        toXmlNode(v, /^[a-zA-Z_]/.test(k) ? k : `_${k}`, depth + 1, itemTag, indentStr),
+      )
       .join("\n");
     return `${indent}<${tag}>\n${children}\n${indent}</${tag}>`;
   }
@@ -232,45 +208,79 @@ function toXmlNode(value: unknown, tag: string, depth: number): string {
 }
 
 /** Convert a JSON value to XML. */
-export function toXML(value: unknown, rootTag = "root"): ConversionResult {
-  const body = toXmlNode(value, rootTag, 0);
-  const output = `<?xml version="1.0" encoding="UTF-8"?>\n${body}`;
+export function toXML(
+  value: unknown,
+  optsOrRootTag: XmlOptions | string = {},
+): ConversionResult {
+  const opts: XmlOptions = typeof optsOrRootTag === "string"
+    ? { rootTag: optsOrRootTag }
+    : optsOrRootTag;
+  const rootTag = opts.rootTag ?? "root";
+  const itemTag = opts.itemTag ?? "item";
+  const includeDecl = opts.declaration ?? true;
+  const indentStr = " ".repeat(opts.indent ?? 2);
+
+  const body = toXmlNode(value, rootTag, 0, itemTag, indentStr);
+  const output = includeDecl
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n${body}`
+    : body;
   return { output, format: "xml", size: byteSize(output) };
 }
 
 // ── JSON Schema ──────────────────────────────────────────────────────────────
 
-/**
- * Infer a JSON Schema (draft 2020-12) from the sample value. This is the
- * same IR used by future codegen and mock-data features, so the output is
- * intentionally a plain object — downstream consumers parse this back into
- * `JsonSchema` without re-walking the source.
- */
-export function toJsonSchema(value: unknown): ConversionResult {
+export interface JsonSchemaOptions {
+  /** `2020-12` (default) or `draft-07` for older tooling. */
+  draft?: "2020-12" | "draft-07";
+}
+
+const DRAFT_URI: Record<NonNullable<JsonSchemaOptions["draft"]>, string> = {
+  "2020-12": "https://json-schema.org/draft/2020-12/schema",
+  "draft-07": "http://json-schema.org/draft-07/schema#",
+};
+
+/** Infer a JSON Schema from the sample value. */
+export function toJsonSchema(
+  value: unknown,
+  opts: JsonSchemaOptions = {},
+): ConversionResult {
   const schema = inferJsonSchema(value);
+  if (opts.draft && opts.draft !== "2020-12") {
+    schema.$schema = DRAFT_URI[opts.draft];
+  }
   const output = JSON.stringify(schema, null, 2);
   return { output, format: "schema", size: byteSize(output) };
 }
 
 // ── Code generators (built on schema IR) ─────────────────────────────────────
 
+export type GoOptions = GoEmitOptions;
+export interface PythonOptions extends PythonEmitOptions {
+  /** Root type name when root is not an object (default "Root"). */
+  rootName?: string;
+}
+export interface RustOptions extends RustEmitOptions {
+  /** Root type name (default "Root"). */
+  rootName?: string;
+}
+
 /** Generate Go structs from the inferred schema. */
-export function toGo(value: unknown): ConversionResult {
+export function toGo(value: unknown, opts: GoOptions = {}): ConversionResult {
   const collected = collect(inferJsonSchema(value), "Root");
-  const output = emitGo(collected);
+  const output = emitGo(collected, opts);
   return { output, format: "go", size: byteSize(output) };
 }
 
-/** Generate Python dataclasses from the inferred schema. */
-export function toPython(value: unknown): ConversionResult {
-  const collected = collect(inferJsonSchema(value), "Root");
-  const output = emitPython(collected);
+/** Generate Python dataclasses (or TypedDict / Pydantic) from the inferred schema. */
+export function toPython(value: unknown, opts: PythonOptions = {}): ConversionResult {
+  const collected = collect(inferJsonSchema(value), opts.rootName ?? "Root");
+  const output = emitPython(collected, opts);
   return { output, format: "python", size: byteSize(output) };
 }
 
 /** Generate Rust serde structs from the inferred schema. */
-export function toRust(value: unknown): ConversionResult {
-  const collected = collect(inferJsonSchema(value), "Root");
-  const output = emitRust(collected);
+export function toRust(value: unknown, opts: RustOptions = {}): ConversionResult {
+  const collected = collect(inferJsonSchema(value), opts.rootName ?? "Root");
+  const output = emitRust(collected, opts);
   return { output, format: "rust", size: byteSize(output) };
 }

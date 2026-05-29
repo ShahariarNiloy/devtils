@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx src/components/tools/json-formatter/codegen/__tests__/emitters.test.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

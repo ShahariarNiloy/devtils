@@ -6,6 +6,10 @@
  * (pure) converter, so a 5 MB → TypeScript/Zod/XML walk never freezes the
  * tab. Only the resulting string crosses back — cheap, no structured clone
  * of the parsed object.
+ *
+ * Options are forwarded straight to the matching emitter — they're plain
+ * JSON-safe objects (string / boolean / number leaves) so structuredClone
+ * across `postMessage` is fine.
  */
 
 import type { ConversionResult, ConvertTarget } from "./json-formatter.types";
@@ -19,54 +23,53 @@ import {
   toXML,
   toYAML,
   toZod,
+  type CsvOptions,
+  type GoOptions,
+  type JsonSchemaOptions,
+  type PythonOptions,
+  type RustOptions,
+  type TypeScriptOptions,
+  type XmlOptions,
+  type YamlOptions,
+  type ZodOptions,
 } from "./json-convert";
 
 interface ConvertRequest {
   id: number;
   target: ConvertTarget;
   jsonText: string;
+  options?: unknown;
 }
 type ConvertResponse =
   | { id: number; ok: true; result: ConversionResult }
   | { id: number; ok: false; message: string };
 
-// Worker globals collide with the DOM lib in this project's tsconfig; this
-// single cast narrows `self` to the worker scope so the message API is typed.
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
-function run(target: ConvertTarget, value: unknown): ConversionResult {
+function run(target: ConvertTarget, value: unknown, opts: unknown): ConversionResult {
   switch (target) {
-    case "csv":
-      return toCSV(value);
-    case "yaml":
-      return toYAML(value);
-    case "typescript":
-      return toTypeScript(value);
-    case "xml":
-      return toXML(value);
-    case "zod":
-      return toZod(value);
-    case "schema":
-      return toJsonSchema(value);
-    case "go":
-      return toGo(value);
-    case "python":
-      return toPython(value);
-    case "rust":
-      return toRust(value);
+    case "csv":         return toCSV(value, opts as CsvOptions | undefined);
+    case "yaml":        return toYAML(value, opts as YamlOptions | undefined);
+    case "typescript":  return toTypeScript(value, opts as TypeScriptOptions | undefined);
+    case "xml":         return toXML(value, opts as XmlOptions | undefined);
+    case "zod":         return toZod(value, opts as ZodOptions | undefined);
+    case "schema":      return toJsonSchema(value, opts as JsonSchemaOptions | undefined);
+    case "go":          return toGo(value, opts as GoOptions | undefined);
+    case "python":      return toPython(value, opts as PythonOptions | undefined);
+    case "rust":        return toRust(value, opts as RustOptions | undefined);
     default:
       throw new Error(`Unknown target: ${target as string}`);
   }
 }
 
 ctx.onmessage = (e: MessageEvent<ConvertRequest>) => {
-  const { id, target, jsonText } = e.data;
+  const { id, target, jsonText, options } = e.data;
   try {
     const value: unknown = JSON.parse(jsonText);
     ctx.postMessage({
       id,
       ok: true,
-      result: run(target, value),
+      result: run(target, value, options ?? {}),
     } satisfies ConvertResponse);
   } catch (err) {
     ctx.postMessage({
