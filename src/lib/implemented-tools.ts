@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { Base64 } from "@/components/tools/base64";
 import { ColorConverter } from "@/components/tools/color-converter";
+import { DiffChecker } from "@/components/tools/diff-checker";
 import { ImageCompressor } from "@/components/tools/image-compressor";
 import { JsonFormatter } from "@/components/tools/json-formatter";
 import { JsonSchema } from "@/components/tools/json-schema";
@@ -51,6 +52,7 @@ export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   base64: Base64,
   "regex-tester": RegexTester,
   "color-converter": ColorConverter,
+  "diff-checker": DiffChecker,
   "timestamp-converter": TimestampConverter,
   "image-compressor": ImageCompressor,
 };

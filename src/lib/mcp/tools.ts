@@ -21,6 +21,13 @@
  */
 
 import { encode as b64encode, decode as b64decode } from "@/components/tools/base64/base64.lib";
+import {
+  buildHunks,
+  computeStats,
+  diffLines,
+  formatUnifiedDiff,
+  type DiffOptions,
+} from "@/components/tools/diff-checker/diff-checker.lib";
 import { cases as caseDefs } from "@/components/tools/text-case/text-case.lib";
 import {
   formatAll,
@@ -425,6 +432,72 @@ const TOOLS: Tool[] = [
       const caseDef = caseDefs.find((c) => c.id === target);
       if (!caseDef) return err(`unknown target case: ${target}`);
       return text(caseDef.convert(input));
+    },
+  },
+
+  // ── Diff ───────────────────────────────────────────────────────────
+
+  {
+    name: "diff_text",
+    description:
+      "Compare two text blocks and return a unified-diff patch (git-style). Configurable whitespace and case sensitivity. Optionally returns a structured JSON shape with hunks + stats instead of the patch text.",
+    inputSchema: {
+      type: "object",
+      required: ["left", "right"],
+      properties: {
+        left: { type: "string", description: "Original / 'a' side of the diff." },
+        right: { type: "string", description: "Changed / 'b' side of the diff." },
+        ignoreTrailingWhitespace: { type: "boolean", default: true },
+        ignoreWhitespace: { type: "boolean", default: false },
+        ignoreCase: { type: "boolean", default: false },
+        format: {
+          type: "string",
+          enum: ["unified", "structured"],
+          default: "unified",
+          description:
+            "'unified' returns a git-style patch string; 'structured' returns JSON with stats + hunks for programmatic consumers.",
+        },
+        leftLabel: {
+          type: "string",
+          description: "Optional filename for the `--- a/<label>` preamble.",
+        },
+        rightLabel: {
+          type: "string",
+          description: "Optional filename for the `+++ b/<label>` preamble.",
+        },
+      },
+    },
+    handler: (args) => {
+      const o = asObject(args);
+      const left = asString(o.left);
+      const right = asString(o.right);
+      const opts: DiffOptions = {
+        ignoreTrailingWhitespace: o.ignoreTrailingWhitespace !== false,
+        ignoreWhitespace: o.ignoreWhitespace === true,
+        ignoreCase: o.ignoreCase === true,
+      };
+      const ops = diffLines(left, right, opts);
+      const stats = computeStats(ops);
+      const hunks = buildHunks(ops);
+
+      if (o.format === "structured") {
+        return text(JSON.stringify({ stats, hunks }, null, 2));
+      }
+
+      const labels =
+        typeof o.leftLabel === "string" && typeof o.rightLabel === "string"
+          ? { left: o.leftLabel, right: o.rightLabel }
+          : undefined;
+      const patch = formatUnifiedDiff(hunks, labels);
+
+      if (!patch) {
+        // Honest empty state — agents shouldn't get a blank reply and
+        // assume the call failed. Surface the no-difference verdict.
+        return text(
+          `# No differences.\n# left:  ${stats.leftLines} lines\n# right: ${stats.rightLines} lines`,
+        );
+      }
+      return text(patch);
     },
   },
 

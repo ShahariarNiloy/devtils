@@ -46,11 +46,13 @@ export function ToolContent({
     .filter((t): t is NonNullable<ReturnType<typeof getToolBySlug>> => Boolean(t));
 
   return (
-    <section
-      aria-label="About this tool"
-      className="rounded-xl border border-border bg-surface shadow-card overflow-hidden"
-    >
-      <div className="grid gap-8 px-5 py-6 md:px-8 md:py-10 md:grid-cols-[1.4fr_1fr]">
+    <>
+      <SectionOrnament />
+      <section
+        aria-label="About this tool"
+        className="rounded-xl border border-border bg-surface shadow-card overflow-hidden"
+      >
+        <div className="grid gap-8 px-5 py-6 md:px-8 md:py-10 md:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <p className="text-[13.5px] leading-relaxed text-text-muted">
             {intro}
@@ -103,25 +105,54 @@ export function ToolContent({
         </div>
       </div>
 
-      {related.length > 0 && (
-        <div className="border-t border-border-subtle bg-surface-soft/30 px-5 py-5 md:px-8">
-          <h2 className="mb-3 text-[12px] uppercase tracking-wider font-semibold text-text-faint">
-            Related converters
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {related.map((t) => (
-              <Link
-                key={t.slug}
-                href={`/tools/${t.slug}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12.5px] text-text hover:border-border-strong hover:bg-surface-soft transition-colors"
-              >
-                <ToolIcon name={t.icon} size={13} className="text-text-faint" />
-                <span>{t.name}</span>
-              </Link>
-            ))}
+        {related.length > 0 && (
+          <div className="border-t border-border-subtle bg-surface-soft/30 px-5 py-5 md:px-8">
+            <h2 className="mb-3 text-[12px] uppercase tracking-wider font-semibold text-text-faint">
+              Related converters
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {related.map((t) => (
+                <Link
+                  key={t.slug}
+                  href={`/tools/${t.slug}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12.5px] text-text hover:border-border-strong hover:bg-surface-soft transition-colors"
+                >
+                  <ToolIcon name={t.icon} size={13} className="text-text-faint" />
+                  <span>{t.name}</span>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </section>
+    </>
+  );
+}
+
+/**
+ * Editorial separator between the tool workspace and the SEO section.
+ * Generous vertical breathing room (the user explicitly asked for a
+ * substantial gap), with a small brand-accented ornament centered between
+ * two fade-to-transparent lines so the page feels intentional, not
+ * stitched-together.
+ *
+ * Decorative only — `aria-hidden` so screen readers skip it; the
+ * following `<section aria-label="About this tool">` carries the
+ * semantic boundary.
+ */
+function SectionOrnament() {
+  return (
+    <div
+      aria-hidden
+      className="mt-16 mb-6 flex items-center justify-center gap-4 md:mt-28 md:mb-10"
+    >
+      <div className="h-px w-24 bg-gradient-to-r from-transparent to-border md:w-40" />
+      <div className="flex items-center gap-2 text-brand">
+        <span className="inline-block h-1 w-1 rounded-full bg-current opacity-50" />
+        <span className="inline-block h-2 w-2 rotate-45 bg-current" />
+        <span className="inline-block h-1 w-1 rounded-full bg-current opacity-50" />
+      </div>
+      <div className="h-px w-24 bg-gradient-to-l from-transparent to-border md:w-40" />
+    </div>
   );
 }
