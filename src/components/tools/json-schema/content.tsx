@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonSchemaContent() {
-  return (
-    <ToolContent
-      intro="Infer a JSON Schema from any sample document. Walks the value once, detects primitive types (including the integer / number distinction), recognises string formats (`date-time`, `date`, `uri`, `email`, `uuid`), and computes required fields as the intersection of keys observed across array items. Choose draft 2020-12 (the latest spec) or draft-07 for compatibility with older validators."
-      useCases={[
+export const seoData = {
+  intro: "Infer a JSON Schema from any sample document. Walks the value once, detects primitive types (including the integer / number distinction), recognises string formats (`date-time`, `date`, `uri`, `email`, `uuid`), and computes required fields as the intersection of keys observed across array items. Choose draft 2020-12 (the latest spec) or draft-07 for compatibility with older validators.",
+  useCases: [
         {
           title: "Seeding an API contract",
           description:
@@ -25,8 +23,8 @@ export function JsonSchemaContent() {
           description:
             "JSON Schema is consumed by many fuzz / property-based testing tools to generate valid example values. Use the inferred schema as input.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Which draft should I pick?",
           answer:
@@ -57,8 +55,10 @@ export function JsonSchemaContent() {
           answer:
             "Yes. The output is plain JSON Schema with `$schema` set to the draft URL, so any draft-aware tool will accept it. Pair with `json-to-typescript` here for matching types.",
         },
-      ]}
-      relatedSlugs={["json-to-typescript", "json-to-zod", "json-to-go", "json-to-python", "json-to-rust"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-typescript", "json-to-zod", "json-to-go", "json-to-python", "json-to-rust"],
+} as const;
+
+export function JsonSchemaContent() {
+  return <ToolContent {...seoData} />;
 }

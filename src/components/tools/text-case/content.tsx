@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function CaseConverterContent() {
-  return (
-    <ToolContent
-      intro="Convert text between every common case format: camelCase, PascalCase, snake_case, kebab-case, SCREAMING_SNAKE, Title Case, sentence case, and more. Handles multi-word identifiers, acronyms, mixed-case inputs, and preserves numbers correctly. Useful for renaming variables, normalising config keys, or generating CSS classnames from copy."
-      useCases={[
+export const seoData = {
+  intro: "Convert text between every common case format: camelCase, PascalCase, snake_case, kebab-case, SCREAMING_SNAKE, Title Case, sentence case, and more. Handles multi-word identifiers, acronyms, mixed-case inputs, and preserves numbers correctly. Useful for renaming variables, normalising config keys, or generating CSS classnames from copy.",
+  useCases: [
         {
           title: "Renaming variables across languages",
           description:
@@ -25,8 +23,8 @@ export function CaseConverterContent() {
           description:
             "Convert article titles or section headings into lowercase kebab-case slugs ready for routing.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "How are acronyms handled?",
           answer:
@@ -57,8 +55,10 @@ export function CaseConverterContent() {
           answer:
             "No. Conversion is pure client-side. Safe for proprietary identifier lists, internal API names, and sensitive payloads.",
         },
-      ]}
-      relatedSlugs={["text-to-slug", "base64", "url-encoder", "regex-tester"]}
-    />
-  );
+      ],
+  relatedSlugs: ["text-to-slug", "base64", "url-encoder", "regex-tester"],
+} as const;
+
+export function CaseConverterContent() {
+  return <ToolContent {...seoData} />;
 }

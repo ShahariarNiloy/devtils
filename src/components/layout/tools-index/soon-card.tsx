@@ -1,6 +1,5 @@
 import { ToolIcon } from "@/components/shared/tool-icon";
 import { getCategoryMeta, type Tool } from "@/lib/tools-registry";
-import { motion } from "framer-motion";
 import Link from "next/link";
 
 const TIER_STYLE: Record<Tool["tier"], { label: string; bg: string; color: string }> = {
@@ -11,20 +10,16 @@ const TIER_STYLE: Record<Tool["tier"], { label: string; bg: string; color: strin
 
 interface SoonCardProps {
   tool: Tool;
-  index: number;
+  /** Kept for back-compat; unused now that the entrance animation is gone. */
+  index?: number;
 }
 
-export function SoonCard({ tool, index }: SoonCardProps) {
+export function SoonCard({ tool }: SoonCardProps) {
   const meta = getCategoryMeta(tool.category);
   const tier = TIER_STYLE[tool.tier];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.2, delay: Math.min(index, 12) * 0.025, ease: "easeOut" }}
-      className="h-full"
-    >
+    <div className="h-full">
       <Link
         href={`/tools/${tool.slug}`}
         className="group flex items-start gap-3 h-full rounded-xl border border-border-subtle bg-surface p-3.5 transition-[border-color,background] duration-150 hover:border-border hover:bg-[color:var(--color-surface-soft)]"
@@ -61,6 +56,6 @@ export function SoonCard({ tool, index }: SoonCardProps) {
           Soon
         </span>
       </Link>
-    </motion.div>
+    </div>
   );
 }

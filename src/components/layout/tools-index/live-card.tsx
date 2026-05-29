@@ -1,6 +1,5 @@
 import { ToolIcon } from "@/components/shared/tool-icon";
 import { getCategoryMeta, type Tool } from "@/lib/tools-registry";
-import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
@@ -12,21 +11,17 @@ const TIER_STYLE: Record<Tool["tier"], { label: string; bg: string; color: strin
 
 interface LiveCardProps {
   tool: Tool;
-  index: number;
+  /** Kept for back-compat with callers that pass position; unused now that
+   *  the entrance animation is gone. Tools should appear instantly. */
+  index?: number;
 }
 
-export function LiveCard({ tool, index }: LiveCardProps) {
+export function LiveCard({ tool }: LiveCardProps) {
   const meta = getCategoryMeta(tool.category);
   const tier = TIER_STYLE[tool.tier];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay: Math.min(index, 6) * 0.04, ease: "easeOut" }}
-      whileHover={{ y: -2 }}
-      className="h-full"
-    >
+    <div className="h-full">
       <Link
         href={`/tools/${tool.slug}`}
         className="group flex flex-col h-full rounded-2xl border border-border bg-surface overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-border-strong hover:shadow-[0_14px_40px_-18px_rgba(26,26,24,0.22)]"
@@ -85,6 +80,6 @@ export function LiveCard({ tool, index }: LiveCardProps) {
           />
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }

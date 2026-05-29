@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToRustContent() {
-  return (
-    <ToolContent
-      intro={'Generate Rust struct definitions with serde derives from any JSON sample. The converter handles the idioms that make serde happy: snake_case fields with `#[serde(rename = "...")]` when the source key differs, `Option<T>` for optional and nullable fields with `skip_serializing_if = "Option::is_none"` so JSON round-trips cleanly, and `Vec<T>` / `serde_json::Value` for arrays and unknown shapes.'}
-      useCases={[
+export const seoData = {
+  intro: 'Generate Rust struct definitions with serde derives from any JSON sample. The converter handles the idioms that make serde happy: snake_case fields with `#[serde(rename = "...")]` when the source key differs, `Option<T>` for optional and nullable fields with `skip_serializing_if = "Option::is_none"` so JSON round-trips cleanly, and `Vec<T>` / `serde_json::Value` for arrays and unknown shapes.',
+  useCases: [
         {
           title: "Modelling external API responses",
           description:
@@ -25,8 +23,8 @@ export function JsonToRustContent() {
           description:
             "When wrapping a C library that emits JSON strings, the generated structs give you a clean Rust-side representation without manual parsing.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Should I derive `Default`?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToRustContent() {
           answer:
             "Not via the toggles yet — Default and PartialEq are exposed. Eq requires every field type to implement Eq, which fails for `f64`. Add by hand to specific structs where appropriate.",
         },
-      ]}
-      relatedSlugs={["json-to-typescript", "json-to-go", "json-to-python", "json-schema"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-typescript", "json-to-go", "json-to-python", "json-schema"],
+} as const;
+
+export function JsonToRustContent() {
+  return <ToolContent {...seoData} />;
 }

@@ -19,11 +19,11 @@ export interface ToolContentProps {
   /** One-paragraph intro shown right under the editor. */
   intro: string;
   /** 3-5 representative use cases, each one line. */
-  useCases: ToolUseCase[];
+  useCases: readonly ToolUseCase[];
   /** 5-8 FAQ entries, plain prose answers. */
-  faqs: ToolFaqEntry[];
+  faqs: readonly ToolFaqEntry[];
   /** Related tool slugs to cross-link at the bottom. */
-  relatedSlugs?: string[];
+  relatedSlugs?: readonly string[];
 }
 
 /**

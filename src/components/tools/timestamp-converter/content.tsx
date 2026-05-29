@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function TimestampConverterContent() {
-  return (
-    <ToolContent
-      intro="Convert Unix timestamps to human-readable dates and back, across timezones, with awareness of seconds vs milliseconds vs microseconds. Live updating clock shows the current epoch alongside ISO 8601, RFC 2822, and per-timezone formats. Generates ready-to-paste code snippets for JavaScript, Python, Go, Rust, SQL, and shell — so you can ship the converted value into your codebase directly."
-      useCases={[
+export const seoData = {
+  intro: "Convert Unix timestamps to human-readable dates and back, across timezones, with awareness of seconds vs milliseconds vs microseconds. Live updating clock shows the current epoch alongside ISO 8601, RFC 2822, and per-timezone formats. Generates ready-to-paste code snippets for JavaScript, Python, Go, Rust, SQL, and shell — so you can ship the converted value into your codebase directly.",
+  useCases: [
         {
           title: "Debugging timestamps in logs",
           description:
@@ -25,8 +23,8 @@ export function TimestampConverterContent() {
           description:
             "The live diff against 'now' shows how long ago (or until) the timestamp is — useful for inspecting JWT expiries, cache TTLs, or scheduled job times.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Seconds, milliseconds, or microseconds?",
           answer:
@@ -57,8 +55,10 @@ export function TimestampConverterContent() {
           answer:
             "Negative epoch values represent dates before the Unix epoch. The converter handles them correctly. Some languages and databases have issues with negative timestamps — the code snippets warn when this applies.",
         },
-      ]}
-      relatedSlugs={["timezone-converter", "date-difference", "cron-parser", "iso-duration"]}
-    />
-  );
+      ],
+  relatedSlugs: ["timezone-converter", "date-difference", "cron-parser", "iso-duration"],
+} as const;
+
+export function TimestampConverterContent() {
+  return <ToolContent {...seoData} />;
 }

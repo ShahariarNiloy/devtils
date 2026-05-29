@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function ImageCompressorContent() {
-  return (
-    <ToolContent
-      intro="Compress images in the browser with codec-quality output: JPEG, PNG, WebP, and AVIF, all encoded via the original reference encoders compiled to WebAssembly. Side-by-side comparison with a draggable reveal lets you spot quality loss instantly. Colour profile (ICC) preservation is on by default so red doesn't drift into orange after a round-trip."
-      useCases={[
+export const seoData = {
+  intro: "Compress images in the browser with codec-quality output: JPEG, PNG, WebP, and AVIF, all encoded via the original reference encoders compiled to WebAssembly. Side-by-side comparison with a draggable reveal lets you spot quality loss instantly. Colour profile (ICC) preservation is on by default so red doesn't drift into orange after a round-trip.",
+  useCases: [
         {
           title: "Optimising images for the web",
           description:
@@ -25,8 +23,8 @@ export function ImageCompressorContent() {
           description:
             "JPEG → WebP, PNG → AVIF, etc. The format dropdown handles cross-encoder conversion without intermediate steps. Lossless preserves PNG's exact pixels; lossy explores the quality-vs-size trade-off.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Does my image leave the browser?",
           answer:
@@ -57,13 +55,15 @@ export function ImageCompressorContent() {
           answer:
             "Yes — set a target max dimension in the resize panel. Each image is scaled down before re-encoding. Useful for hero images that need to fit different breakpoints.",
         },
-      ]}
-      relatedSlugs={[
+      ],
+  relatedSlugs: [
         "image-format-converter",
         "image-resizer",
         "image-batch-resizer",
         "image-color-extractor",
-      ]}
-    />
-  );
+      ],
+} as const;
+
+export function ImageCompressorContent() {
+  return <ToolContent {...seoData} />;
 }

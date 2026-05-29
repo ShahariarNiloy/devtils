@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { CATEGORIES, TOOL_COUNT } from "@/lib/tools-registry";
+import { CATEGORIES } from "@/lib/tools-registry";
+import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { ToolIcon } from "@/components/shared/tool-icon";
 import { HeroLeft, type StatItem } from "./hero-left";
 import { HeroPreview } from "./hero-preview";
@@ -29,8 +30,8 @@ const MOBILE_QUICK = [
 export function Hero() {
   const stats: StatItem[] = [
     {
-      value: TOOL_COUNT,
-      label: "Tools",
+      value: LIVE_TOOL_COUNT,
+      label: "Tools live",
       dotColor: "var(--color-tier-free-text)",
     },
     {

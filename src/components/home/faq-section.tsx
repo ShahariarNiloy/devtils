@@ -1,16 +1,21 @@
 import { ArrowUpRight, Plus } from "lucide-react";
 import Link from "next/link";
-import { TOOL_COUNT } from "@/lib/tools-registry";
+import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { Band } from "./band";
 
-const FAQ: { q: string; a: string }[] = [
+/**
+ * Exported so the homepage JSON-LD emitter can produce a matching
+ * `FAQPage` schema from the same source the visible FAQ is rendered from
+ * — there's only one set of FAQ copy, and both renderers consume it.
+ */
+export const HOMEPAGE_FAQ: { q: string; a: string }[] = [
   {
     q: "Is my data private?",
     a: "Yes. Every tool runs entirely in your browser. Nothing you paste, type, or upload is sent to a server — there is no server processing your content.",
   },
   {
     q: "Is it really free?",
-    a: `Yes. All ${TOOL_COUNT} tools are $0 — no trials, no credit card, no usage caps. Everything is unlocked, including the heavier and AI-assisted utilities.`,
+    a: `Yes. All ${LIVE_TOOL_COUNT} tools currently shipped are $0 — no trials, no credit card, no usage caps. Future heavier tools may sit behind a paid tier, but anything live today is open to use.`,
   },
   {
     q: "Do I need an account?",
@@ -69,7 +74,7 @@ export function FaqSection() {
 
         {/* Right — disclosure list */}
         <div className="flex flex-col gap-2.5">
-          {FAQ.map(({ q, a }, i) => (
+          {HOMEPAGE_FAQ.map(({ q, a }, i) => (
             <details
               key={q}
               className="group rounded-xl border border-border bg-surface transition-colors duration-150 open:border-border-strong hover:border-border-strong [&_summary::-webkit-details-marker]:hidden"

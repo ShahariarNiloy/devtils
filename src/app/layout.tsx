@@ -1,5 +1,7 @@
 import { ThemeProvider } from "@/components/theme-provider";
-import type { Metadata } from "next";
+import { ShortcutsOverlay } from "@/components/shared/shortcuts-overlay";
+import { SITE_URL } from "@/lib/site";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -26,10 +28,38 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "devtils: handcrafted developer utilities",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "devtils — handcrafted developer utilities",
+    template: "%s · devtils",
+  },
   description:
-    "Format JSON, convert cases, encode Base64, test regex, and convert colors. Fast, keyboard-first, and beautifully designed.",
-  metadataBase: new URL("https://devtils.local"),
+    "Format JSON, convert cases, encode Base64, test regex, and convert colors. Fast, keyboard-first, and beautifully designed — every tool runs in your browser.",
+  applicationName: "devtils",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "devtils",
+    url: SITE_URL,
+    title: "devtils — handcrafted developer utilities",
+    description:
+      "A curated set of polished, client-side developer tools. JSON, encoding, text, image, regex, and more.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "devtils — handcrafted developer utilities",
+    description:
+      "Polished, client-side developer tools. JSON, encoding, text, image, regex, and more.",
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f2ea" },
+    { media: "(prefers-color-scheme: dark)", color: "#13140f" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({
@@ -41,15 +71,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${fredoka.variable} ${jakarta.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body
-        className="min-h-screen bg-bg text-text font-sans"
-        cz-shortcut-listen="true"
-      >
+      <body className="min-h-screen bg-bg text-text font-sans">
         <a href="#main" className="skip-link">
           Skip to main content
         </a>
         <ThemeProvider>
           {children}
+          <ShortcutsOverlay />
           <Toaster
             position="bottom-right"
             theme="light"

@@ -19,3 +19,6 @@ export {
 } from "./use-url-state";
 export { stashHandoffInput, consumeHandoffInput } from "./handoff";
 export { parseYaml, parseCsv } from "./reverse-parsers";
+export { useToolHistory } from "./use-tool-history";
+export type { HistoryEntry } from "./use-tool-history";
+export { ValidationPill } from "./validation-pill";

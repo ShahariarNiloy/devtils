@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToPythonContent() {
-  return (
-    <ToolContent
-      intro="Generate Python type definitions from any JSON sample. Three model styles to match your codebase: stdlib `@dataclass` (zero dependencies), `TypedDict` (lightweight, dict-shaped), or Pydantic v2 `BaseModel` (runtime validation + serialization). String formats — `date-time`, `date`, `uuid` — are mapped to their stdlib types so you don't have to re-parse."
-      useCases={[
+export const seoData = {
+  intro: "Generate Python type definitions from any JSON sample. Three model styles to match your codebase: stdlib `@dataclass` (zero dependencies), `TypedDict` (lightweight, dict-shaped), or Pydantic v2 `BaseModel` (runtime validation + serialization). String formats — `date-time`, `date`, `uuid` — are mapped to their stdlib types so you don't have to re-parse.",
+  useCases: [
         {
           title: "FastAPI request/response models",
           description:
@@ -25,8 +23,8 @@ export function JsonToPythonContent() {
           description:
             "Generate from your `config.json`, then use Pydantic's `model_validate_json()` to get validated config objects with clear error messages.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "What's the difference between dataclass, TypedDict, and Pydantic?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToPythonContent() {
           answer:
             "Not yet — currently dataclass, TypedDict, and Pydantic. attrs is structurally similar to dataclass; you can usually rename `@dataclass` to `@attrs.define` and adjust defaults.",
         },
-      ]}
-      relatedSlugs={["json-to-typescript", "json-to-go", "json-to-rust", "json-schema", "json-to-zod"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-typescript", "json-to-go", "json-to-rust", "json-schema", "json-to-zod"],
+} as const;
+
+export function JsonToPythonContent() {
+  return <ToolContent {...seoData} />;
 }

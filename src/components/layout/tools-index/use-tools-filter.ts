@@ -1,6 +1,7 @@
 "use client";
 
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { getToolSearchableText } from "@/lib/tool-seo";
 import type { Tool, ToolCategory, ToolTier } from "@/lib/tools-registry";
 import { useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -53,9 +54,16 @@ export function useToolsFilter(
       if (cat && t.category !== cat) return false;
       if (tier && t.tier !== tier) return false;
       if (!q) return true;
-      return `${t.name} ${t.description} ${t.category} ${t.tags.join(" ")}`
-        .toLowerCase()
-        .includes(q);
+      // Quick haystack of the always-present registry fields. If the query
+      // matches here, no need to touch the (larger) FAQ/use-case haystack.
+      const primary = `${t.name} ${t.description} ${t.category} ${t.tags.join(" ")}`.toLowerCase();
+      if (primary.includes(q)) return true;
+      // Secondary haystack pulls from the tool's content.tsx seoData — lets
+      // queries like "discriminated union" or "snake case tags" find tools
+      // through the FAQ text and use-case descriptions even when the
+      // tool's name / tags don't carry that phrase.
+      const secondary = getToolSearchableText(t.slug);
+      return secondary.length > 0 && secondary.includes(q);
     });
   }, [tools, cat, tier, deferred]);
 

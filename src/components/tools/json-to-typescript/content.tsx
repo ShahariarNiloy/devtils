@@ -7,11 +7,9 @@ import { ToolContent } from "@/components/json-converter";
  * the edge cases visitors actually search for ("why is my array typed
  * `unknown`?", "how do I rename `Root`?").
  */
-export function JsonToTypeScriptContent() {
-  return (
-    <ToolContent
-      intro="Paste any JSON sample and get clean, ready-to-import TypeScript types. The converter walks the document once, names every distinct shape as a top-level interface (no anonymous nested pyramids), and infers optional fields by intersecting keys across array items. Format hints from the JSON Schema layer — `date-time`, `uuid`, `email` — surface as `@format` JSDoc comments so downstream tooling can pick them up."
-      useCases={[
+export const seoData = {
+  intro: "Paste any JSON sample and get clean, ready-to-import TypeScript types. The converter walks the document once, names every distinct shape as a top-level interface (no anonymous nested pyramids), and infers optional fields by intersecting keys across array items. Format hints from the JSON Schema layer — `date-time`, `uuid`, `email` — surface as `@format` JSDoc comments so downstream tooling can pick them up.",
+  useCases: [
         {
           title: "Modelling an API response",
           description:
@@ -32,8 +30,8 @@ export function JsonToTypeScriptContent() {
           description:
             "Use the `type` declaration style + `readonly` toggle to produce immutable-by-default types suitable for public SDK surfaces.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Why is my array typed `unknown[]`?",
           answer:
@@ -69,8 +67,10 @@ export function JsonToTypeScriptContent() {
           answer:
             "Yes. Any non-default options are encoded as query parameters, so you can bookmark or share a link that opens the tool with the same configuration.",
         },
-      ]}
-      relatedSlugs={["json-to-zod", "json-schema", "json-to-go", "json-to-python", "json-to-rust"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-zod", "json-schema", "json-to-go", "json-to-python", "json-to-rust"],
+} as const;
+
+export function JsonToTypeScriptContent() {
+  return <ToolContent {...seoData} />;
 }

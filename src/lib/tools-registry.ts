@@ -1799,7 +1799,7 @@ export const SHOWCASE_TOOLS: Tool[] = TOOLS
     return 0;
   });
 
-/** Visible count for display in headers and meta tags. */
+/** Total showcased catalogue size — what the index page surfaces. */
 export const TOOL_COUNT = SHOWCASE_TOOLS.length;
 
 /**

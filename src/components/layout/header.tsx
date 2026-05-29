@@ -48,11 +48,11 @@ export function Header() {
           <Link href="/tools" className="transition-colors hover:text-text">
             Tools
           </Link>
-          <Link href="/#featured" className="transition-colors hover:text-text">
-            Featured
-          </Link>
           <Link href="/#faq" className="transition-colors hover:text-text">
             FAQ
+          </Link>
+          <Link href="/contact" className="transition-colors hover:text-text">
+            Contact
           </Link>
         </nav>
 

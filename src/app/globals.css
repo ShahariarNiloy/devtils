@@ -9,7 +9,10 @@
   --color-sage-olive: #7e8a6c;
   --color-mist-sage: #dde0d0;
   --color-bone-cream: #f6f2ea;
-  --color-clay: #c58e5e;
+  /* clay was #c58e5e; darkened so it clears AA (≥ 4.5:1) on bg / surface /
+     surface-soft for hero headlines and section numbers. The original
+     warmth is preserved — just a few shades down. */
+  --color-clay: #a76f3e;
   --color-charcoal: #1a1a18;
 
   /* ── Color: surfaces ──────────────────────────────── */
@@ -28,7 +31,9 @@
   /* ── Color: text ──────────────────────────────────── */
   --color-text: #1a1a18;
   --color-text-muted: #3d4435;
-  --color-text-faint: #6b7264;
+  /* text-faint was #6b7264; darkened to clear AA on bg + surface-soft.
+     Used pervasively for breadcrumbs, eyebrow labels, footer text, etc. */
+  --color-text-faint: #5a615a;
   --color-text-on-sage: #f6f2ea;
 
   /* ── Color: borders ───────────────────────────────── */
@@ -186,7 +191,9 @@
   --color-silver: #2d2e28;
   --color-text: #f6f2ea;
   --color-text-muted: #dde0d0;
-  --color-text-faint: #8a9080;
+  /* text-faint was #8a9080; lightened to clear AA on the darker
+     surface-soft (#2d2e28) where it's commonly placed. */
+  --color-text-faint: #9da393;
   --color-text-on-sage: #1a1a18;
   --color-border: #3a3833;
   --color-border-subtle: #2c2b27;
@@ -975,4 +982,37 @@ mark.regex-match-active {
 }
 .skip-link:focus {
   top: 8px;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+/* ── react-resizable-panels FOUC guard ─────────────────────────────────
+   The library applies its `display: flex` layout via React state after
+   mount. During the brief pre-hydration window the Group renders without
+   that style and its panel children stack vertically — visible as input
+   text appearing full-width on the left, then snapping into the side-by-
+   side split once the library hydrates. These rules establish the layout
+   from CSS so the very first paint is already correct. The library still
+   takes over for actual sizing / dragging after mount.
+
+   Targets the library's data attributes (v4.x): `data-panel-group`,
+   `data-panel-group-direction`, and `data-panel`. */
+[data-panel-group] {
+  display: flex;
+  height: 100%;
+}
+[data-panel-group][data-panel-group-direction="horizontal"] {
+  flex-direction: row;
+}
+[data-panel-group][data-panel-group-direction="vertical"] {
+  flex-direction: column;
+}
+[data-panel] {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  overflow: hidden;
 }

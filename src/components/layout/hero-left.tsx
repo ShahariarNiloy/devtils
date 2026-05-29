@@ -1,6 +1,6 @@
 "use client";
 
-import { TOOL_COUNT } from "@/lib/tools-registry";
+import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
@@ -37,7 +37,7 @@ export function HeroLeft({ stats }: HeroLeftProps) {
             style={{ background: "var(--color-sage-olive)" }}
           />
         </span>
-        {TOOL_COUNT} tools · 100% client-side
+        {LIVE_TOOL_COUNT} tools live · 100% client-side
       </div>
 
       {/* Segment 2 — headline + subtitle */}

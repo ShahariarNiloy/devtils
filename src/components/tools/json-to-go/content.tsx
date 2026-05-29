@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToGoContent() {
-  return (
-    <ToolContent
-      intro={'Generate Go struct definitions from any JSON sample. The converter handles the small but important Go idioms: PascalCase field names with `json:"..."` tags, pointer-with-omitempty for optional fields, `*T` for nullable values, and consistent type naming across the whole document tree. Pick your package name, tag style (original / snake_case / camelCase), and whether optional fields get `,omitempty`.'}
-      useCases={[
+export const seoData = {
+  intro: 'Generate Go struct definitions from any JSON sample. The converter handles the small but important Go idioms: PascalCase field names with `json:"..."` tags, pointer-with-omitempty for optional fields, `*T` for nullable values, and consistent type naming across the whole document tree. Pick your package name, tag style (original / snake_case / camelCase), and whether optional fields get `,omitempty`.',
+  useCases: [
         {
           title: "Modelling REST API responses",
           description:
@@ -25,8 +23,8 @@ export function JsonToGoContent() {
           description:
             "Strongly type your YAML/JSON config: generate the structs, then `yaml.Unmarshal` or `json.Unmarshal` into them with confidence about which fields are required.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Why are some fields `*string` instead of `string`?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToGoContent() {
           answer:
             "Not currently. The output is a starting point — append additional tags by hand to specific fields as needed. A future option may surface this directly.",
         },
-      ]}
-      relatedSlugs={["json-to-typescript", "json-to-rust", "json-to-python", "json-schema"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-typescript", "json-to-rust", "json-to-python", "json-schema"],
+} as const;
+
+export function JsonToGoContent() {
+  return <ToolContent {...seoData} />;
 }

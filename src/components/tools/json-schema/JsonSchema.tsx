@@ -9,7 +9,10 @@ import {
   OptionsRow,
   useConverter,
   useUrlState,
+  ValidationPill,
 } from "@/components/json-converter";
+import { inferJsonSchema } from "@/components/tools/json-formatter/schema-infer";
+import { validateAgainstSchema } from "@/components/tools/json-formatter/schema-validate";
 import {
   Select,
   SelectContent,
@@ -54,6 +57,19 @@ export function JsonSchema({ tool }: { tool: Tool }) {
     initialInput: DEFAULT_INPUT,
   });
 
+  // Round-trip validation: confirm the inferred schema accepts the same
+  // sample it was generated from. If it doesn't, the inference is buggy —
+  // not a UX concern, but a trust signal worth surfacing.
+  const validation = useMemo(() => {
+    if (c.parse.error || c.parse.parsed === null) return null;
+    try {
+      const schema = inferJsonSchema(c.parse.parsed);
+      return validateAgainstSchema(c.parse.parsed, schema);
+    } catch {
+      return null;
+    }
+  }, [c.parse]);
+
   return (
     <ConverterShell
       tool={tool}
@@ -84,6 +100,19 @@ export function JsonSchema({ tool }: { tool: Tool }) {
               </SelectContent>
             </Select>
           </OptionLabel>
+          {validation && (
+            <div className="ml-auto">
+              <ValidationPill
+                ok={validation.ok}
+                label={validation.ok ? "Validates sample" : "Schema rejects sample"}
+                detail={
+                  validation.ok
+                    ? "The inferred schema accepts the sample input verbatim."
+                    : `${validation.path || "(root)"}: ${validation.message}`
+                }
+              />
+            </div>
+          )}
         </OptionsRow>
       }
     />

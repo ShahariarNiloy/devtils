@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { Header } from '@/components/layout/header';
 import { HomeFooter } from '@/components/layout/home-footer';
 import { ToolsIndex } from '@/components/layout/tools-index';
@@ -6,8 +5,22 @@ import { parseTierParam } from '@/components/layout/tools-index/params';
 import { SHOWCASE_TOOLS, CATEGORIES, TOOL_COUNT, type ToolCategory } from "@/lib/tools-registry";
 
 export const metadata = {
-  title: "All tools | devtils",
-  description: `Browse all ${TOOL_COUNT} devtils utilities. Search by name, tag, or category.`,
+  title: "All tools",
+  description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities. Search by name, tag, or category.`,
+  alternates: { canonical: "/tools" },
+  openGraph: {
+    type: "website",
+    url: "/tools",
+    title: "All tools · devtils",
+    description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+    siteName: "devtils",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "All tools · devtils",
+    description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+  },
+  robots: { index: true, follow: true },
 };
 
 interface PageSearchParams {
@@ -30,9 +43,7 @@ export default async function ToolsPage({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <Suspense fallback={null}>
-        <Header />
-      </Suspense>
+      <Header />
       <main id="main" className="flex-1 bg-bg">
         <ToolsIndex
           tools={SHOWCASE_TOOLS}

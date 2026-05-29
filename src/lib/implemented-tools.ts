@@ -50,6 +50,14 @@ export const IMPLEMENTED_TOOL_SLUGS: ReadonlySet<string> = new Set(
   Object.keys(COMPONENT_MAP),
 );
 
+/**
+ * Live tool count — the number that user-facing badges should show so the
+ * headline figure matches working capability (vs. the catalogue-wide
+ * SHOWCASE / TOOL_COUNT, which includes coming-soon entries). Counts up
+ * automatically as more tools land in COMPONENT_MAP.
+ */
+export const LIVE_TOOL_COUNT = IMPLEMENTED_TOOL_SLUGS.size;
+
 export function getToolComponent(slug: string): ToolComponent | undefined {
   return COMPONENT_MAP[slug];
 }

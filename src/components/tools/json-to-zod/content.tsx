@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToZodContent() {
-  return (
-    <ToolContent
-      intro="Generate a Zod schema from any JSON sample, complete with `z.infer` type aliases so you get a runtime validator and the matching TypeScript type from one declaration. Built on the same schema IR as the JSON → TypeScript tool, so nested optionals, structural dedup, and format-aware string detection all carry over — UUID fields emit `.uuid()`, ISO timestamps emit `.datetime({ offset: true })`, emails emit `.email()`."
-      useCases={[
+export const seoData = {
+  intro: "Generate a Zod schema from any JSON sample, complete with `z.infer` type aliases so you get a runtime validator and the matching TypeScript type from one declaration. Built on the same schema IR as the JSON → TypeScript tool, so nested optionals, structural dedup, and format-aware string detection all carry over — UUID fields emit `.uuid()`, ISO timestamps emit `.datetime({ offset: true })`, emails emit `.email()`.",
+  useCases: [
         {
           title: "Validating API responses at runtime",
           description:
@@ -25,8 +23,8 @@ export function JsonToZodContent() {
           description:
             "Load `config.json` with `schema.parse(JSON.parse(file))` to catch malformed config at startup with a precise error path instead of failing at first use.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "What Zod version is the output compatible with?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToZodContent() {
           answer:
             "Yes — root name, strict mode, and refinements are all encoded as query parameters for shareable links.",
         },
-      ]}
-      relatedSlugs={["json-to-typescript", "json-schema", "json-to-go", "json-to-python"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-typescript", "json-schema", "json-to-go", "json-to-python"],
+} as const;
+
+export function JsonToZodContent() {
+  return <ToolContent {...seoData} />;
 }

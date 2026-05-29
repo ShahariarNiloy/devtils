@@ -1,22 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { cn } from "@/lib/cn";
-import { AnimatePresence, motion } from "framer-motion";
-import { Textarea } from "@/components/primitives/textarea";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/primitives/resizable";
 import { TabsContent } from "@/components/primitives/tabs";
+import { Textarea } from "@/components/primitives/textarea";
+import { cn } from "@/lib/cn";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { ExtractPanel } from "../panels/extract-panel";
 import { MatchPanel } from "../panels/match-panel";
 import { ReplacePanel } from "../panels/replace-panel";
 import { SplitPanel } from "../panels/split-panel";
-import { ExtractPanel } from "../panels/extract-panel";
+import type { CopyFormat, ExplainToken, RegexMatch } from "../regex.lib";
 import { BreakdownContent } from "./breakdown-content";
 import { CheatsheetContent } from "./cheatsheet-content";
-import type { RegexMatch, CopyFormat, ExplainToken } from "../regex.lib";
 
 type RightTab = "result" | "breakdown" | "cheatsheet";
 
@@ -72,7 +72,7 @@ export function TestPanel({
   // thousands of elements whenever the line count changed.
   const gutterContent = useMemo(
     () => Array.from({ length: lineCount }, (_, i) => i + 1).join("\n"),
-    [lineCount],
+    [lineCount]
   );
 
   return (
@@ -89,7 +89,9 @@ export function TestPanel({
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-1.5 px-4 py-3 border-b border-border-subtle bg-surface-soft/20">
-              <span className="text-sm font-medium text-text-faint">Replacement</span>
+              <span className="text-sm font-medium text-text-faint">
+                Replacement
+              </span>
               <input
                 value={replacement}
                 onChange={(e) => setReplacement(e.target.value)}
@@ -108,7 +110,7 @@ export function TestPanel({
         className="h-[560px]"
       >
         {/* Left — test string with line numbers */}
-        <ResizablePanel defaultSize="68%" minSize="40%">
+        <ResizablePanel defaultSize={50} minSize="40%">
           <div className="flex flex-col h-full min-w-0">
             <div className="flex items-center justify-between px-4 h-10 border-b border-border-subtle">
               <span className="text-sm uppercase tracking-[0.1em] font-medium text-text-faint">
@@ -158,7 +160,7 @@ export function TestPanel({
                     "font-mono text-sm leading-[1.65] px-4 py-3 text-text regex-highlighted",
                     // It's an embedded editor, not a form field — kill the
                     // primitive's brand focus ring/border.
-                    "outline-none focus:border-0 focus:shadow-none",
+                    "outline-none focus:border-0 focus:shadow-none"
                   )}
                   placeholder="Paste or type test text…"
                 />
@@ -170,13 +172,21 @@ export function TestPanel({
         <ResizableHandle withHandle />
 
         {/* Right — tabbed inspector: mode result · breakdown · cheatsheet */}
-        <ResizablePanel defaultSize="32%" minSize="20%" maxSize="60%">
+        <ResizablePanel defaultSize={50} minSize="20%" maxSize="60%">
           <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center gap-1 px-2 h-10 border-b border-border-subtle shrink-0">
               {(
                 [
-                  { id: "result", label: RESULT_LABEL[mode] ?? "Result", badge: null },
-                  { id: "breakdown", label: "Breakdown", badge: tokens.length || null },
+                  {
+                    id: "result",
+                    label: RESULT_LABEL[mode] ?? "Result",
+                    badge: null,
+                  },
+                  {
+                    id: "breakdown",
+                    label: "Breakdown",
+                    badge: tokens.length || null,
+                  },
                   { id: "cheatsheet", label: "Cheatsheet", badge: null },
                 ] as { id: RightTab; label: string; badge: number | null }[]
               ).map((t) => {
@@ -190,7 +200,7 @@ export function TestPanel({
                       "inline-flex items-center gap-1.5 h-7 rounded-md px-2.5 text-sm font-medium transition-colors cursor-pointer",
                       active
                         ? "bg-surface-soft text-text"
-                        : "text-text-faint hover:bg-surface-soft/60 hover:text-text",
+                        : "text-text-faint hover:bg-surface-soft/60 hover:text-text"
                     )}
                   >
                     {t.label}

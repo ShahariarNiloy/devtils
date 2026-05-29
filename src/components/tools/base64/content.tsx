@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function Base64Content() {
-  return (
-    <ToolContent
-      intro="Encode and decode Base64 with both the standard and URL-safe alphabets. Handles text, binary files, and image previews — the result of decoding is auto-inspected so you instantly see whether you got back text, an image, or arbitrary bytes. Roundtrip verification confirms encode→decode matches your original input."
-      useCases={[
+export const seoData = {
+  intro: "Encode and decode Base64 with both the standard and URL-safe alphabets. Handles text, binary files, and image previews — the result of decoding is auto-inspected so you instantly see whether you got back text, an image, or arbitrary bytes. Roundtrip verification confirms encode→decode matches your original input.",
+  useCases: [
         {
           title: "Encoding binary for inline embedding",
           description:
@@ -25,8 +23,8 @@ export function Base64Content() {
           description:
             "Use the URL-safe variant when the encoded value will go into a query parameter or filename. Avoids `/` and `+` which need percent-encoding in URLs.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "What's the difference between standard and URL-safe Base64?",
           answer:
@@ -57,8 +55,10 @@ export function Base64Content() {
           answer:
             "Padding. Base64 encodes 3 bytes into 4 characters. When the input length isn't a multiple of 3, the encoder adds `=` to fill the gap. URL-safe Base64 often omits padding since the length is recoverable.",
         },
-      ]}
-      relatedSlugs={["jwt-decoder", "json-formatter", "case-converter", "url-encoder"]}
-    />
-  );
+      ],
+  relatedSlugs: ["jwt-decoder", "json-formatter", "case-converter", "url-encoder"],
+} as const;
+
+export function Base64Content() {
+  return <ToolContent {...seoData} />;
 }

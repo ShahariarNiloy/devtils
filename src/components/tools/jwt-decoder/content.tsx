@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function JwtDecoderContent() {
-  return (
-    <ToolContent
-      intro="Paste any JSON Web Token and instantly see its header, payload, and signature, with all standard claims (iss, sub, aud, exp, iat, nbf) decoded and interpreted in human-readable form. HMAC-SHA256 signatures can be verified against a shared secret directly in the browser — no token contents ever leave your device."
-      useCases={[
+export const seoData = {
+  intro: "Paste any JSON Web Token and instantly see its header, payload, and signature, with all standard claims (iss, sub, aud, exp, iat, nbf) decoded and interpreted in human-readable form. HMAC-SHA256 signatures can be verified against a shared secret directly in the browser — no token contents ever leave your device.",
+  useCases: [
         {
           title: "Debugging auth flows",
           description:
@@ -25,8 +23,8 @@ export function JwtDecoderContent() {
           description:
             "Hover over each claim in the decoded view to see what it means. Useful for understanding what your auth provider is actually putting in the token.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Does the decoder send my token anywhere?",
           answer:
@@ -57,8 +55,10 @@ export function JwtDecoderContent() {
           answer:
             "Yes — the Encode panel takes a header + payload + secret and produces a signed token. Useful for testing your verifier against known-good inputs.",
         },
-      ]}
-      relatedSlugs={["base64", "json-formatter", "json-to-typescript", "regex-tester"]}
-    />
-  );
+      ],
+  relatedSlugs: ["base64", "json-formatter", "json-to-typescript", "regex-tester"],
+} as const;
+
+export function JwtDecoderContent() {
+  return <ToolContent {...seoData} />;
 }

@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function JsonFormatterContent() {
-  return (
-    <ToolContent
-      intro="A full JSON workspace: format, minify, validate, sort, repair, and explore. The editor supports overlay-style syntax highlighting that stays sub-frame for inputs up to ~100KB, then degrades gracefully for multi-MB pastes. Four view modes — Code, Tree, Table, Graph — let you pick the right lens for the document at hand. JSONPath queries, fuzzy search, structural diff, and ten output formats round out the tool."
-      useCases={[
+export const seoData = {
+  intro: "A full JSON workspace: format, minify, validate, sort, repair, and explore. The editor supports overlay-style syntax highlighting that stays sub-frame for inputs up to ~100KB, then degrades gracefully for multi-MB pastes. Four view modes — Code, Tree, Table, Graph — let you pick the right lens for the document at hand. JSONPath queries, fuzzy search, structural diff, and ten output formats round out the tool.",
+  useCases: [
         {
           title: "Debugging an API response",
           description:
@@ -30,8 +28,8 @@ export function JsonFormatterContent() {
           description:
             "One-click conversion to YAML, CSV, XML, JSON Schema, or directly to TypeScript / Go / Python / Rust / Zod types from the Convert dropdown.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Does my JSON leave my browser?",
           answer:
@@ -67,14 +65,16 @@ export function JsonFormatterContent() {
           answer:
             "Yes — use the Sort dropdown for ascending / descending key sort. Useful for diff-friendly check-ins and canonical JSON.",
         },
-      ]}
-      relatedSlugs={[
+      ],
+  relatedSlugs: [
         "json-to-typescript",
         "json-to-zod",
         "json-to-yaml",
         "json-schema",
         "json-to-csv",
-      ]}
-    />
-  );
+      ],
+} as const;
+
+export function JsonFormatterContent() {
+  return <ToolContent {...seoData} />;
 }

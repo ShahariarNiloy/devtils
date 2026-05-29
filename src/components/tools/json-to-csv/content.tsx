@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToCsvContent() {
-  return (
-    <ToolContent
-      intro="Convert arrays of JSON objects to CSV with the small but important details that make CSV interop work: configurable delimiter for EU locales (semicolon), dot-notation flattening for nested objects, optional UTF-8 BOM for Excel encoding detection, and CRLF line endings for Windows-friendly output. Nested arrays serialize as embedded JSON inside the cell so the column count stays predictable."
-      useCases={[
+export const seoData = {
+  intro: "Convert arrays of JSON objects to CSV with the small but important details that make CSV interop work: configurable delimiter for EU locales (semicolon), dot-notation flattening for nested objects, optional UTF-8 BOM for Excel encoding detection, and CRLF line endings for Windows-friendly output. Nested arrays serialize as embedded JSON inside the cell so the column count stays predictable.",
+  useCases: [
         {
           title: "Exporting API data to spreadsheets",
           description:
@@ -25,8 +23,8 @@ export function JsonToCsvContent() {
           description:
             "Pipe a JSON-line log through `jq -s` to wrap it in an array, paste here, get a CSV for downstream analysis.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Why does my input need to be an array of objects?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToCsvContent() {
           answer:
             "Strict CSV (RFC 4180) requires CRLF. Most modern tools accept LF, but if your output is going to a Windows-only tool or a strict parser, turn on CRLF.",
         },
-      ]}
-      relatedSlugs={["csv-to-json", "json-to-yaml", "json-to-xml", "json-formatter"]}
-    />
-  );
+      ],
+  relatedSlugs: ["csv-to-json", "json-to-yaml", "json-to-xml", "json-formatter"],
+} as const;
+
+export function JsonToCsvContent() {
+  return <ToolContent {...seoData} />;
 }

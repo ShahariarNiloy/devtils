@@ -5,8 +5,7 @@ import { ToolShellHeader } from "@/components/layout/tool-shell-header";
 import { pushRecent } from "@/components/primitives/command-palette";
 import { cn } from "@/lib/cn";
 import type { Tool } from "@/lib/tools-registry";
-import { motion } from "framer-motion";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 interface Props {
   tool: Tool;
@@ -20,56 +19,37 @@ interface Props {
 }
 
 /**
- * Per-tool page chrome. Top bar with breadcrumb + back link, a hero row
- * with icon chip + name + tier/availability pills, then the tool body
- * (children), an optional sticky action bar, and a related-tools strip.
- * Tracks the visit so the palette's Recents stays useful.
+ * Per-tool page chrome. Breadcrumb + title strip at the top, the tool
+ * workspace below it, an optional sticky action bar, and a related-tools
+ * footer. Tracks the visit so the palette's Recents stays useful.
+ *
+ * No entrance animation. Tools are utilitarian — visitors come to USE
+ * them, not watch them fade in. Skipping the framer-motion wrapper also
+ * eliminates the SSR-content-at-`opacity:0` problem (relevant for crawlers
+ * and failed-hydration paths) and removes a ~200ms gate on the workspace
+ * being interactable. If a marketing reveal is ever wanted somewhere, it
+ * belongs on the homepage, not here.
  */
 export function ToolShell({ tool, actions, children, classNames }: Props) {
-  const bodyRef = useRef<HTMLElement>(null);
-
   useEffect(() => {
     pushRecent(tool.slug);
   }, [tool.slug]);
 
-  // Open each tool at its workspace, not the header band: scroll the body
-  // into view on mount so the breadcrumb/title/tags sit above the fold and
-  // are revealed only if the user scrolls up. Skipped when the URL carries
-  // a hash (deep link / share token) so we don't fight an explicit anchor.
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash) return;
-    const el = bodyRef.current;
-    if (!el) return;
-    const id = requestAnimationFrame(() => {
-      el.scrollIntoView({ block: "start", behavior: "instant" });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [tool.slug]);
-
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-      >
+      <div>
         {/* ─── Tool header band ─────────────────────────── */}
         <ToolShellHeader tool={tool} classNames={classNames} />
 
         {/* ─── Tool body ────────────────────────────────── */}
-        {/* min-h-dvh guarantees the page is always tall enough that the
-            scroll-into-view below can bring the body to the top even for a
-            short tool — no filler content needed. A short tool then sits in
-            a full-height workspace canvas, which is the intended look. */}
         <section
-          ref={bodyRef}
           className="bg-canvas min-h-dvh"
           style={{ scrollMarginTop: "var(--spacing-header)" }}
         >
           <div
             className={cn(
               "mx-auto max-w-8xl px-0 sm:px-8 py-0 sm:py-8",
-              classNames?.body
+              classNames?.body,
             )}
           >
             <div className="space-y-4">{children}</div>
@@ -78,7 +58,7 @@ export function ToolShell({ tool, actions, children, classNames }: Props) {
 
         {/* ─── Related tools footer ─────────────────────── */}
         <RelatedToolsFooter tool={tool} />
-      </motion.div>
+      </div>
 
       {/* ─── Sticky action bar ──────────────────────────── */}
       {actions ? (

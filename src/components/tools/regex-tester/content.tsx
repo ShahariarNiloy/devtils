@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function RegexTesterContent() {
-  return (
-    <ToolContent
-      intro="Build and test regular expressions with live match highlighting, capture group inspection, and replacement preview. Supports JavaScript regex syntax with all standard flags (g, i, m, s, u, y), shows you exactly which characters matched which group, and warns about common gotchas like catastrophic backtracking patterns."
-      useCases={[
+export const seoData = {
+  intro: "Build and test regular expressions with live match highlighting, capture group inspection, and replacement preview. Supports JavaScript regex syntax with all standard flags (g, i, m, s, u, y), shows you exactly which characters matched which group, and warns about common gotchas like catastrophic backtracking patterns.",
+  useCases: [
         {
           title: "Extracting structured data from logs",
           description:
@@ -25,8 +23,8 @@ export function RegexTesterContent() {
           description:
             "Each test case shows what matched, what didn't, and which group captured what. Faster feedback than reading the docs.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Which regex flavour does this use?",
           answer:
@@ -57,8 +55,10 @@ export function RegexTesterContent() {
           answer:
             "With the `u` flag, yes. Unicode property escapes like `\\p{Letter}` work, and surrogate pairs are treated as single characters. Without `u` you get JavaScript's legacy UTF-16 behaviour.",
         },
-      ]}
-      relatedSlugs={["case-converter", "json-formatter", "url-encoder", "base64"]}
-    />
-  );
+      ],
+  relatedSlugs: ["case-converter", "json-formatter", "url-encoder", "base64"],
+} as const;
+
+export function RegexTesterContent() {
+  return <ToolContent {...seoData} />;
 }

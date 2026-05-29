@@ -1,6 +1,13 @@
 "use client";
 
-import { Group, Panel, Separator, type GroupProps, type SeparatorProps } from "react-resizable-panels";
+import {
+  Group,
+  Panel,
+  Separator,
+  type GroupProps,
+  type PanelProps,
+  type SeparatorProps,
+} from "react-resizable-panels";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -19,7 +26,32 @@ export const ResizablePanelGroup = ({ className, direction = "horizontal", child
   </div>
 );
 
-export const ResizablePanel = Panel;
+/**
+ * Forward a numeric `defaultSize` to inline `flex-grow` so the panel renders
+ * with the right split from the very first server-rendered paint. Without
+ * this, the library only writes the layout into inline styles after a
+ * client-side `useLayoutEffect` — so SSR shows the CSS fallback (equal
+ * split) and the handle visibly shifts when the library hydrates. Inline
+ * beats the `[data-panel]` attribute-selector rule in globals.css, so this
+ * overrides the fallback during SSR. The library still owns sizing
+ * post-mount.
+ *
+ * String-format defaultSize (e.g. `"68%"`) is accepted by the library but
+ * isn't a valid `flex-grow` value, so the forwarding is skipped for those.
+ * Those panels fall back to the CSS equal-split during SSR and snap into
+ * their declared size on hydration.
+ */
+export const ResizablePanel = ({ defaultSize, style, ...rest }: PanelProps) => (
+  <Panel
+    defaultSize={defaultSize}
+    style={
+      typeof defaultSize === "number"
+        ? { flexGrow: defaultSize, flexShrink: 1, flexBasis: 0, ...style }
+        : style
+    }
+    {...rest}
+  />
+);
 
 interface ResizableHandleProps extends SeparatorProps {
   withHandle?: boolean;

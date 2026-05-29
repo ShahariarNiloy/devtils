@@ -247,7 +247,7 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
               direction="horizontal"
               className="flex-1 min-h-0"
             >
-              <ResizablePanel defaultSize={38} minSize={20}>
+              <ResizablePanel defaultSize={50} minSize={20}>
                 <InputPanel
                   state={state}
                   onLoadFile={loadFileAndRemember}
@@ -255,7 +255,7 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={62} minSize={30}>
+              <ResizablePanel defaultSize={50} minSize={30}>
                 <OutputPanel
                   state={state}
                   onLoadSample={loadSampleAndRemember}

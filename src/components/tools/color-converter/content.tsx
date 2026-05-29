@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
-export function ColorConverterContent() {
-  return (
-    <ToolContent
-      intro="Convert colours between every common format: HEX, RGB, HSL, HSB, OKLCH, OKLab, and named CSS colours. Live preview shows the colour itself plus accessibility metadata: contrast against black and white, WCAG ratings, and a perceptual lightness scale. Round-trip accuracy is preserved by working in OKLab internally where the colour space supports it."
-      useCases={[
+export const seoData = {
+  intro: "Convert colours between every common format: HEX, RGB, HSL, HSB, OKLCH, OKLab, and named CSS colours. Live preview shows the colour itself plus accessibility metadata: contrast against black and white, WCAG ratings, and a perceptual lightness scale. Round-trip accuracy is preserved by working in OKLab internally where the colour space supports it.",
+  useCases: [
         {
           title: "Building a design token system",
           description:
@@ -25,8 +23,8 @@ export function ColorConverterContent() {
           description:
             "Use the inverted-lightness view to see what your colour looks like flipped for dark mode. Useful when designing palettes that need to read correctly in both themes.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "What's OKLCH and why use it?",
           answer:
@@ -57,8 +55,10 @@ export function ColorConverterContent() {
           answer:
             "Yes — OKLCH and OKLab can describe colours outside the sRGB gamut. The preview swatch shows a clipped sRGB version when your screen can't render the wider gamut, with a hint that the colour exceeds sRGB.",
         },
-      ]}
-      relatedSlugs={["color-picker", "color-palette-generator", "color-blindness-simulator", "css-gradient"]}
-    />
-  );
+      ],
+  relatedSlugs: ["color-picker", "color-palette-generator", "color-blindness-simulator", "css-gradient"],
+} as const;
+
+export function ColorConverterContent() {
+  return <ToolContent {...seoData} />;
 }

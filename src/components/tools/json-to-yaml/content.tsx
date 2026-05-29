@@ -1,10 +1,8 @@
 import { ToolContent } from "@/components/json-converter";
 
-export function JsonToYamlContent() {
-  return (
-    <ToolContent
-      intro="Convert JSON to YAML using the battle-tested js-yaml dumper. Configurable indent (2 / 4 / 8) to match your team's convention, line-width wrapping so long strings break cleanly, and alphabetical key sorting for diff-friendly output. Useful for converting between JSON and YAML config formats without manual hand-translation."
-      useCases={[
+export const seoData = {
+  intro: "Convert JSON to YAML using the battle-tested js-yaml dumper. Configurable indent (2 / 4 / 8) to match your team's convention, line-width wrapping so long strings break cleanly, and alphabetical key sorting for diff-friendly output. Useful for converting between JSON and YAML config formats without manual hand-translation.",
+  useCases: [
         {
           title: "Migrating CI config from JSON to YAML",
           description:
@@ -25,8 +23,8 @@ export function JsonToYamlContent() {
           description:
             "JSON's noise (quotes, commas, braces) makes it hard to read at a glance. YAML's whitespace-led syntax is much easier for human review.",
         },
-      ]}
-      faqs={[
+      ],
+  faqs: [
         {
           question: "Why does my YAML have `'` around some values?",
           answer:
@@ -57,8 +55,10 @@ export function JsonToYamlContent() {
           answer:
             "The YAML spec requires indentation to be consistent and explicit. js-yaml accepts arbitrary numbers but most communities standardise on 2 (Kubernetes, Ansible) or 4. 8 is occasionally used for highly nested configs to keep scope visible.",
         },
-      ]}
-      relatedSlugs={["json-to-csv", "json-to-xml", "json-formatter", "json-to-typescript"]}
-    />
-  );
+      ],
+  relatedSlugs: ["json-to-csv", "json-to-xml", "json-formatter", "json-to-typescript"],
+} as const;
+
+export function JsonToYamlContent() {
+  return <ToolContent {...seoData} />;
 }

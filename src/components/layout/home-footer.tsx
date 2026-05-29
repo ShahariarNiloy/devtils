@@ -1,4 +1,5 @@
-import { CATEGORIES, CATEGORY_COUNTS, TOOL_COUNT } from "@/lib/tools-registry";
+import { CATEGORIES, CATEGORY_COUNTS } from "@/lib/tools-registry";
+import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import Link from "next/link";
 
 /**
@@ -32,11 +33,11 @@ export function HomeFooter() {
             className="mt-3 text-sm text-text-muted leading-desc"
             style={{ maxWidth: 240 }}
           >
-            {TOOL_COUNT} handcrafted developer utilities. Free, fast,
-            keyboard-first, and built quietly.
+            {LIVE_TOOL_COUNT} handcrafted developer utilities live today —
+            free, fast, keyboard-first, and built quietly.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-text-faint">
-            <Stat label="tools" value={TOOL_COUNT} />
+            <Stat label="tools live" value={LIVE_TOOL_COUNT} />
             <Stat label="categories" value={CATEGORIES.length} />
           </div>
         </div>
@@ -80,9 +81,10 @@ export function HomeFooter() {
           <FooterHeading>Resources</FooterHeading>
           <ul className="space-y-2">
             <FooterLink href="/tools">All tools</FooterLink>
-            <FooterLink href="/#featured">Featured</FooterLink>
-            <FooterLink href="/#why">Privacy</FooterLink>
+            <FooterLink href="/changelog">Changelog</FooterLink>
             <FooterLink href="/#faq">FAQ</FooterLink>
+            <FooterLink href="/privacy">Privacy</FooterLink>
+            <FooterLink href="/contact">Contact</FooterLink>
           </ul>
         </div>
       </div>
@@ -94,13 +96,13 @@ export function HomeFooter() {
             © {new Date().getFullYear()} devtils · made with care
           </p>
           <div className="flex items-center gap-4 text-sm text-text-faint">
-            <Link href="/#all" className="hover:text-text transition-colors">
+            <Link href="/privacy" className="hover:text-text transition-colors">
               Privacy
             </Link>
-            <Link href="/#all" className="hover:text-text transition-colors">
+            <Link href="/terms" className="hover:text-text transition-colors">
               Terms
             </Link>
-            <Link href="/#all" className="hover:text-text transition-colors">
+            <Link href="/contact" className="hover:text-text transition-colors">
               Contact
             </Link>
           </div>
