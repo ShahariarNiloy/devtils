@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 /**
  * SEO + discoverability block for the JSON → TypeScript tool. Content is

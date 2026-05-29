@@ -1,1 +1,1 @@
-export { JsonToYaml } from "./JsonToYaml";
+export { JsonToYaml } from "./json-to-yaml";

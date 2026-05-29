@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: `Convert any JSON value to XML with custom root and array-item tags. Element names that start with a digit or special character get prefixed with \`_\` to stay XML-spec-valid; null values emit \`<tag nil="true"/>\`; arrays expand to repeated sibling elements. Useful when interfacing with legacy systems, SOAP services, or RSS / Atom generators that need XML on the wire.`,

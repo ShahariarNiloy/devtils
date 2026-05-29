@@ -1,5 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { ShortcutsOverlay } from "@/components/shared/shortcuts-overlay";
+import { WebMcpProvider } from "@/components/webmcp-provider";
 import { SITE_URL } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
@@ -77,6 +78,7 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           {children}
+          <WebMcpProvider />
           <ShortcutsOverlay />
           <Toaster
             position="bottom-right"

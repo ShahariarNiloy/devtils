@@ -1,1 +1,1 @@
-export { JsonToPython } from "./JsonToPython";
+export { JsonToPython } from "./json-to-python";

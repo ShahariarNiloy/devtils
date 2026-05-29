@@ -1,1 +1,1 @@
-export { ImageCompressor } from "./ImageCompressor";
+export { ImageCompressor } from "./image-compressor";

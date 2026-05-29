@@ -1,1 +1,1 @@
-export { JsonToGo } from "./JsonToGo";
+export { JsonToGo } from "./json-to-go";

@@ -1,1 +1,1 @@
-export { JsonToZod } from "./JsonToZod";
+export { JsonToZod } from "./json-to-zod";

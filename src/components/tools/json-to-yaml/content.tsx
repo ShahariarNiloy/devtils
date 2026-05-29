@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Convert JSON to YAML using the battle-tested js-yaml dumper. Configurable indent (2 / 4 / 8) to match your team's convention, line-width wrapping so long strings break cleanly, and alphabetical key sorting for diff-friendly output. Useful for converting between JSON and YAML config formats without manual hand-translation.",

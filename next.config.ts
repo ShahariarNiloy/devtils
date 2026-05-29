@@ -40,6 +40,67 @@ const SECURITY_HEADERS = [
 
 const FRAME_DENY = { key: "X-Frame-Options", value: "DENY" };
 
+/**
+ * Discoverability `Link` headers per RFC 8288. Advertised on every route so
+ * that an agent (or any HTTP client doing a HEAD on the site root) finds the
+ * machine-readable maps of the site without parsing HTML:
+ *
+ *   - `llms.txt`   — Markdown summary of the site + every live tool,
+ *                    the convention from llmstxt.org. Tagged
+ *                    `rel="describedby"` because the file describes
+ *                    the resource at the requested URL.
+ *   - `sitemap`    — XML sitemap (registered IANA relation).
+ *   - `manifest`   — PWA web app manifest.
+ *   - `canonical`  — points at the absolute canonical for the site root;
+ *                    per-route canonicals already ship via Next.js
+ *                    `Metadata.alternates.canonical`, so this header is
+ *                    just belt-and-braces for crawler tools that read
+ *                    headers but not <link rel="canonical">.
+ *
+ * HTTP allows multiple `Link` headers in a response — we emit each as its
+ * own array entry rather than comma-separating them, which is more robust
+ * against intermediate proxies that fold headers incorrectly.
+ */
+const DISCOVERY_LINK_HEADERS = [
+  {
+    key: "Link",
+    value: '</llms.txt>; rel="describedby"; type="text/markdown"',
+  },
+  {
+    key: "Link",
+    value: '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+  },
+  {
+    key: "Link",
+    value:
+      '</manifest.webmanifest>; rel="manifest"; type="application/manifest+json"',
+  },
+  {
+    // RFC 9727: `rel="api-catalog"` points at the linkset that enumerates
+    // the site's machine-readable surfaces. An agent doing a HEAD on
+    // any page finds the catalog without parsing HTML.
+    key: "Link",
+    value:
+      '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+  },
+  {
+    // MCP server card (SEP-1649). No registered IANA relation yet, so
+    // we use the spec-conventional `mcp-server-card` extension relation.
+    // Agents that speak MCP find /api/mcp from here without scraping.
+    key: "Link",
+    value:
+      '</.well-known/mcp/server-card.json>; rel="mcp-server-card"; type="application/json"',
+  },
+  {
+    // Agent Skills Discovery RFC v0.2.0. Extension relation since the RFC
+    // is still pre-IANA. Index lists every callable + documented skill
+    // devtils exposes; each entry has a sha256 of the SKILL.md body.
+    key: "Link",
+    value:
+      '</.well-known/agent-skills/index.json>; rel="agent-skills"; type="application/json"',
+  },
+];
+
 const nextConfig: NextConfig = {
   // Pin Turbopack's workspace root to this app — otherwise it walks up to a
   // parent monorepo's lockfile.
@@ -57,13 +118,15 @@ const nextConfig: NextConfig = {
       {
         // Everything outside /embed gets framing denial.
         source: "/((?!embed).*)",
-        headers: [...SECURITY_HEADERS, FRAME_DENY],
+        headers: [...SECURITY_HEADERS, FRAME_DENY, ...DISCOVERY_LINK_HEADERS],
       },
       {
         // Embed routes are explicitly designed to be framed — drop the
-        // frame-deny header but keep everything else.
+        // frame-deny header but keep everything else, including the
+        // discovery Link headers so an agent following an embed URL still
+        // finds llms.txt / sitemap.
         source: "/embed/:path*",
-        headers: SECURITY_HEADERS,
+        headers: [...SECURITY_HEADERS, ...DISCOVERY_LINK_HEADERS],
       },
     ];
   },

@@ -1,1 +1,1 @@
-export { JsonToCsv } from "./JsonToCsv";
+export { JsonToCsv } from "./json-to-csv";

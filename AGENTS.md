@@ -42,23 +42,35 @@ ship something that looks like every other Next.js + shadcn site.
 
 - `src/lib/tools-registry.ts` — every tool is registered here. The homepage,
   sidebar counts, command palette, and dynamic route all read from this list.
-- `src/app/tools/[slug]/page.tsx` — wires registry slugs to `<Component>`s in
-  `componentMap`. Add new tools here too.
+- `src/lib/implemented-tools.ts` — the `COMPONENT_MAP` (slug → component) that
+  wires registry slugs to their actual implementations. A registered tool with
+  no entry here renders the `ComingSoon` placeholder.
 - `src/components/primitives/` — styled Radix wrappers. If a new tool needs a
   primitive that's not here yet, add it here, don't inline the Radix import in
   the tool component.
-- `src/components/layout/ToolShell.tsx` — the per-tool shell. New tools should
+- `src/components/layout/tool-shell.tsx` — the per-tool shell. New tools should
   render inside `<ToolShell tool={tool}>`.
+- `src/components/shared/tool-icon.tsx` — `<ToolIcon name="kebab-case">`
+  resolves any Lucide icon at render time. No registration step.
+- `src/components/shared/tool-content.tsx` — `<ToolContent>` SEO block
+  (intro + use cases + FAQ + related tools) rendered below each tool.
+- `src/components/json-converter/` — shared converter shell + primitives
+  used by every `json-to-*` tool.
 - `src/lib/keyboard.ts` — `useShortcut()` for cross-platform meta-key shortcuts.
 
 ## Adding a new tool — checklist
 
-1. Append a `Tool` entry to `tools-registry.ts`.
-2. Create `src/components/tools/<slug>/<slug>.lib.ts` — pure helpers.
-3. Create `src/components/tools/<slug>/<Component>.tsx` — `"use client"`,
+1. Append a `Tool` entry to `src/lib/tools-registry.ts`.
+2. Create `src/components/tools/<slug>/<slug>.lib.ts` — pure helpers (no React).
+3. Create `src/components/tools/<slug>/<slug>.tsx` — `"use client"`,
    takes `{ tool }: { tool: Tool }`, wraps in `<ToolShell>`.
-4. Add the import + map entry in `src/app/tools/[slug]/page.tsx`.
-5. If a new icon is needed, register it in `src/components/icon.tsx`.
+4. Create `src/components/tools/<slug>/index.ts` — `export { … } from "./<slug>";`
+5. Add the slug + component to `COMPONENT_MAP` in `src/lib/implemented-tools.ts`.
+6. (Optional but recommended) Add a `content.tsx` exporting `seoData` so the
+   tool's FAQ + use cases appear under the editor and feed JSON-LD.
+
+`generateStaticParams` picks up the slug from the registry; no route file edits
+needed. Icons resolve from `<ToolIcon name="kebab-case">` — no icon registry.
 
 ## Style conventions worth keeping
 

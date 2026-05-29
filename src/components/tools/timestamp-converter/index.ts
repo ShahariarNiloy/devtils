@@ -1,1 +1,1 @@
-export { TimestampConverter } from "./TimestampConverter";
+export { TimestampConverter } from "./timestamp-converter";

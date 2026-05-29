@@ -1,1 +1,1 @@
-export { JsonToRust } from "./JsonToRust";
+export { JsonToRust } from "./json-to-rust";

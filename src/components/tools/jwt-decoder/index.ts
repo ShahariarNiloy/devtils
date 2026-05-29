@@ -1,1 +1,1 @@
-export { JwtDecoder } from "./JwtDecoder";
+export { JwtDecoder } from "./jwt-decoder";

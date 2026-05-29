@@ -1,32 +1,41 @@
 import type { ComponentType } from "react";
-import { Base64 } from '@/components/tools/base64/base64';
-import { ColorConverter } from '@/components/tools/color-converter/color-converter';
-import { ImageCompressor } from '@/components/tools/image-compressor';
-import { JsonFormatter } from '@/components/tools/json-formatter/json-formatter';
-import { JsonSchema } from '@/components/tools/json-schema';
-import { JsonToCsv } from '@/components/tools/json-to-csv';
-import { JsonToGo } from '@/components/tools/json-to-go';
-import { JsonToPython } from '@/components/tools/json-to-python';
-import { JsonToRust } from '@/components/tools/json-to-rust';
-import { JsonToTypeScript } from '@/components/tools/json-to-typescript';
-import { JsonToXml } from '@/components/tools/json-to-xml';
-import { JsonToYaml } from '@/components/tools/json-to-yaml';
-import { JsonToZod } from '@/components/tools/json-to-zod';
-import { JwtDecoder } from '@/components/tools/jwt-decoder';
-import { RegexTester } from '@/components/tools/regex-tester/regex-tester';
-import { TextCase } from '@/components/tools/text-case/text-case';
-import { TimestampConverter } from '@/components/tools/timestamp-converter';
-import type { Tool } from "./tools-registry";
+import { Base64 } from "@/components/tools/base64";
+import { ColorConverter } from "@/components/tools/color-converter";
+import { ImageCompressor } from "@/components/tools/image-compressor";
+import { JsonFormatter } from "@/components/tools/json-formatter";
+import { JsonSchema } from "@/components/tools/json-schema";
+import { JsonToCsv } from "@/components/tools/json-to-csv";
+import { JsonToGo } from "@/components/tools/json-to-go";
+import { JsonToPython } from "@/components/tools/json-to-python";
+import { JsonToRust } from "@/components/tools/json-to-rust";
+import { JsonToTypeScript } from "@/components/tools/json-to-typescript";
+import { JsonToXml } from "@/components/tools/json-to-xml";
+import { JsonToYaml } from "@/components/tools/json-to-yaml";
+import { JsonToZod } from "@/components/tools/json-to-zod";
+import { JwtDecoder } from "@/components/tools/jwt-decoder";
+import { RegexTester } from "@/components/tools/regex-tester";
+import { TextCase } from "@/components/tools/text-case";
+import { TimestampConverter } from "@/components/tools/timestamp-converter";
+import { TOOLS } from "./tools/data";
+import type { Tool } from "./tools/types";
 
 export type ToolComponent = ComponentType<{ tool: Tool }>;
 
 /**
- * Map of registry slugs → built tool components. The registry lists every
- * tool DevToolbox plans to ship, but most are not implemented yet — those
- * routes render a "Coming soon" placeholder. When you finish a tool, drop
- * it in here and it becomes live.
+ * Slugs known to the registry, as a string-literal union. The compiler can
+ * now refuse any `COMPONENT_MAP` key that doesn't match an existing tool —
+ * a typo here used to silently fall through to the "Coming soon"
+ * placeholder, which is exactly the kind of drift a type can catch.
  */
-export const COMPONENT_MAP: Record<string, ToolComponent> = {
+type RegistrySlug = (typeof TOOLS)[number]["slug"];
+
+/**
+ * Map of registry slugs → built tool components. `Partial` because only a
+ * subset of the registry is implemented at any time; `Record<RegistrySlug, …>`
+ * keeps the keys constrained so typos / removed-from-registry slugs fail
+ * the build instead of disappearing into runtime silence.
+ */
+export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   "json-formatter": JsonFormatter,
   "json-schema": JsonSchema,
   "json-to-csv": JsonToCsv,
@@ -59,5 +68,5 @@ export const IMPLEMENTED_TOOL_SLUGS: ReadonlySet<string> = new Set(
 export const LIVE_TOOL_COUNT = IMPLEMENTED_TOOL_SLUGS.size;
 
 export function getToolComponent(slug: string): ToolComponent | undefined {
-  return COMPONENT_MAP[slug];
+  return COMPONENT_MAP[slug as RegistrySlug];
 }

@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Convert arrays of JSON objects to CSV with the small but important details that make CSV interop work: configurable delimiter for EU locales (semicolon), dot-notation flattening for nested objects, optional UTF-8 BOM for Excel encoding detection, and CRLF line endings for Windows-friendly output. Nested arrays serialize as embedded JSON inside the cell so the column count stays predictable.",

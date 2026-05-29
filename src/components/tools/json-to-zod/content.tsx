@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Generate a Zod schema from any JSON sample, complete with `z.infer` type aliases so you get a runtime validator and the matching TypeScript type from one declaration. Built on the same schema IR as the JSON → TypeScript tool, so nested optionals, structural dedup, and format-aware string detection all carry over — UUID fields emit `.uuid()`, ISO timestamps emit `.datetime({ offset: true })`, emails emit `.email()`.",

@@ -1,1 +1,1 @@
-export { JsonToTypeScript } from "./JsonToTypeScript";
+export { JsonToTypeScript } from "./json-to-typescript";

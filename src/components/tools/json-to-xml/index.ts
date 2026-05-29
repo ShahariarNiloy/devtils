@@ -1,1 +1,1 @@
-export { JsonToXml } from "./JsonToXml";
+export { JsonToXml } from "./json-to-xml";

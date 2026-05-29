@@ -1,4 +1,4 @@
-import { ToolContent } from "@/components/json-converter";
+import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Infer a JSON Schema from any sample document. Walks the value once, detects primitive types (including the integer / number distinction), recognises string formats (`date-time`, `date`, `uri`, `email`, `uuid`), and computes required fields as the intersection of keys observed across array items. Choose draft 2020-12 (the latest spec) or draft-07 for compatibility with older validators.",
