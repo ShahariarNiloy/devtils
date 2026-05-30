@@ -55,11 +55,57 @@
   --color-tier-ai-bg: #d4d8c5;
   --color-tier-ai-text: #2c3127;
 
-  /* ── Color: status ────────────────────────────────── */
-  --color-success: #5d6a4d;
-  --color-warning: #c58e5e;
-  --color-danger: #b05a44;
-  --color-info: #6b7c8c;
+  /* ── Functional: semantic status (light / default) ── */
+  /* Warm-tuned status colours that belong with UCLAY but carry enough
+     hue/chroma to read instantly as error/warning/success/info. Each
+     family follows the tier-token shape: solid + bg/text/border. */
+
+  /* Error — warm brick red, distinct from clay. Required by JSON validator. */
+  --color-error: #b04a33;
+  --color-error-bg: #f4ded7;
+  --color-error-text: #8f3520;
+  --color-error-border: #e0b3a6;
+
+  /* Warning — ochre/amber, native to an earth palette. */
+  --color-warning: #bc8a1e;
+  --color-warning-bg: #f3e7c9;
+  --color-warning-text: #6f500d;
+  --color-warning-border: #dfc98a;
+
+  /* Success — leaf green. Sage-olive stays NEUTRAL/idle; this means "done". */
+  --color-success: #5a8a43;
+  --color-success-bg: #dee9d0;
+  --color-success-text: #3c5e2c;
+  --color-success-border: #bbd0a4;
+
+  /* Info — muted teal. The one deliberate cool tone. */
+  --color-info: #45757e;
+  --color-info-bg: #d7e2e3;
+  --color-info-text: #2f555c;
+  --color-info-border: #a9c5c8;
+
+  /* Back-compat: `danger` was the pre-functional-layer name for "error".
+     Aliased so existing `text-danger` / `bg-danger` references keep
+     working. New code should use `error`. */
+  --color-danger: var(--color-error);
+
+  /* ── Functional: syntax highlight (light / default) ── */
+  /* Code-context ONLY. Generates `text-syntax-*` utilities so the
+     highlighter stays arbitrary-value-free. Mapped for JSON first. */
+  --color-syntax-key: #2f6b73;
+  --color-syntax-string: #4f7d3e;
+  --color-syntax-number: #b0653a;
+  --color-syntax-boolean: #8a5a7a;
+  --color-syntax-punctuation: #6b7264;
+  --color-syntax-comment: #9aa08c;
+  --color-syntax-error: #b04a33;
+
+  /* USAGE
+     - -text is the only token safe for small body text on the page bg;
+       the solid base (-) is for icons / strokes / borders / status dots / large text.
+     - Status badges mirror tier badges:  bg-error-bg text-error-text
+     - syntax-* are foregrounds only; editor surface stays --color-surface.
+     - Invalid tokens: text-syntax-error PLUS a wavy underline — never color alone. */
 
   /* ── Typography: families ─────────────────────────── */
   --font-sans: var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
@@ -208,12 +254,41 @@
   --color-tier-ai-bg: #2c3127;
   --color-tier-ai-text: #dde0d0;
 
-  /* Status — explicit dark-mode values. Old behaviour inherited the
-     light values which read dim/muddy on dark surfaces. */
-  --color-success: #a8b894;
-  --color-warning: #d4904a;
-  --color-danger: #d27460;
-  --color-info: #8a9bab;
+  /* ── Functional: semantic status (dark) ───────────── */
+  /* NOT a token swap — semantic colours brighten and -bg fills go
+     deep-warm so they stay legible on the warm-charcoal base. */
+
+  --color-error: #e0795f;
+  --color-error-bg: #3a201a;
+  --color-error-text: #f0a892;
+  --color-error-border: #5c3128;
+
+  --color-warning: #d9a841;
+  --color-warning-bg: #352b14;
+  --color-warning-text: #ecc871;
+  --color-warning-border: #574615;
+
+  --color-success: #84b36a;
+  --color-success-bg: #232e1a;
+  --color-success-text: #a9ce92;
+  --color-success-border: #3c512c;
+
+  --color-info: #6fa6af;
+  --color-info-bg: #16292c;
+  --color-info-text: #9ccbd2;
+  --color-info-border: #2e4b50;
+
+  /* `danger` alias inherits from light-mode definition; the var()
+     reference resolves dynamically to the dark `--color-error` above. */
+
+  /* ── Functional: syntax highlight (dark) ──────────── */
+  --color-syntax-key: #5faab4;
+  --color-syntax-string: #8fbe6f;
+  --color-syntax-number: #d98f5f;
+  --color-syntax-boolean: #c28fb0;
+  --color-syntax-punctuation: #8a8f7e;
+  --color-syntax-comment: #6e7263;
+  --color-syntax-error: #e0795f;
 
   --shadow-focus: 0 0 0 3px rgba(61, 68, 53, 0.4);
 
@@ -444,36 +519,46 @@ textarea:focus,
 
 :root,
 [data-theme="light"] {
-  --tok-key: #141a10;
-  --tok-string: #1f6e2a;
-  --tok-number: #a04800;
-  --tok-bool: #6b30a8;
-  --tok-null: var(--color-text-faint);
-  --tok-punct: var(--color-text-muted);
-  --tok-op: var(--color-text-muted);
-  --tok-kw: #6b30a8;
-  --tok-type: #1e5b87;
+  /* `--tok-*` are highlighter render targets. They source from the
+     functional syntax layer so the whole stack stays in lockstep with
+     light/dark mode + brand updates. Mapping decisions:
+       - kw / bool / attr share the boolean colour (purple-leaning)
+       - type / tag share the key colour (teal-leaning)
+       - decorator gets the number colour (warm — @-prefixes pop)
+       - punct / op share the punctuation colour (warm grey)
+       - null gets the comment colour (faded)                        */
+  --tok-key: var(--color-syntax-key);
+  --tok-string: var(--color-syntax-string);
+  --tok-number: var(--color-syntax-number);
+  --tok-bool: var(--color-syntax-boolean);
+  --tok-null: var(--color-syntax-comment);
+  --tok-punct: var(--color-syntax-punctuation);
+  --tok-op: var(--color-syntax-punctuation);
+  --tok-kw: var(--color-syntax-boolean);
+  --tok-type: var(--color-syntax-key);
   --tok-ident: var(--color-text);
-  --tok-comment: var(--color-text-faint);
-  --tok-tag: #1e5b87;
-  --tok-attr: #6b30a8;
-  --tok-decorator: #a04800;
+  --tok-comment: var(--color-syntax-comment);
+  --tok-tag: var(--color-syntax-key);
+  --tok-attr: var(--color-syntax-boolean);
+  --tok-decorator: var(--color-syntax-number);
 }
 [data-theme="dark"] {
-  --tok-key: #dff0c8;
-  --tok-string: #7ecf5a;
-  --tok-number: #d4904a;
-  --tok-bool: #b87ae0;
-  --tok-null: var(--color-text-faint);
-  --tok-punct: var(--color-text-muted);
-  --tok-op: var(--color-text-muted);
-  --tok-kw: #b87ae0;
-  --tok-type: #7eb8e0;
+  /* Dark `--tok-*` follow the same mapping — sourced from the dark
+     `--color-syntax-*` overrides defined earlier in this block. */
+  --tok-key: var(--color-syntax-key);
+  --tok-string: var(--color-syntax-string);
+  --tok-number: var(--color-syntax-number);
+  --tok-bool: var(--color-syntax-boolean);
+  --tok-null: var(--color-syntax-comment);
+  --tok-punct: var(--color-syntax-punctuation);
+  --tok-op: var(--color-syntax-punctuation);
+  --tok-kw: var(--color-syntax-boolean);
+  --tok-type: var(--color-syntax-key);
   --tok-ident: var(--color-text);
-  --tok-comment: var(--color-text-faint);
-  --tok-tag: #7eb8e0;
-  --tok-attr: #b87ae0;
-  --tok-decorator: #d4904a;
+  --tok-comment: var(--color-syntax-comment);
+  --tok-tag: var(--color-syntax-key);
+  --tok-attr: var(--color-syntax-boolean);
+  --tok-decorator: var(--color-syntax-number);
 }
 
 .tok-key {

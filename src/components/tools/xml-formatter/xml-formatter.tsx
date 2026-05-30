@@ -438,7 +438,7 @@ function StatusPill({
 }) {
   if (hasError) {
     return (
-      <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-danger/30 bg-danger/5 px-2 font-mono text-sm text-danger">
+      <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-error-border bg-error-bg px-2 font-mono text-sm text-error-text">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
         parse error
       </span>

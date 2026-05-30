@@ -54,9 +54,9 @@ export function StatusBar({
             animate={{ height: "auto" }}
             exit={{ height: 0 }}
             transition={{ duration: 0.15 }}
-            className="overflow-hidden border-t border-danger/20"
+            className="overflow-hidden border-t border-error-border"
           >
-            <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 text-sm text-danger">
+            <div className="flex items-center gap-2 px-4 py-2 bg-error-bg text-sm text-error-text">
               <AlertTriangle size={15} className="shrink-0" />
               {compiled.message}
             </div>
@@ -71,9 +71,9 @@ export function StatusBar({
             animate={{ height: "auto" }}
             exit={{ height: 0 }}
             transition={{ duration: 0.15 }}
-            className="overflow-hidden border-t border-warning/20"
+            className="overflow-hidden border-t border-warning-border"
           >
-            <div className="flex items-start gap-2 px-4 py-2 bg-warning/5 text-sm text-warning">
+            <div className="flex items-start gap-2 px-4 py-2 bg-warning-bg text-sm text-warning-text">
               <AlertTriangle size={15} className="mt-px shrink-0" />
               {redos.warning}
             </div>
@@ -89,9 +89,9 @@ export function StatusBar({
             animate={{ height: "auto" }}
             exit={{ height: 0 }}
             transition={{ duration: 0.15 }}
-            className="overflow-hidden border-t border-danger/20"
+            className="overflow-hidden border-t border-error-border"
           >
-            <div className="flex items-start gap-2 px-4 py-2 bg-danger/5 text-sm text-danger">
+            <div className="flex items-start gap-2 px-4 py-2 bg-error-bg text-sm text-error-text">
               <AlertTriangle size={15} className="mt-px shrink-0" />
               Pattern stopped after 2s — it&apos;s too slow on this input
               (catastrophic backtracking). Simplify the pattern or test on

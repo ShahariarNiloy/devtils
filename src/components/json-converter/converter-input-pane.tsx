@@ -113,7 +113,7 @@ export function ConverterInputPane({
       </div>
 
       {parseError && (
-        <div className="shrink-0 border-b border-border-subtle bg-danger/5 px-3 py-2 text-sm text-danger">
+        <div className="shrink-0 border-b border-error-border bg-error-bg px-3 py-2 text-sm text-error-text">
           <div className="font-medium">Invalid {inputLabel}</div>
           <div className="text-xs text-text-faint">
             {parseError.message}

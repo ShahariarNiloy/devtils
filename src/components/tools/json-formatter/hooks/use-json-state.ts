@@ -16,7 +16,17 @@ import {
   queryJsonPath,
   isArrayOfObjects,
 } from "../json-formatter.lib";
+import { tryJsToJson, type Transform } from "../js-to-json.lib";
 import { useAsyncParsed, WORKER_THRESHOLD } from "./use-async-parsed";
+
+/** JS-object → JSON banner state. Non-null when the transformer found a
+ *  conversion candidate for the current invalid input. */
+export interface JsConversionState {
+  /** The strict-JSON output that Apply will swap in. */
+  output: string;
+  /** Which transforms were applied — shown in the banner. */
+  transforms: Transform[];
+}
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
   let timer: ReturnType<typeof setTimeout>;
@@ -51,6 +61,12 @@ export function useJsonState() {
   // that then sticks across documents.
   const [wrapOverride, setWrapOverride] = useState<boolean | null>(null);
   const setWrapText = useCallback((v: boolean) => setWrapOverride(v), []);
+
+  // JS → JSON banner: non-null only when the input fails JSON.parse but
+  // the transformer can produce a parseable result. Cleared on input
+  // change so dismissal doesn't bleed across paste sessions.
+  const [jsConversion, setJsConversion] = useState<JsConversionState | null>(null);
+  const [jsConversionDismissedFor, setJsConversionDismissedFor] = useState<string | null>(null);
 
   const deferredInput = useDeferredValue(input);
   const deferredOutput = useDeferredValue(output);
@@ -96,6 +112,39 @@ export function useJsonState() {
   useEffect(() => {
     if (!inputIsLarge) validateDebounced(input);
   }, [input, inputIsLarge, validateDebounced]);
+
+  // JS → JSON detection. Runs only when validation has just landed as
+  // 'invalid' for the current input. Cheap (small inputs only) — skipped
+  // for large inputs where the worker path already costs us more than a
+  // banner is worth. Result is cleared when input changes so the banner
+  // disappears the moment the user edits.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setJsConversion(null);
+    if (inputIsLarge) return;
+    if (validation.status !== "invalid") return;
+    if (jsConversionDismissedFor === input) return;
+    const result = tryJsToJson(input);
+    if (result.ok && result.output) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setJsConversion({ output: result.output, transforms: result.transforms });
+    }
+    // We intentionally don't depend on `jsConversionDismissedFor`: it changes
+    // only on dismiss, and we don't want a dismiss to re-fire detection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, validation, inputIsLarge]);
+
+  const applyJsConversion = useCallback(() => {
+    if (!jsConversion) return;
+    setInput(jsConversion.output);
+    setJsConversion(null);
+    setJsConversionDismissedFor(null);
+  }, [jsConversion]);
+
+  const dismissJsConversion = useCallback(() => {
+    setJsConversion(null);
+    setJsConversionDismissedFor(input);
+  }, [input]);
 
   const queryDebounced = useMemo(
     () =>
@@ -154,6 +203,9 @@ export function useJsonState() {
     parsedOutput,
     isValid,
     canUseTableView,
+    jsConversion,
+    applyJsConversion,
+    dismissJsConversion,
   };
 }
 

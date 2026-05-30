@@ -13,7 +13,7 @@ export function ValidationError({ result }: ValidationErrorProps) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-2.5 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger"
+      className="flex items-start gap-2.5 rounded-lg border border-error-border bg-error-bg px-3 py-2 text-sm text-error-text"
     >
       <AlertCircle size={14} aria-hidden className="mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">

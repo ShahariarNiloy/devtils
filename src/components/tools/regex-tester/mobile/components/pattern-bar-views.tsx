@@ -177,7 +177,7 @@ function ErrorCard({ message }: { message: string }) {
   const detail = match?.[3];
 
   return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-danger/30 bg-danger/5 p-3">
+    <div className="flex items-start gap-2.5 rounded-lg border border-error-border bg-error-bg p-3">
       <AlertCircle size={18} className="text-danger shrink-0 mt-0.5" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-danger break-words">{title}</p>

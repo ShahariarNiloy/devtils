@@ -338,9 +338,26 @@ export function CodeView({
   // Jump to the parse-error position when the banner is clicked. Caret +
   // scroll are imperative DOM (no state), so this stays out of the render
   // path and never competes with typing.
+  //
+  // Guard: the effect dep is the nonce, which transitions undefined → 0
+  // (or any number) the FIRST time validation lands invalid. That
+  // transition would auto-fire the jump and yank the caret away from
+  // where the user was typing — even though they never clicked anything.
+  // `lastActedNonce` tracks the last nonce we've already responded to so
+  // we only re-fire on a genuine new click.
   const jumpNonce = jumpToError?.nonce;
+  const lastActedNonce = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (jumpToError === undefined || isReadOnly) return;
+    if (lastActedNonce.current === jumpNonce) return;
+    // First-time observation of any nonce (including the initial 0 when
+    // validation just landed invalid) is treated as "already acted on" —
+    // we never auto-jump, only respond to an explicit subsequent change.
+    if (lastActedNonce.current === undefined) {
+      lastActedNonce.current = jumpNonce;
+      return;
+    }
+    lastActedNonce.current = jumpNonce;
     const ta = textareaRef.current;
     if (!ta) return;
     const text = ta.value;

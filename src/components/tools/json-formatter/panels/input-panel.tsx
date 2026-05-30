@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
   Trash2,
   Upload,
+  Wand2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
@@ -23,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
 import { CodeView } from "../views/code-view";
+import { TRANSFORM_LABELS } from "../js-to-json.lib";
 import type { JsonFormatterState } from "../use-json-formatter";
 
 interface InputPanelProps {
@@ -197,12 +200,52 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
         </div>
       </div>
 
+      {/* JS-object → JSON conversion banner. Appears above the validation
+          banner when the input fails JSON.parse but the transformer can
+          fix it. Apply replaces the input; Dismiss hides until edit. */}
+      {state.jsConversion && (
+        <div
+          role="region"
+          aria-label="Convert JavaScript object to JSON"
+          className="flex w-full shrink-0 items-center gap-3 border-b border-info-border bg-info-bg px-3 py-2 text-sm text-info-text"
+        >
+          <Wand2 size={14} className="shrink-0 text-info" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              Looks like a JS object — convert to JSON?
+            </p>
+            <p className="mt-0.5 truncate font-mono text-xs-plus opacity-80">
+              Will:{" "}
+              {state.jsConversion.transforms
+                .map((t) => TRANSFORM_LABELS[t])
+                .join(" · ")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={state.applyJsConversion}
+            className="inline-flex h-7 items-center rounded-md border border-info-border bg-info px-2.5 text-sm font-medium text-text-on-sage transition-opacity hover:opacity-90 cursor-pointer"
+            aria-label="Apply conversion"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={state.dismissJsConversion}
+            aria-label="Dismiss"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-info-text/70 transition-colors hover:bg-info/15 hover:text-info-text cursor-pointer"
+          >
+            <X size={14} aria-hidden />
+          </button>
+        </div>
+      )}
+
       {/* Validation banner — click to jump the caret to the error */}
       {v.status === "invalid" && (
         <button
           type="button"
           onClick={() => setJumpNonce((n) => n + 1)}
-          className="group flex w-full shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger/15"
+          className="group flex w-full shrink-0 items-center gap-2 border-b border-error-border bg-error-bg px-3 py-2 text-left text-sm text-error-text transition-colors hover:bg-error/10"
           title="Jump to error"
         >
           <AlertCircle size={13} className="shrink-0" />

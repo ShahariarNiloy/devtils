@@ -1,6 +1,7 @@
-import { ThemeProvider } from "@/components/theme-provider";
 import { ShortcutsOverlay } from "@/components/shared/shortcuts-overlay";
+import { ThemeProvider } from "@/components/theme-provider";
 import { WebMcpProvider } from "@/components/webmcp-provider";
+import { OG_DEFAULT_PATH, OG_HEIGHT, OG_WIDTH } from "@/lib/og/url";
 import {
   SITE_DESCRIPTION,
   SITE_DESCRIPTION_SHORT,
@@ -8,8 +9,8 @@ import {
   SITE_TITLE_DEFAULT,
   SITE_URL,
 } from "@/lib/site";
-import { OG_DEFAULT_PATH, OG_HEIGHT, OG_WIDTH } from "@/lib/og/url";
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -106,6 +107,15 @@ export default function RootLayout({
             }}
           />
         </ThemeProvider>
+
+        {process.env.NEXT_PUBLIC_CF_BEACON_TOKEN && (
+          <Script
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={`{"token": "${process.env.NEXT_PUBLIC_CF_BEACON_TOKEN}"}`}
+            strategy="afterInteractive"
+            id="cloudflare-analytics"
+          />
+        )}
       </body>
     </html>
   );

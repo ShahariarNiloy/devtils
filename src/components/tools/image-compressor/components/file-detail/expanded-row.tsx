@@ -84,7 +84,7 @@ export function ExpandedRow({
             because it couldn't hit this mode's quality bar. Offer the two
             ways out rather than silently shipping a degraded file. */}
         {file.result.qualityFloorMissed ? (
-          <div className="flex flex-col gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3.5">
+          <div className="flex flex-col gap-3 rounded-lg border border-warning-border bg-warning-bg px-4 py-3.5">
             <div className="flex items-start gap-2.5 text-sm">
               <AlertTriangle
                 size={15}
@@ -176,7 +176,7 @@ export function ExpandedRow({
                 )}
               </p>
               {file.settings.outputFormat !== "auto" && file.hasIcc ? (
-                <div className="mt-2.5 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-2.5 py-2 text-sm text-warning">
+                <div className="mt-2.5 flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-warning-text">
                   <AlertTriangle
                     size={13}
                     strokeWidth={2}
@@ -345,7 +345,7 @@ export function ExpandedRow({
             color-managed P3 → sRGB (good news); "lost" = a profile we
             couldn't convert was dropped (warn). */}
         {file.result.iccStatus === "converted" ? (
-          <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/5 px-3.5 py-2.5 text-sm text-success">
+          <div className="flex items-start gap-2 rounded-lg border border-success-border bg-success-bg px-3.5 py-2.5 text-sm text-success-text">
             <CheckCircle2
               size={14}
               strokeWidth={2}
@@ -359,7 +359,7 @@ export function ExpandedRow({
           </div>
         ) : null}
         {file.result.iccStatus === "lost" ? (
-          <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3.5 py-2.5 text-sm text-warning">
+          <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-bg px-3.5 py-2.5 text-sm text-warning-text">
             <AlertTriangle
               size={14}
               strokeWidth={2}
