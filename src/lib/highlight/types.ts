@@ -54,4 +54,7 @@ export type Lang =
   | "go"
   | "rust"
   | "csv"
+  | "css"
+  | "markdown"
+  | "graphql"
   | "plain";

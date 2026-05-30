@@ -57,7 +57,7 @@ export const seoData = {
         "Yes — press `n` to jump to the next hunk and `p` for the previous. Press `/` to focus the original input.",
     },
   ],
-  relatedSlugs: ["json-formatter", "case-converter", "regex-tester", "code-beautifier"],
+  relatedSlugs: ["json-formatter", "case-converter", "regex-tester", "code-formatter"],
 } as const;
 
 export function DiffCheckerContent() {

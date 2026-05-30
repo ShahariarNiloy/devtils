@@ -7,6 +7,9 @@ import { tokenizeRust } from "./tokenize-rust";
 import { tokenizeYaml } from "./tokenize-yaml";
 import { tokenizeXml } from "./tokenize-xml";
 import { tokenizeCsv } from "./tokenize-csv";
+import { tokenizeCss } from "./tokenize-css";
+import { tokenizeMarkdown } from "./tokenize-markdown";
+import { tokenizeGraphql } from "./tokenize-graphql";
 import {
   applySearchToTokens,
   escapeHtml,
@@ -39,18 +42,31 @@ function tokenizerFor(lang: Lang): (s: string) => Token[] {
     case "yaml": return tokenizeYaml;
     case "xml": return tokenizeXml;
     case "csv": return tokenizeCsv;
+    case "css": return tokenizeCss;
+    case "markdown": return tokenizeMarkdown;
+    case "graphql": return tokenizeGraphql;
     case "plain": return () => [];
   }
 }
 
 /**
  * Highlight a string for the given language. Returns an HTML fragment ready
- * for `dangerouslySetInnerHTML`. Above the size threshold we bail to plain
- * escaped text — the DOM cost would be the actual lag, not the tokenize.
+ * for `dangerouslySetInnerHTML`. Above `maxSize` we bail to plain escaped
+ * text — the DOM cost (one span per token) would be the actual lag, not the
+ * tokenize.
+ *
+ * The default cap (`HIGHLIGHT_SIZE_THRESHOLD = 100 KB`) is tuned for the
+ * json-formatter, where people live-edit multi-MB inputs and overlay cost
+ * matters per keystroke. Read-mostly contexts (e.g. code-formatter output)
+ * can safely pass a much higher cap.
  */
-export function highlight(source: string, lang: Lang = "json"): string {
+export function highlight(
+  source: string,
+  lang: Lang = "json",
+  maxSize: number = HIGHLIGHT_SIZE_THRESHOLD,
+): string {
   if (!source) return "";
-  if (lang === "plain" || source.length > HIGHLIGHT_SIZE_THRESHOLD) {
+  if (lang === "plain" || source.length > maxSize) {
     return escapeHtml(source);
   }
   return tokensToHtml(tokenizerFor(lang)(source));
@@ -65,9 +81,10 @@ export function highlightWithSearch(
   source: string,
   lang: Lang = "json",
   search?: string,
+  maxSize: number = HIGHLIGHT_SIZE_THRESHOLD,
 ): string {
   if (!source) return "";
-  if (lang === "plain" || source.length > HIGHLIGHT_SIZE_THRESHOLD) {
+  if (lang === "plain" || source.length > maxSize) {
     // Above threshold we degrade to escape-only; still surface search
     // hits via a single regex sweep on the escaped text.
     const escaped = escapeHtml(source);

@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
 import { CodeView } from "@/components/tools/json-formatter/views/code-view";
-import type { Lang } from "@/components/tools/json-formatter/highlight";
+import type { Lang } from "@/lib/highlight";
 import { JSON_SAMPLES, type JsonSample } from "./samples";
 
 interface ConverterInputPaneProps {

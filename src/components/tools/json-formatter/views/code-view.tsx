@@ -16,7 +16,7 @@ import {
   highlightWithSearch,
   type Lang,
   lineCount,
-} from "@/components/tools/json-formatter/highlight";
+} from "@/lib/highlight";
 import { GutterLines } from "./code-view-gutter";
 
 export interface CodeViewProps {
@@ -38,6 +38,15 @@ export interface CodeViewProps {
   lang?: Lang;
   /** Optional search term applied to the locally-computed highlight (editable mode). */
   search?: string;
+  /** Textarea placeholder. Defaults to a JSON-flavoured hint for back-compat. */
+  placeholder?: string;
+  /**
+   * Override the max-source-size threshold past which the highlighter
+   * bails to plain escaped text. Default is `HIGHLIGHT_SIZE_THRESHOLD`
+   * (100 KB) — tuned for live-edit JSON. Read-mostly tools (e.g. the
+   * code-formatter output pane) can safely pass a much larger value.
+   */
+  maxHighlightSize?: number;
 }
 
 /**
@@ -77,6 +86,8 @@ export function CodeView({
   onPasteFormatted,
   lang = "json",
   search,
+  placeholder = "Paste JSON here…",
+  maxHighlightSize = HIGHLIGHT_SIZE_THRESHOLD,
 }: CodeViewProps) {
   const gutterRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -107,7 +118,7 @@ export function CodeView({
   // on every keystroke is what makes large input laggy — so drop the overlay
   // entirely and let the textarea show its own text. No overlay ⇒ no
   // per-keystroke escape/innerHTML/relayout, and no alignment risk.
-  const plainMode = !isReadOnly && localValue.length > HIGHLIGHT_SIZE_THRESHOLD;
+  const plainMode = !isReadOnly && localValue.length > maxHighlightSize;
 
   // ── Highlight ─────────────────────────────────────────────────────────────
   // For the read-only branch the parent panel already computes and passes
@@ -117,10 +128,10 @@ export function CodeView({
   const editableHighlight = useMemo(() => {
     if (isReadOnly || plainMode) return "";
     if (search && search.trim().length > 0) {
-      return highlightWithSearch(localValue, lang, search);
+      return highlightWithSearch(localValue, lang, search, maxHighlightSize);
     }
-    return highlight(localValue, lang);
-  }, [localValue, lang, search, isReadOnly, plainMode]);
+    return highlight(localValue, lang, maxHighlightSize);
+  }, [localValue, lang, search, isReadOnly, plainMode, maxHighlightSize]);
 
   // ── Scroll sync ───────────────────────────────────────────────────────────
   const syncScroll = useCallback(() => {
@@ -168,6 +179,11 @@ export function CodeView({
       const isAllSelected =
         ta.selectionStart === 0 && ta.selectionEnd === ta.value.length;
       if (!isEmpty && !isAllSelected) return;
+      // The JSON-format-on-paste behaviour below is opt-in via the
+      // `onPasteFormatted` callback. Consumers (e.g. code-formatter)
+      // that don't want it just omit the callback and the textarea
+      // handles the paste natively.
+      if (!onPasteFormatted) return;
 
       const clipped = e.clipboardData.getData("text/plain");
       e.preventDefault();
@@ -377,7 +393,7 @@ export function CodeView({
             onKeyUp={handleKeyUp}
             onClick={handleClick}
             spellCheck={false}
-            placeholder="Paste JSON here…"
+            placeholder={placeholder}
             className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none overflow-auto whitespace-pre`}
           />
         </div>

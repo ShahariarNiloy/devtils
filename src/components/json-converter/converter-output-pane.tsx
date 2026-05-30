@@ -8,7 +8,7 @@ import { CodeView } from "@/components/tools/json-formatter/views/code-view";
 import {
   highlight,
   type Lang,
-} from "@/components/tools/json-formatter/highlight";
+} from "@/lib/highlight";
 
 interface ConverterOutputPaneProps {
   output: string;

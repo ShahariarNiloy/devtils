@@ -4,8 +4,8 @@
  * those just forward into the new pipeline.
  */
 
-import { highlight, lineCount as _lineCount } from "./highlight";
-import type { Lang } from "./highlight";
+import { highlight, lineCount as _lineCount } from "@/lib/highlight";
+import type { Lang } from "@/lib/highlight";
 import type { ConvertTarget } from "./json-formatter.types";
 
 /**
@@ -51,5 +51,5 @@ export function applySearchHighlight(html: string, search: string): string {
 export const lineCount = _lineCount;
 
 // Re-exports for new call sites that want them directly.
-export { highlight, highlightWithSearch } from "./highlight";
-export type { Lang } from "./highlight";
+export { highlight, highlightWithSearch } from "@/lib/highlight";
+export type { Lang } from "@/lib/highlight";

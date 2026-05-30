@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { Base64 } from "@/components/tools/base64";
+import { CodeFormatter } from "@/components/tools/code-formatter";
 import { ColorConverter } from "@/components/tools/color-converter";
 import { DiffChecker } from "@/components/tools/diff-checker";
 import { ImageCompressor } from "@/components/tools/image-compressor";
@@ -50,6 +51,7 @@ export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   "jwt-decoder": JwtDecoder,
   "case-converter": TextCase,
   base64: Base64,
+  "code-formatter": CodeFormatter,
   "regex-tester": RegexTester,
   "color-converter": ColorConverter,
   "diff-checker": DiffChecker,

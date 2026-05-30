@@ -11,6 +11,7 @@
 
 import type { ToolContentProps } from "@/components/shared/tool-content";
 import { seoData as base64 } from "@/components/tools/base64/content";
+import { seoData as codeFormatter } from "@/components/tools/code-formatter/content";
 import { seoData as colorConverter } from "@/components/tools/color-converter/content";
 import { seoData as diffChecker } from "@/components/tools/diff-checker/content";
 import { seoData as imageCompressor } from "@/components/tools/image-compressor/content";
@@ -33,6 +34,7 @@ export type ToolSeoData = ToolContentProps;
 
 const TOOL_SEO: Record<string, ToolSeoData> = {
   base64,
+  "code-formatter": codeFormatter,
   "color-converter": colorConverter,
   "diff-checker": diffChecker,
   "image-compressor": imageCompressor,

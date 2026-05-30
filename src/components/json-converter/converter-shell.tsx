@@ -7,7 +7,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/primitives/resizable";
-import type { Lang } from "@/components/tools/json-formatter/highlight";
+import type { Lang } from "@/lib/highlight";
 import type { Tool } from "@/lib/tools-registry";
 import { ConverterInputPane } from "./converter-input-pane";
 import { ConverterOutputPane } from "./converter-output-pane";

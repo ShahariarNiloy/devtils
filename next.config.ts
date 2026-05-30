@@ -136,6 +136,13 @@ const nextConfig: NextConfig = {
       // universal typo — accept it and forward to the canonical URL so an
       // agent or human typing one letter wrong doesn't hit the 404 page.
       { source: "/llm.txt", destination: "/llms.txt", permanent: true },
+      // The tool launched as `code-beautifier`; renamed to the more
+      // accurate `code-formatter` (the underlying engine — Prettier — is
+      // a formatter, and every modern tooling surface matches that
+      // verb). 308 preserves the method (irrelevant for GET-only pages
+      // but mandatory for the spec) and tells crawlers the new URL is
+      // canonical so the link equity transfers.
+      { source: "/tools/code-beautifier", destination: "/tools/code-formatter", permanent: true },
     ];
   },
 };

@@ -22,6 +22,11 @@
 
 import { encode as b64encode, decode as b64decode } from "@/components/tools/base64/base64.lib";
 import {
+  format as formatCode,
+  LANGUAGES as CODE_LANGUAGES,
+  type LanguageId as CodeLanguageId,
+} from "@/components/tools/code-formatter/code-formatter.lib";
+import {
   buildHunks,
   computeStats,
   diffLines,
@@ -432,6 +437,57 @@ const TOOLS: Tool[] = [
       const caseDef = caseDefs.find((c) => c.id === target);
       if (!caseDef) return err(`unknown target case: ${target}`);
       return text(caseDef.convert(input));
+    },
+  },
+
+  // ── Code formatter ─────────────────────────────────────────────────
+
+  {
+    name: "code_format",
+    description:
+      "Format source code with Prettier. Supports JavaScript, TypeScript, JSX, TSX, JSON, JSON5, CSS, SCSS, Less, HTML, Vue, Markdown, YAML, and GraphQL.",
+    inputSchema: {
+      type: "object",
+      required: ["code", "language"],
+      properties: {
+        code: { type: "string", description: "Source code to format." },
+        language: {
+          type: "string",
+          enum: CODE_LANGUAGES.map((l) => l.id),
+          description: "Language id — one of: " + CODE_LANGUAGES.map((l) => l.id).join(", "),
+        },
+        tabWidth: { type: "integer", default: 2 },
+        useTabs: { type: "boolean", default: false },
+        printWidth: { type: "integer", default: 80 },
+        semi: { type: "boolean", default: true },
+        singleQuote: { type: "boolean", default: false },
+        trailingComma: { type: "string", enum: ["all", "es5", "none"], default: "all" },
+        bracketSpacing: { type: "boolean", default: true },
+        arrowParens: { type: "string", enum: ["always", "avoid"], default: "always" },
+      },
+    },
+    handler: async (args) => {
+      const o = asObject(args);
+      const code = asString(o.code);
+      const language = asString(o.language) as CodeLanguageId;
+      if (!CODE_LANGUAGES.some((l) => l.id === language)) {
+        return err(`unknown language: ${language}`);
+      }
+      const result = await formatCode(code, language, {
+        tabWidth: typeof o.tabWidth === "number" ? o.tabWidth : 2,
+        useTabs: o.useTabs === true,
+        printWidth: typeof o.printWidth === "number" ? o.printWidth : 80,
+        semi: o.semi !== false,
+        singleQuote: o.singleQuote === true,
+        trailingComma:
+          o.trailingComma === "es5" || o.trailingComma === "none"
+            ? o.trailingComma
+            : "all",
+        bracketSpacing: o.bracketSpacing !== false,
+        arrowParens: o.arrowParens === "avoid" ? "avoid" : "always",
+      });
+      if (!result.ok) return err(`parse error: ${result.error}`);
+      return text(result.output);
     },
   },
 
