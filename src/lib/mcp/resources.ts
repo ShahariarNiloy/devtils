@@ -1,7 +1,7 @@
 /**
  * MCP resources surfaced by the server. Resources are URL-addressable
  * content blobs (in contrast to tools, which are callable functions). For
- * devtils, the discovery surfaces — llms.txt, the agent index, the
+ * the site's discovery surfaces — llms.txt, the agent index, the
  * Markdown per-page representation — fit naturally.
  *
  * `read()` fetches the same payload the HTTP route handler serves so the

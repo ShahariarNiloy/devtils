@@ -1,5 +1,5 @@
 /**
- * DevToolbox — Tools Registry (barrel).
+ * Utilyx — Tools Registry (barrel).
  *
  * The registry was split into:
  *   - `tools/types.ts`         — Tool / ToolCategory / ToolTier / CategoryMeta

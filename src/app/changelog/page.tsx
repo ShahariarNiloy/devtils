@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
 import { CHANGELOG } from "@/lib/changelog";
+import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Changelog",
   description:
-    "What's new in devtils — recent releases, tools shipped, and notable improvements.",
+    `What's new in ${SITE_NAME} — recent releases, tools shipped, and notable improvements.`,
   alternates: { canonical: "/changelog" },
   openGraph: {
     type: "article",
-    title: "Changelog · devtils",
+    title: `Changelog · ${SITE_NAME}`,
     description: "Recent releases and tool launches.",
   },
 };

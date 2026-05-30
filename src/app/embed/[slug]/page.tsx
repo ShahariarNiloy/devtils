@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getToolComponent, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, SITE_WORDMARK } from "@/lib/site";
 
 /**
  * Statically pre-render embed routes only for live tools — there's no
@@ -40,9 +40,9 @@ export async function generateMetadata({
  * header, no footer, no surrounding chrome — designed for use inside an
  * `<iframe>` on third-party blog posts and docs sites. A small attribution
  * strip at the bottom links back to the canonical page so credit + traffic
- * flow back to devtils.
+ * flow back to the site.
  *
- *   <iframe src="https://devtils.com/embed/json-to-typescript"
+ *   <iframe src={`https://${SITE_DOMAIN}/embed/json-to-typescript`}
  *           width="100%" height="600" loading="lazy"
  *           sandbox="allow-scripts allow-same-origin allow-clipboard-write" />
  *
@@ -72,7 +72,7 @@ export default async function ToolEmbed({
 
       {/* Attribution strip — small, but unmissable. Embedders can't strip
           this without violating the iframe's sandbox; the link sends a
-          referrer header so devtils gets analytics credit. */}
+          referrer header so the host site gets analytics credit. */}
       <footer className="border-t border-border-subtle bg-surface">
         <div className="mx-auto max-w-8xl px-5 py-3 flex items-center justify-between text-sm">
           <span className="text-text-faint">
@@ -83,7 +83,7 @@ export default async function ToolEmbed({
               rel="noopener"
               className="font-semibold text-text hover:text-[color:var(--color-brand)]"
             >
-              devtils
+              {SITE_WORDMARK}
             </Link>
           </span>
           <Link

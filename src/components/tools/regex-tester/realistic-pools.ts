@@ -24,7 +24,7 @@ export const EMAIL_SUFFIXES = ["newsletter", "work", "dev", "lists", "noreply"];
 export const URL_SCHEMES = ["https", "http"];
 
 export const URL_HOSTS = [
-  "devtils.dev", "github.com", "api.stripe.com", "docs.anthropic.com",
+  "utilyx.dev", "github.com", "api.stripe.com", "docs.anthropic.com",
   "linear.app", "vercel.com", "nextjs.org", "tailwindcss.com",
   "npm.registry.dev", "example.com", "sub.example.org",
 ];

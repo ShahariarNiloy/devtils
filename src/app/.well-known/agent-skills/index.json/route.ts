@@ -1,8 +1,8 @@
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { listSkills, renderSkill, sha256Hex } from "@/lib/skills";
 
 /**
- * Agent Skills Discovery RFC v0.2.0 index. Lists every skill devtils
+ * Agent Skills Discovery RFC v0.2.0 index. Lists every skill the site
  * advertises with its url, type, description, and a sha256 over the
  * SKILL.md body the url returns.
  *
@@ -38,7 +38,7 @@ export async function GET(): Promise<Response> {
   const doc = {
     $schema: SCHEMA_URL,
     version: "0.2.0",
-    publisher: { name: "devtils", url: SITE_URL },
+    publisher: { name: SITE_NAME, url: SITE_URL },
     generatedAt: "static", // placeholder — see header comment in agent-index.json
     skills: entries,
   };

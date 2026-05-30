@@ -20,7 +20,7 @@ import type {
 } from "./color-converter.types";
 import { FORMATS } from "./color-converter.types";
 
-const HISTORY_KEY = "devtils:color-history";
+const HISTORY_KEY = "utilyx:color-history";
 const MAX_HISTORY = 12;
 
 type FormattedMap = Record<Format, string>;

@@ -20,7 +20,7 @@ const SAMPLE =
 
 const DEFAULT_ENCODE_HEADER = '{\n  "alg": "HS256",\n  "typ": "JWT"\n}';
 const DEFAULT_ENCODE_PAYLOAD =
-  '{\n  "iss": "devtoolbox.app",\n  "sub": "devtoolbox",\n  "name": "DevToolbox",\n  "iat": 1730864000\n}';
+  '{\n  "iss": "utilyx.dev",\n  "sub": "utilyx",\n  "name": "Utilyx",\n  "iat": 1730864000\n}';
 
 export function useJwtDecoder() {
   const [mode, setMode] = useState<Mode>("decode");

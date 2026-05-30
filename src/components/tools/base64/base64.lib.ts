@@ -223,7 +223,7 @@ const MIN_AUTODETECT_LEN = 16;
  *      - variant-specific punctuation (`+`/`/` for std, `-`/`_` for url-safe), OR
  *      - all three character classes present (uppercase + lowercase + digit).
  *
- * Rule 5 is what stops things like "DevToolboxisfast" (16 chars, mixed case,
+ * Rule 5 is what stops things like "Utilyxistheword" (15 chars, mixed case,
  * no digits, no padding) from being misread as base64.
  */
 export function detectIsBase64(input: string, variant: Base64Variant): boolean {

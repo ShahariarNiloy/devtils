@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_COUNTS } from "@/lib/tools-registry";
 import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
+import { SITE_NAME, SITE_WORDMARK } from "@/lib/site";
 import Link from "next/link";
 
 /**
@@ -26,7 +27,7 @@ export function HomeFooter() {
               className="display text-base font-bold text-text"
               style={{ letterSpacing: "-0.025em" }}
             >
-              devtils
+              {SITE_WORDMARK}
             </span>
           </div>
           <p
@@ -93,7 +94,7 @@ export function HomeFooter() {
       <div className="border-t border-border">
         <div className="mx-auto max-w-8xl px-6 sm:px-10 py-5 flex flex-wrap items-center gap-3 justify-between">
           <p className="text-sm text-text-faint">
-            © {new Date().getFullYear()} devtils · made with care
+            © {new Date().getFullYear()} {SITE_NAME} · made with care
           </p>
           <div className="flex items-center gap-4 text-sm text-text-faint">
             <Link href="/privacy" className="hover:text-text transition-colors">

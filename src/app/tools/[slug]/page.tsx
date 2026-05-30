@@ -7,7 +7,7 @@ import { ComingSoon } from "@/components/layout/coming-soon";
 import { ToolJsonLd } from "@/components/shared/tool-jsonld";
 import { getToolComponent, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * Statically pre-render only the LIVE tools. The other 151 registry
@@ -48,13 +48,13 @@ export async function generateMetadata({
     openGraph: {
       type: "website",
       url: `${SITE_URL}${canonical}`,
-      title: `${tool.name} · devtils`,
+      title: `${tool.name} · ${SITE_NAME}`,
       description,
-      siteName: "devtils",
+      siteName: SITE_NAME,
     },
     twitter: {
       card: "summary_large_image",
-      title: `${tool.name} · devtils`,
+      title: `${tool.name} · ${SITE_NAME}`,
       description,
     },
     // Unbuilt tools render the ComingSoon placeholder — flag them as

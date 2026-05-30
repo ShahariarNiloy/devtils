@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CheckCircle2, Lock, ShieldCheck } from "lucide-react";
 import { highlightJson } from "@/components/tools/json-formatter/json-highlighter";
+import { SITE_DOMAIN, SITE_NAME, SITE_WORDMARK } from "@/lib/site";
 import { Band } from "./band";
 import { SectionHeading } from "./section-heading";
 
@@ -27,9 +28,9 @@ function buildSample(): string {
   const header = b64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = b64urlEncode(
     JSON.stringify({
-      iss: "devtoolbox.app",
-      sub: "devtoolbox",
-      name: "DevToolbox",
+      iss: SITE_DOMAIN,
+      sub: SITE_WORDMARK,
+      name: SITE_NAME,
       tagline: "Privacy-first developer utilities, 100% client-side",
       tools: [
         "json-formatter",
@@ -98,10 +99,10 @@ export function WhySection() {
   const timing = result.ms < 1 ? "<1 ms" : `${result.ms.toFixed(1)} ms`;
 
   return (
-    <Band id="why" tone="soft" aria-label="Why devtils" className="pt-16 pb-20">
+    <Band id="why" tone="soft" aria-label={`Why ${SITE_NAME}`} className="pt-16 pb-20">
       <SectionHeading
         index="01"
-        eyebrow="Why devtils"
+        eyebrow={`Why ${SITE_NAME}`}
         title="Proof, not promises."
         hint="This JWT decoder runs entirely in your browser. Open your network tab — zero requests, every time."
       />

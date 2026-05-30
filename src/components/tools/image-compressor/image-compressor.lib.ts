@@ -814,7 +814,7 @@ async function encodePng(
 
   let codec: string;
   if (routedFromGradient) codec = "OxiPNG (lossless · gradient preserved)";
-  else if (effectiveMode === "lossy") codec = "devtoolbox-quantize + OxiPNG";
+  else if (effectiveMode === "lossy") codec = "utilyx-quantize + OxiPNG";
   else codec = "OxiPNG";
 
   return {

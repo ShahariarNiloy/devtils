@@ -1,6 +1,6 @@
 import { TOOLS } from "@/lib/tools-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * llms.txt — emerging convention for AI-agent-readable site descriptions.
@@ -26,7 +26,7 @@ export function GET(): Response {
   }
 
   const lines: string[] = [
-    "# devtils",
+    `# ${SITE_NAME}`,
     "",
     "> Handcrafted developer utilities — JSON, encoding, text, image, regex, and more.",
     "> Every tool runs entirely in the browser. Nothing leaves your device.",

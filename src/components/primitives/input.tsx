@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 export type InputProps = InputHTMLAttributes<HTMLInputElement>;
 
 /**
- * Text input matching DevToolbox visual language. Add `font-mono` for
+ * Text input matching the site's visual language. Add `font-mono` for
  * code-style inputs (regex, base64, hex).
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(

@@ -1,8 +1,8 @@
-# DevTils
+# Utilyx
 
 Every tool you need, exactly where you reach for them.
 
-DevTils is a beautifully crafted web app of essential utilities for developers. Format JSON, convert text cases, encode/decode Base64, test regex patterns, convert between colors, and more — all keyboard-first, offline-capable, and built with the same care you'd give your product's frontend.
+Utilyx is a beautifully crafted web app of essential utilities for developers. Format JSON, convert text cases, encode/decode Base64, test regex patterns, convert between colors, and more — all keyboard-first, offline-capable, and built with the same care you'd give your product's frontend.
 
 ## What's inside
 
@@ -17,7 +17,7 @@ DevTils is a beautifully crafted web app of essential utilities for developers. 
 - **JWT Decoder** — Decode, inspect, verify HS256 signatures locally
 - More on the way — see `/tools` for the full catalogue and `/changelog` for what's new.
 
-## Why DevTils
+## Why Utilyx
 
 - **Keyboard-first** — Press `⌘ K` (or `Ctrl K`) anywhere to search and jump between tools; press `?` for a shortcut overlay.
 - **Offline** — Every tool runs locally in your browser; nothing leaves your machine.
@@ -28,7 +28,7 @@ DevTils is a beautifully crafted web app of essential utilities for developers. 
 
 ## Get started
 
-Visit [devtils.com](https://devtils.com) and start using tools immediately — no signup, no ads, no tracking.
+Visit [utilyx.dev](https://utilyx.dev) and start using tools immediately — no signup, no ads, no tracking.
 
 **Pro tip:** Bookmark the site or add it to your home screen for instant access.
 

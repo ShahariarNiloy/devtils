@@ -1,11 +1,11 @@
 import { TOOLS } from "@/lib/tools-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * Agent index endpoint that DNS-AID SVCB / HTTPS records point at.
  *
- *   _index._agents.devtils.com.  IN  HTTPS  1 devtils.com.
+ *   _index._agents.<DOMAIN>.  IN  HTTPS  1 <DOMAIN>.
  *     alpn=h2 endpoint=/.well-known/agent-index.json
  *
  * Per draft-mozleywilliams-dnsop-dnsaid, the resolver follows the SVCB
@@ -24,11 +24,11 @@ export function GET(): Response {
   const live = TOOLS.filter((t) => IMPLEMENTED_TOOL_SLUGS.has(t.slug));
 
   const body = {
-    name: "devtils",
+    name: SITE_NAME,
     description:
       "Handcrafted developer utilities — JSON, encoding, text, image, regex, and more. Every tool runs entirely in the browser.",
     url: SITE_URL,
-    publisher: { name: "devtils", url: SITE_URL },
+    publisher: { name: SITE_NAME, url: SITE_URL },
 
     // Agent-readable map. `type` strings follow common convention: the
     // llms.txt + sitemap + manifest set is what current AI crawlers look

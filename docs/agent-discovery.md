@@ -1,11 +1,11 @@
 # Agent discovery surfaces
 
-Quick reference for what devtils publishes for AI-agent discoverability,
+Quick reference for what Utilyx publishes for AI-agent discoverability,
 and — equally important — what we deliberately don't publish and why.
 A future audit that flags one of the "won't ship" items should land here
 first; the rationale is the answer.
 
-## What devtils publishes
+## What Utilyx publishes
 
 | Surface | Location | Spec |
 |---|---|---|
@@ -37,7 +37,7 @@ first; the rationale is the answer.
 - `/.well-known/oauth-authorization-server` (RFC 8414)
 - `/.well-known/oauth-protected-resource` (RFC 9728)
 
-These three are structurally identical from devtils' perspective: each
+These three are structurally identical from Utilyx's perspective: each
 describes a piece of a real OAuth deployment (an authorization server, an
 OIDC provider, or a protected resource). None of those exist here.
 Every mandatory field in each document — `issuer`,
@@ -57,7 +57,7 @@ later compromises any layer between client and origin can swap the
 endpoint values and direct agents at attacker-controlled URLs. Empty is
 strictly safer than wrong here.
 
-**When to revisit**: if devtils ever ships a paid tier with a callable
+**When to revisit**: if Utilyx ever ships a paid tier with a callable
 API (the registry's `tier: 'pro'` / `tier: 'ai'` work was scoped out for
 the launch), that's the point to add **all three** of these documents
 together — they're a set, not à la carte. The metadata must point at
@@ -81,7 +81,7 @@ description) for the same reason — it would have to be empty.
 
 ## Posture statement
 
-devtils is a client-side utility site. The discovery surfaces we publish
+Utilyx is a client-side utility site. The discovery surfaces we publish
 describe the **content** the site offers (tools, catalogues, docs) and
 their **machine-readable representations** (Markdown, JSON-LD, OG cards).
 We do not publish discovery surfaces for **services we don't run**

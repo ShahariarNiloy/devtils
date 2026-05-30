@@ -6,11 +6,12 @@ import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { Dialog, DialogContent } from '@/components/primitives/dialog';
 import { Kbd } from '@/components/primitives/kbd';
+import { SITE_WORDMARK } from "@/lib/site";
 import { TOOLS } from "@/lib/tools-registry";
 import { useShortcut, isMac } from "@/lib/keyboard";
 import { CommandPaletteResults } from "@/components/primitives/command-palette-results";
 
-const RECENT_KEY = "devtils:recent";
+const RECENT_KEY = "utilyx:recent";
 const MAX_RECENT = 4;
 
 function readRecent(): string[] {
@@ -112,7 +113,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span className="flex items-center gap-1">
               <Kbd>↵</Kbd> open
             </span>
-            <span className="ml-auto">devtils</span>
+            <span className="ml-auto">{SITE_WORDMARK}</span>
           </div>
         </Command>
       </DialogContent>
@@ -120,7 +121,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   );
 }
 
-const OPEN_EVENT = "devtils:open-palette";
+const OPEN_EVENT = "utilyx:open-palette";
 
 /** Trigger the global palette from anywhere on the page. */
 export function openCommandPalette() {
@@ -131,7 +132,7 @@ export function openCommandPalette() {
 
 /**
  * Hook helper: returns palette state + a `meta+K` global shortcut.
- * Also listens for the `devtoolbox:open-palette` event so any consumer
+ * Also listens for the OPEN_EVENT so any consumer
  * (e.g. the hero search field) can open the palette without prop-drilling.
  */
 export function useCommandPalette() {

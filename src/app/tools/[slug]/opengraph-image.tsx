@@ -1,8 +1,9 @@
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { SITE_DOMAIN, SITE_NAME, SITE_WORDMARK } from "@/lib/site";
 import { getCategoryMeta, getToolBySlug } from "@/lib/tools-registry";
 import { ImageResponse } from "next/og";
 
-export const alt = "devtils tool preview";
+export const alt = `${SITE_NAME} tool preview`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -84,7 +85,7 @@ export default async function Image({
             backgroundColor: "#7e8a6c",
           }}
         />
-        devtils
+        {SITE_WORDMARK}
       </div>
 
       {/* Category eyebrow + status pill — center-left top */}
@@ -199,7 +200,7 @@ export default async function Image({
           >
             {tool.tier}
           </span>
-          <span style={{ alignSelf: "center" }}>devtils.com/tools/{slug}</span>
+          <span style={{ alignSelf: "center" }}>{SITE_DOMAIN}/tools/{slug}</span>
         </div>
         <span style={{ fontWeight: 600 }}>
           Runs in your browser · 100% local
@@ -227,7 +228,7 @@ function FallbackCard() {
         letterSpacing: "-0.04em",
       }}
     >
-      devtils
+      {SITE_WORDMARK}
     </div>
   );
 }

@@ -3,20 +3,20 @@
 DNS-AID (draft-mozleywilliams-dnsop-dnsaid) advertises agent-readable
 endpoints via SVCB / HTTPS DNS records under a well-known prefix:
 `_<service>._agents.<domain>`. This file lists the exact records to add at
-your DNS provider for `devtils.com`. None of this is configurable in
+your DNS provider for `utilyx.dev`. None of this is configurable in
 application code — DNS lives outside the app.
 
 ## What you publish
 
 Three records, all SVCB (`HTTPS` is an SVCB family member). Replace
-`devtils.com.` with your own zone.
+`utilyx.dev.` with your own zone.
 
 ```dns
 ;; ── DNS-AID entry — points at /.well-known/agent-index.json ──
 ;; The "index" service is the canonical entry point for agents that
 ;; understand the DNS-AID draft. Resolvers follow the HTTPS record to
 ;; reach the JSON document at /.well-known/agent-index.json.
-_index._agents.devtils.com.    3600  IN  HTTPS  1  devtils.com.  (
+_index._agents.utilyx.dev.    3600  IN  HTTPS  1  utilyx.dev.  (
     alpn=h2
     endpoint=/.well-known/agent-index.json )
 
@@ -24,12 +24,12 @@ _index._agents.devtils.com.    3600  IN  HTTPS  1  devtils.com.  (
 ;; Agents that look for the llmstxt.org convention find /llms.txt directly,
 ;; but advertising it here means agents that ONLY speak DNS-AID can also
 ;; reach it without a Link-header round trip.
-_llms._agents.devtils.com.     3600  IN  HTTPS  1  devtils.com.  (
+_llms._agents.utilyx.dev.     3600  IN  HTTPS  1  utilyx.dev.  (
     alpn=h2
     endpoint=/llms.txt )
 
 ;; ── sitemap advertisement ──
-_sitemap._agents.devtils.com.  3600  IN  HTTPS  1  devtils.com.  (
+_sitemap._agents.utilyx.dev.  3600  IN  HTTPS  1  utilyx.dev.  (
     alpn=h2
     endpoint=/sitemap.xml )
 ```
@@ -57,13 +57,13 @@ server could swap an `endpoint=...` value. DNSSEC closes that.
 
 ```bash
 # Plain lookup — should return the HTTPS record with svcparam fields.
-dig +short HTTPS _index._agents.devtils.com
+dig +short HTTPS _index._agents.utilyx.dev
 
 # Including DNSSEC validation (ad flag set when authenticated).
-dig +dnssec HTTPS _index._agents.devtils.com
+dig +dnssec HTTPS _index._agents.utilyx.dev
 
 # End-to-end — fetch what the record points at.
-curl https://devtils.com/.well-known/agent-index.json | jq .
+curl https://utilyx.dev/.well-known/agent-index.json | jq .
 ```
 
 The JSON at the endpoint advertises every machine-readable surface the

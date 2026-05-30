@@ -1,7 +1,13 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { ShortcutsOverlay } from "@/components/shared/shortcuts-overlay";
 import { WebMcpProvider } from "@/components/webmcp-provider";
-import { SITE_URL } from "@/lib/site";
+import {
+  SITE_DESCRIPTION,
+  SITE_DESCRIPTION_SHORT,
+  SITE_NAME,
+  SITE_TITLE_DEFAULT,
+  SITE_URL,
+} from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -31,26 +37,23 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "devtils — handcrafted developer utilities",
-    template: "%s · devtils",
+    default: SITE_TITLE_DEFAULT,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    "Format JSON, convert cases, encode Base64, test regex, and convert colors. Fast, keyboard-first, and beautifully designed — every tool runs in your browser.",
-  applicationName: "devtils",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
-    siteName: "devtils",
+    siteName: SITE_NAME,
     url: SITE_URL,
-    title: "devtils — handcrafted developer utilities",
-    description:
-      "A curated set of polished, client-side developer tools. JSON, encoding, text, image, regex, and more.",
+    title: SITE_TITLE_DEFAULT,
+    description: SITE_DESCRIPTION_SHORT,
   },
   twitter: {
     card: "summary_large_image",
-    title: "devtils — handcrafted developer utilities",
-    description:
-      "Polished, client-side developer tools. JSON, encoding, text, image, regex, and more.",
+    title: SITE_TITLE_DEFAULT,
+    description: SITE_DESCRIPTION_SHORT,
   },
   robots: { index: true, follow: true },
 };

@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
  * the existing HTML pages are unaffected. Curl / agent tooling can opt in
  * with a single header:
  *
- *   curl -H "Accept: text/markdown" https://devtils.com/tools/json-to-zod
+ *   curl -H "Accept: text/markdown" https://utilyx.dev/tools/json-to-zod
  *
  * The Cloudflare "Markdown for Agents" reference doc lays out the same
  * pattern: same URL, content negotiated via Accept.

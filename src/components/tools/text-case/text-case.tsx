@@ -11,7 +11,7 @@ import { cases } from "./text-case.lib";
 import type { Tool } from "@/lib/tools-registry";
 
 export function TextCase({ tool }: { tool: Tool }) {
-  const [input, setInput] = useState("Hello world from devtils");
+  const [input, setInput] = useState("Hello world from Utilyx");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 

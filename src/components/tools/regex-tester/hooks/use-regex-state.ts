@@ -1,7 +1,7 @@
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const SAMPLE_TEXT = `Reach the team at hello@devtils.dev or support@devtils.dev.
-Visit https://devtils.dev for the docs and https://example.com for tests.
+export const SAMPLE_TEXT = `Reach the team at hello@utilyx.dev or support@utilyx.dev.
+Visit https://utilyx.dev for the docs and https://example.com for tests.
 Server is at 192.168.1.42, branding accent #D4FF4F. Released 2026-05-04.
 // Add more text or paste your own…`;
 

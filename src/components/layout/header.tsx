@@ -5,6 +5,7 @@ import {
   useCommandPalette,
 } from '@/components/primitives/command-palette';
 import { Kbd } from '@/components/primitives/kbd';
+import { SITE_WORDMARK } from '@/lib/site';
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from './theme-toggle';
@@ -39,7 +40,7 @@ export function Header() {
             className="display text-lg font-bold"
             style={{ letterSpacing: "-0.025em" }}
           >
-            devtils
+            {SITE_WORDMARK}
           </span>
         </Link>
 

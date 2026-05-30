@@ -1,7 +1,12 @@
 import type { MetadataRoute } from "next";
+import {
+  SITE_DESCRIPTION,
+  SITE_TITLE_DEFAULT,
+  SITE_WORDMARK,
+} from "@/lib/site";
 
 /**
- * Web App Manifest. Lets the browser treat devtils like an installable
+ * Web App Manifest. Lets the browser treat the site like an installable
  * web app on Chrome / Safari / Edge with the right name + icons + theme
  * colours. README promises "add to home screen" works; this is what makes
  * the promise true.
@@ -13,10 +18,9 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "devtils — handcrafted developer utilities",
-    short_name: "devtils",
-    description:
-      "Format JSON, convert cases, encode Base64, test regex, and convert colors. Every tool runs in your browser.",
+    name: SITE_TITLE_DEFAULT,
+    short_name: SITE_WORDMARK,
+    description: SITE_DESCRIPTION,
     start_url: "/",
     display: "standalone",
     background_color: "#f6f2ea",

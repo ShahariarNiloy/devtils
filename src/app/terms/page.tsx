@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
+import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms",
   description:
-    "Terms of service for the devtils developer utilities.",
+    `Terms of service for the ${SITE_NAME} developer utilities.`,
   alternates: { canonical: "/terms" },
 };
 
@@ -27,7 +28,7 @@ export default function TermsPage() {
           </h1>
           <div className="prose prose-sm mt-8 space-y-5 text-[15px] leading-relaxed text-text-muted">
             <p>
-              devtils is provided as-is. The tools work as documented to
+              {SITE_NAME} is provided as-is. The tools work as documented to
               the best of our ability, but we make no warranty of fitness
               for any particular purpose.
             </p>

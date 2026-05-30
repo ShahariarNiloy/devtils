@@ -29,7 +29,7 @@ interface OutputPaneProps {
   hideTitle?: boolean;
 }
 
-const JSON_PREFILL_KEY = "devtils_json_prefill";
+const JSON_PREFILL_KEY = "utilyx_json_prefill";
 
 export function OutputPane({
   output, outputBytes, imageMime, activeTab, onTabChange,

@@ -1,4 +1,5 @@
 import { Command, ShieldCheck, WifiOff, Zap, type LucideIcon } from "lucide-react";
+import { SITE_NAME } from "@/lib/site";
 import { Band } from "./band";
 import { SectionHeading } from "./section-heading";
 
@@ -29,7 +30,7 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
  *  page used to list tools a third time. */
 export function DifferenceSection() {
   return (
-    <Band aria-label="What makes devtils different" className="pt-16 pb-20">
+    <Band aria-label={`What makes ${SITE_NAME} different`} className="pt-16 pb-20">
       <SectionHeading
         index="04"
         eyebrow="The difference"

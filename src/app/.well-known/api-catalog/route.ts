@@ -1,11 +1,11 @@
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * /.well-known/api-catalog per RFC 9727. The body is an RFC 9264 linkset
  * (Content-Type: application/linkset+json) describing the machine-readable
  * surfaces this site exposes.
  *
- * Honest note: devtils doesn't have a callable REST API — every tool runs
+ * Honest note: this site doesn't have a callable REST API — every tool runs
  * client-side. The catalog therefore lists the discovery / content
  * endpoints that exist (agent-index, markdown negotiation, llms.txt)
  * rather than fabricating "API" entries that wouldn't be callable. The
@@ -41,7 +41,7 @@ export function GET(): Response {
             title: "DNS-AID draft (describes the agent-index schema)",
           },
         ],
-        author: [{ href: SITE_URL, title: "devtils" }],
+        author: [{ href: SITE_URL, title: SITE_NAME }],
       },
 
       // ── Markdown content negotiation surface. Any HTML route on the

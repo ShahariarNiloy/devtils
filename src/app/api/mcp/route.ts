@@ -22,7 +22,7 @@ import {
  * "acknowledged, nothing to return" response.
  *
  * No sessions, no auth — every call is independent. The OAuth audit
- * deliberately said "no" to authentication on devtils; the MCP server
+ * deliberately said "no" to authentication on this site; the MCP server
  * inherits that posture. If we ever add a paid tier, this is where the
  * `Authorization: Bearer …` check would land alongside the matching
  * `/.well-known/oauth-protected-resource` metadata.

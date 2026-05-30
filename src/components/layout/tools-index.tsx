@@ -17,7 +17,7 @@ import { TileCard } from "./tools-index/tile-card";
 import { useToolsFilter } from "./tools-index/use-tools-filter";
 import { ViewToggle, type ViewMode } from "./tools-index/view-toggle";
 
-const VIEW_MODE_KEY = "devtils:tools-view-mode";
+const VIEW_MODE_KEY = "utilyx:tools-view-mode";
 
 interface Props {
   tools: Tool[];

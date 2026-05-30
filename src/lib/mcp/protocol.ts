@@ -14,7 +14,9 @@
  */
 
 export const MCP_PROTOCOL_VERSION = "2025-03-26";
-export const SERVER_NAME = "devtils";
+/** The MCP server identifies itself by this name. Kept in lockstep with
+ *  the SITE_WORDMARK so server card + WebMCP advertisements match. */
+export const SERVER_NAME = "utilyx";
 export const SERVER_VERSION = "0.1.0";
 
 export interface JsonRpcRequest {

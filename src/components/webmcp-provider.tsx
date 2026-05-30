@@ -9,7 +9,7 @@ import { TOOLS } from "@/lib/tools-registry";
 
 /**
  * WebMCP provider. Calls `navigator.modelContext.provideContext()` on
- * mount with every tool devtils exposes to an in-browser agent.
+ * mount with every tool the site exposes to an in-browser agent.
  *
  * Two flavours of tools are advertised:
  *
@@ -37,9 +37,9 @@ export function WebMcpProvider() {
 
     const uiTools: WebMcpTool[] = [
       {
-        name: "devtils_list_tools",
+        name: "utilyx_list_tools",
         description:
-          "List every tool devtils provides — slug, name, category, and human description. Use this to discover what's available before navigating or invoking.",
+          "List every tool the site provides — slug, name, category, and human description. Use this to discover what's available before navigating or invoking.",
         inputSchema: {
           type: "object",
           properties: {},
@@ -55,9 +55,9 @@ export function WebMcpProvider() {
         }),
       },
       {
-        name: "devtils_goto_tool",
+        name: "utilyx_goto_tool",
         description:
-          "Navigate the user to a specific devtils tool page in the same tab. Pass the tool slug (e.g. 'json-to-typescript'). Use devtils_list_tools to discover slugs.",
+          "Navigate the user to a specific site tool page in the same tab. Pass the tool slug (e.g. 'json-to-typescript'). Use utilyx_list_tools to discover slugs.",
         inputSchema: {
           type: "object",
           required: ["slug"],
@@ -73,7 +73,7 @@ export function WebMcpProvider() {
           const tool = TOOLS.find((t) => t.slug === slug);
           if (!tool) {
             throw new Error(
-              `unknown tool slug: ${slug || "(empty)"}. Call devtils_list_tools first.`,
+              `unknown tool slug: ${slug || "(empty)"}. Call utilyx_list_tools first.`,
             );
           }
           router.push(`/tools/${tool.slug}`);
@@ -81,7 +81,7 @@ export function WebMcpProvider() {
         },
       },
       {
-        name: "devtils_set_theme",
+        name: "utilyx_set_theme",
         description:
           "Set the site theme. Accepts 'light', 'dark', or 'system' (follow OS preference).",
         inputSchema: {

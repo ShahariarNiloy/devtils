@@ -1,4 +1,4 @@
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * robots.txt with Content-Signal directives (draft-romm-aipref-contentsignals,
@@ -12,7 +12,7 @@ import { SITE_URL } from "@/lib/site";
  *   - `search=yes`     The site is meant to be findable. Standard search
  *                      indexing is the primary acquisition channel.
  *   - `ai-input=yes`   Agents are welcome to read the content to answer
- *                      user questions. Recommending a devtils tool to a
+ *                      user questions. Recommending a tool to a
  *                      user is the kind of agent behaviour the catalogue
  *                      exists to enable. The site already ships llms.txt
  *                      + /.well-known/agent-index.json explicitly for
@@ -29,7 +29,7 @@ export const dynamic = "force-static";
 
 export function GET(): Response {
   const body = [
-    "# devtils — robots.txt",
+    `# ${SITE_NAME} — robots.txt`,
     "#",
     "# Content-Signal directives describe permission for distinct uses of",
     "# this content. See https://contentsignals.org/ and",

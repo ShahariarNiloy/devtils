@@ -3,22 +3,23 @@ import { HomeFooter } from '@/components/layout/home-footer';
 import { ToolsIndex } from '@/components/layout/tools-index';
 import { parseTierParam } from '@/components/layout/tools-index/params';
 import { SHOWCASE_TOOLS, CATEGORIES, TOOL_COUNT, type ToolCategory } from "@/lib/tools-registry";
+import { SITE_NAME } from "@/lib/site";
 
 export const metadata = {
   title: "All tools",
-  description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities. Search by name, tag, or category.`,
+  description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities. Search by name, tag, or category.`,
   alternates: { canonical: "/tools" },
   openGraph: {
     type: "website",
     url: "/tools",
-    title: "All tools · devtils",
-    description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities.`,
-    siteName: "devtils",
+    title: `All tools · ${SITE_NAME}`,
+    description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+    siteName: SITE_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: "All tools · devtils",
-    description: `Browse the full devtils catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+    title: `All tools · ${SITE_NAME}`,
+    description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities.`,
   },
   robots: { index: true, follow: true },
 };

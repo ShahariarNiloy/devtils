@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
+import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Privacy",
   description:
-    "How devtils handles your data. Short version: every tool runs in your browser; nothing leaves your device.",
+    `How ${SITE_NAME} handles your data. Short version: every tool runs in your browser; nothing leaves your device.`,
   alternates: { canonical: "/privacy" },
 };
 

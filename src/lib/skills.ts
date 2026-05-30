@@ -6,7 +6,7 @@
  *      we expose to agents via JSON-RPC. Type: "tool". The SKILL.md
  *      documents the name, description, input schema, and a call example.
  *
- *   2. The tools registry + SEO data — every implemented devtils tool
+ *   2. The tools registry + SEO data — every implemented site tool
  *      whose UI surface isn't yet wrapped as MCP (image-compressor, regex
  *      tester, color converter). Type: "documentation". The SKILL.md
  *      points an agent at the human-facing page with its FAQ + use cases.
@@ -34,7 +34,7 @@ export interface SkillEntry {
   url: string;
 }
 
-/** Slugs that exist as devtils tools but aren't wired as MCP tools yet. */
+/** Slugs that exist as site tools but aren't wired as MCP tools yet. */
 const DOCUMENTATION_ONLY_SLUGS = new Set([
   "image-compressor",
   "regex-tester",
@@ -78,8 +78,8 @@ export function renderSkill(name: string): string | null {
 
   // Else — a documentation-only tool?
   if (DOCUMENTATION_ONLY_SLUGS.has(name)) {
-    const devtilsTool = getToolBySlug(name);
-    if (devtilsTool) return renderDocSkill(name);
+    const docTool = getToolBySlug(name);
+    if (docTool) return renderDocSkill(name);
   }
 
   return null;

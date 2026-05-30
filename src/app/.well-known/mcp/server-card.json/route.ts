@@ -1,4 +1,4 @@
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { listResources } from "@/lib/mcp/resources";
 import { listTools } from "@/lib/mcp/tools";
 import {
@@ -27,8 +27,8 @@ export function GET(): Response {
       name: SERVER_NAME,
       version: SERVER_VERSION,
       description:
-        "Programmatic access to devtils' developer utilities. Every tool is a pure function that runs server-side via JSON-RPC over HTTP — no auth, no rate limits, no session state.",
-      vendor: "devtils",
+        `Programmatic access to ${SITE_NAME}'s developer utilities. Every tool is a pure function that runs server-side via JSON-RPC over HTTP — no auth, no rate limits, no session state.`,
+      vendor: SITE_NAME,
       homepage: SITE_URL,
     },
 

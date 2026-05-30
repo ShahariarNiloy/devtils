@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_PREFIX = "devtils:history:";
+const STORAGE_PREFIX = "utilyx:history:";
 const MAX_ENTRIES = 5;
 /** Items larger than this are skipped — keeps localStorage bounded. */
 const MAX_ENTRY_BYTES = 50_000;

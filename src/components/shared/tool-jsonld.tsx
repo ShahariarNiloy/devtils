@@ -1,5 +1,5 @@
 import { safeJsonLd } from "@/lib/safe-json-ld";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getToolSeoData } from "@/lib/tool-seo";
 import type { Tool } from "@/lib/tools-registry";
 
@@ -39,7 +39,7 @@ export function ToolJsonLd({ tool, isLive }: ToolJsonLdProps) {
     inLanguage: "en",
     publisher: {
       "@type": "Organization",
-      name: "devtils",
+      name: SITE_NAME,
       url: SITE_URL,
     },
   };
@@ -155,7 +155,7 @@ export function HomepageJsonLd({ faqs }: HomepageJsonLdProps = {}) {
   const webSite = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "devtils",
+    name: SITE_NAME,
     url: SITE_URL,
     description:
       "Handcrafted developer utilities — JSON, encoding, text, image, regex, and more. Every tool runs in your browser.",
@@ -170,7 +170,7 @@ export function HomepageJsonLd({ faqs }: HomepageJsonLdProps = {}) {
     },
     publisher: {
       "@type": "Organization",
-      name: "devtils",
+      name: SITE_NAME,
       url: SITE_URL,
     },
   };

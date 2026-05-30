@@ -14,7 +14,7 @@ export const dynamic = "force-static";
  * carrying `Accept: text/markdown` to this handler with the original
  * pathname forwarded in `?path=`. The browser session sees the rewrite
  * via Next.js' internal mechanics; the user's URL stays unchanged
- * (`https://devtils.com/tools/json-to-typescript` returns Markdown if the
+ * (e.g. `https://utilyx.dev/tools/json-to-typescript` returns Markdown if the
  * Accept header asks for it).
  *
  *   GET /api/markdown?path=/tools/json-to-typescript

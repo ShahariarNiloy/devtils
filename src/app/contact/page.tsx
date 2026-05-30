@@ -3,11 +3,12 @@ import type { Metadata } from "next";
 import { Mail, MessageSquare } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
+import { SITE_DOMAIN, SITE_EMAIL, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch about devtils — report bugs, request a new tool, or say hello.",
+    `Get in touch about ${SITE_NAME} — report bugs, request a new tool, or say hello.`,
   alternates: { canonical: "/contact" },
 };
 
@@ -34,7 +35,7 @@ export default function ContactPage() {
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2">
             <Link
-              href="mailto:hello@devtils.com"
+              href={`mailto:${SITE_EMAIL}`}
               className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-border-strong transition-colors"
             >
               <Mail
@@ -45,12 +46,12 @@ export default function ContactPage() {
               <div>
                 <div className="text-[14px] font-semibold text-text">Email</div>
                 <div className="mt-0.5 text-[12.5px] text-text-faint">
-                  hello@devtils.com
+                  {SITE_EMAIL}
                 </div>
               </div>
             </Link>
             <Link
-              href="https://github.com/devtils/devtils/issues"
+              href={`https://github.com/${SITE_DOMAIN.split(".")[0]}/${SITE_DOMAIN.split(".")[0]}/issues`}
               target="_blank"
               rel="noreferrer noopener"
               className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-border-strong transition-colors"
@@ -65,7 +66,7 @@ export default function ContactPage() {
                   Issue tracker
                 </div>
                 <div className="mt-0.5 text-[12.5px] text-text-faint">
-                  github.com/devtils/devtils
+                  github.com/{SITE_DOMAIN.split(".")[0]}/{SITE_DOMAIN.split(".")[0]}
                 </div>
               </div>
             </Link>

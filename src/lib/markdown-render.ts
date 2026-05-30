@@ -14,7 +14,13 @@ import {
   IMPLEMENTED_TOOL_SLUGS,
   LIVE_TOOL_COUNT,
 } from "./implemented-tools";
-import { SITE_URL } from "./site";
+import {
+  SITE_DOMAIN,
+  SITE_EMAIL,
+  SITE_NAME,
+  SITE_TITLE_DEFAULT,
+  SITE_URL,
+} from "./site";
 import { getToolSeoData } from "./tool-seo";
 import {
   CATEGORIES,
@@ -112,7 +118,7 @@ export function renderToolsIndexMarkdown(): string {
   lines.push("# All tools");
   lines.push("");
   lines.push(
-    `> Browse the full devtils catalogue. ${LIVE_TOOL_COUNT} live, ${
+    `> Browse the full ${SITE_NAME} catalogue. ${LIVE_TOOL_COUNT} live, ${
       TOOLS.filter((t) => t.showcase).length - LIVE_TOOL_COUNT
     } coming soon. Every tool runs entirely in the browser.`,
   );
@@ -149,7 +155,7 @@ export function renderToolsIndexMarkdown(): string {
 /** Homepage → Markdown summary. */
 export function renderHomeMarkdown(): string {
   const lines: string[] = [];
-  lines.push("# devtils — handcrafted developer utilities");
+  lines.push(`# ${SITE_TITLE_DEFAULT}`);
   lines.push("");
   lines.push(
     "> Format JSON, convert text cases, encode Base64, test regex, convert colors, and more. Every tool runs entirely in your browser. Nothing leaves your device.",
@@ -194,7 +200,7 @@ export function renderChangelogMarkdown(): string {
   const lines: string[] = [];
   lines.push("# Changelog");
   lines.push("");
-  lines.push("> Recent devtils releases, newest first.");
+  lines.push(`> Recent ${SITE_NAME} releases, newest first.`);
   lines.push("");
   for (const entry of CHANGELOG) {
     lines.push(`## ${entry.date} — ${entry.title}`);
@@ -238,7 +244,7 @@ export function renderGenericPageMarkdown(path: string): string | null {
       return [
         "# Terms of service",
         "",
-        "> devtils is provided as-is. The tools work as documented to the best of our ability, but we make no warranty of fitness for any particular purpose.",
+        `> ${SITE_NAME} is provided as-is. The tools work as documented to the best of our ability, but we make no warranty of fitness for any particular purpose.`,
         "",
         "## Use",
         "",
@@ -258,8 +264,8 @@ export function renderGenericPageMarkdown(path: string): string | null {
         "",
         "> Bug reports, feature requests, and ideas for the catalogue are all welcome.",
         "",
-        "- Email: hello@devtils.com",
-        "- Issue tracker: https://github.com/devtils/devtils/issues",
+        `- Email: ${SITE_EMAIL}`,
+        `- Issue tracker: https://github.com/${SITE_DOMAIN.split(".")[0]}/${SITE_DOMAIN.split(".")[0]}/issues`,
         "",
         `Canonical: ${SITE_URL}/contact`,
         "",

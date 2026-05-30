@@ -1,6 +1,6 @@
 import type { Base64Variant, Direction } from "../base64.types";
 
-const HISTORY_KEY = "devtils_base64_history";
+const HISTORY_KEY = "utilyx_base64_history";
 const HISTORY_MAX = 5;
 
 export function loadHistory(): string[] {

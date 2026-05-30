@@ -94,7 +94,7 @@ const DISCOVERY_LINK_HEADERS = [
   {
     // Agent Skills Discovery RFC v0.2.0. Extension relation since the RFC
     // is still pre-IANA. Index lists every callable + documented skill
-    // devtils exposes; each entry has a sha256 of the SKILL.md body.
+    // the site exposes; each entry has a sha256 of the SKILL.md body.
     key: "Link",
     value:
       '</.well-known/agent-skills/index.json>; rel="agent-skills"; type="application/json"',

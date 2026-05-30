@@ -87,7 +87,7 @@ function emailCandidates(): { value: string; label: string; category: "common" |
 function urlCandidates(): { value: string; label: string; category: "common" | "edge-case" }[] {
   return [
     { value: "https://github.com",                         label: "bare domain",       category: "common" },
-    { value: "https://devtils.dev/docs",                label: "with path",         category: "common" },
+    { value: "https://utilyx.dev/docs",                label: "with path",         category: "common" },
     { value: "https://api.stripe.com/v1/payments",         label: "API endpoint",      category: "common" },
     { value: "https://example.com/search?q=regex",         label: "with query string", category: "common" },
     { value: "http://localhost:3000",                      label: "localhost",         category: "edge-case" },
