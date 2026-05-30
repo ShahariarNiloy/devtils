@@ -8,6 +8,7 @@ import {
   SITE_TITLE_DEFAULT,
   SITE_URL,
 } from "@/lib/site";
+import { OG_DEFAULT_PATH, OG_HEIGHT, OG_WIDTH } from "@/lib/og/url";
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -49,11 +50,20 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: SITE_TITLE_DEFAULT,
     description: SITE_DESCRIPTION_SHORT,
+    images: [
+      {
+        url: OG_DEFAULT_PATH,
+        width: OG_WIDTH,
+        height: OG_HEIGHT,
+        alt: SITE_TITLE_DEFAULT,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_TITLE_DEFAULT,
     description: SITE_DESCRIPTION_SHORT,
+    images: [OG_DEFAULT_PATH],
   },
   robots: { index: true, follow: true },
 };

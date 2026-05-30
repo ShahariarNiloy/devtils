@@ -8,6 +8,7 @@ import { ToolJsonLd } from "@/components/shared/tool-jsonld";
 import { getToolComponent, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "@/lib/og/url";
 
 /**
  * Statically pre-render only the LIVE tools. The other 151 registry
@@ -35,10 +36,10 @@ export async function generateMetadata({
   const canonical = `/tools/${slug}`;
   const suffix = isLive ? "" : " (coming soon)";
   const title = `${tool.name}${suffix}`;
-  // Pad the description with the tool's tags so a generated OG card has
-  // body text; the registry's `description` field is the short blurb used
-  // for cards and meta-description.
   const description = tool.description;
+  // Resolved at build time: returns `/og/<slug>.png` when the file
+  // exists in `public/og/`, else falls back to `/og/default.png`.
+  const ogImage = ogImagePath(slug);
 
   return {
     title,
@@ -51,11 +52,20 @@ export async function generateMetadata({
       title: `${tool.name} · ${SITE_NAME}`,
       description,
       siteName: SITE_NAME,
+      images: [
+        {
+          url: ogImage,
+          width: OG_WIDTH,
+          height: OG_HEIGHT,
+          alt: `${tool.name} · ${SITE_NAME}`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${tool.name} · ${SITE_NAME}`,
       description,
+      images: [ogImage],
     },
     // Unbuilt tools render the ComingSoon placeholder — flag them as
     // noindex so the bare "this is coming" page doesn't compete with the
