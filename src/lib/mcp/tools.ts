@@ -32,7 +32,13 @@ import {
   diffLines,
   formatUnifiedDiff,
   type DiffOptions,
-} from "@/components/tools/diff-checker/diff-checker.lib";
+} from "@/lib/diff";
+import {
+  format as formatSql,
+  DIALECTS as SQL_DIALECTS,
+  type DialectId as SqlDialectId,
+  type SqlFormatOptions,
+} from "@/components/tools/sql-formatter/sql-formatter.lib";
 import { cases as caseDefs } from "@/components/tools/text-case/text-case.lib";
 import {
   formatAll,
@@ -486,6 +492,86 @@ const TOOLS: Tool[] = [
         bracketSpacing: o.bracketSpacing !== false,
         arrowParens: o.arrowParens === "avoid" ? "avoid" : "always",
       });
+      if (!result.ok) return err(`parse error: ${result.error}`);
+      return text(result.output);
+    },
+  },
+
+  // ── SQL formatter ──────────────────────────────────────────────────
+
+  {
+    name: "sql_format",
+    description:
+      "Format a SQL query with dialect-aware indentation. Dialects: " +
+      SQL_DIALECTS.map((d) => d.id).join(", ") +
+      ". Options control keyword case, indent, line width, leading-comma style, and AND/OR placement.",
+    inputSchema: {
+      type: "object",
+      required: ["sql", "dialect"],
+      properties: {
+        sql: { type: "string", description: "SQL source to format." },
+        dialect: {
+          type: "string",
+          enum: SQL_DIALECTS.map((d) => d.id),
+          description: "SQL dialect — picks parser variant.",
+        },
+        tabWidth: { type: "integer", default: 2 },
+        useTabs: { type: "boolean", default: false },
+        keywordCase: {
+          type: "string",
+          enum: ["preserve", "upper", "lower"],
+          default: "upper",
+        },
+        identifierCase: {
+          type: "string",
+          enum: ["preserve", "upper", "lower"],
+          default: "preserve",
+        },
+        functionCase: {
+          type: "string",
+          enum: ["preserve", "upper", "lower"],
+          default: "preserve",
+        },
+        dataTypeCase: {
+          type: "string",
+          enum: ["preserve", "upper", "lower"],
+          default: "upper",
+        },
+        expressionWidth: { type: "integer", default: 50 },
+        linesBetweenQueries: { type: "integer", default: 1 },
+        logicalOperatorNewline: {
+          type: "string",
+          enum: ["before", "after"],
+          default: "before",
+        },
+        leadingComma: { type: "boolean", default: false },
+        newlineBeforeSemicolon: { type: "boolean", default: false },
+      },
+    },
+    handler: async (args) => {
+      const o = asObject(args);
+      const sql = asString(o.sql);
+      const dialect = asString(o.dialect) as SqlDialectId;
+      if (!SQL_DIALECTS.some((d) => d.id === dialect)) {
+        return err(`unknown dialect: ${dialect}`);
+      }
+      const caseValue = (v: unknown): "preserve" | "upper" | "lower" =>
+        v === "upper" || v === "lower" ? v : "preserve";
+      const opts: SqlFormatOptions = {
+        tabWidth: typeof o.tabWidth === "number" ? o.tabWidth : 2,
+        useTabs: o.useTabs === true,
+        keywordCase: caseValue(o.keywordCase ?? "upper"),
+        identifierCase: caseValue(o.identifierCase),
+        functionCase: caseValue(o.functionCase),
+        dataTypeCase: caseValue(o.dataTypeCase ?? "upper"),
+        expressionWidth: typeof o.expressionWidth === "number" ? o.expressionWidth : 50,
+        linesBetweenQueries:
+          typeof o.linesBetweenQueries === "number" ? o.linesBetweenQueries : 1,
+        logicalOperatorNewline: o.logicalOperatorNewline === "after" ? "after" : "before",
+        leadingComma: o.leadingComma === true,
+        newlineBeforeSemicolon: o.newlineBeforeSemicolon === true,
+      };
+      const result = await formatSql(sql, dialect, opts);
       if (!result.ok) return err(`parse error: ${result.error}`);
       return text(result.output);
     },

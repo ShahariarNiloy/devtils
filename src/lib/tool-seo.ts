@@ -27,6 +27,7 @@ import { seoData as jsonToYaml } from "@/components/tools/json-to-yaml/content";
 import { seoData as jsonToZod } from "@/components/tools/json-to-zod/content";
 import { seoData as jwtDecoder } from "@/components/tools/jwt-decoder/content";
 import { seoData as regexTester } from "@/components/tools/regex-tester/content";
+import { seoData as sqlFormatter } from "@/components/tools/sql-formatter/content";
 import { seoData as textCase } from "@/components/tools/text-case/content";
 import { seoData as timestampConverter } from "@/components/tools/timestamp-converter/content";
 
@@ -50,6 +51,7 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "json-to-zod": jsonToZod,
   "jwt-decoder": jwtDecoder,
   "regex-tester": regexTester,
+  "sql-formatter": sqlFormatter,
   "case-converter": textCase,
   "timestamp-converter": timestampConverter,
 };

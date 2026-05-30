@@ -57,4 +57,5 @@ export type Lang =
   | "css"
   | "markdown"
   | "graphql"
+  | "sql"
   | "plain";

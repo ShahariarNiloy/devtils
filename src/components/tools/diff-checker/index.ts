@@ -9,7 +9,7 @@ export {
   formatUnifiedDiff,
   splitLines,
   tokenizeWords,
-} from "./diff-checker.lib";
+} from "@/lib/diff";
 export type {
   DiffOptions,
   DiffStats,
@@ -17,4 +17,4 @@ export type {
   LineOp,
   SideRow,
   WordOp,
-} from "./diff-checker.lib";
+} from "@/lib/diff";

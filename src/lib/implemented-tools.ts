@@ -16,6 +16,7 @@ import { JsonToYaml } from "@/components/tools/json-to-yaml";
 import { JsonToZod } from "@/components/tools/json-to-zod";
 import { JwtDecoder } from "@/components/tools/jwt-decoder";
 import { RegexTester } from "@/components/tools/regex-tester";
+import { SqlFormatter } from "@/components/tools/sql-formatter";
 import { TextCase } from "@/components/tools/text-case";
 import { TimestampConverter } from "@/components/tools/timestamp-converter";
 import { TOOLS } from "./tools/data";
@@ -53,6 +54,7 @@ export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   base64: Base64,
   "code-formatter": CodeFormatter,
   "regex-tester": RegexTester,
+  "sql-formatter": SqlFormatter,
   "color-converter": ColorConverter,
   "diff-checker": DiffChecker,
   "timestamp-converter": TimestampConverter,

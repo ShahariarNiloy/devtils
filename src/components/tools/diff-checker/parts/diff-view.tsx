@@ -6,7 +6,7 @@ import type {
   LineOp,
   SideRow,
   WordOp,
-} from "../diff-checker.lib";
+} from "@/lib/diff";
 
 /**
  * Diff renderers + the scroll-tracking glue that updates the toolbar's

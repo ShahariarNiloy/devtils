@@ -18,7 +18,7 @@ import {
   Link2,
   MoreHorizontal,
 } from "lucide-react";
-import type { DiffOptions } from "../diff-checker.lib";
+import type { DiffOptions } from "@/lib/diff";
 import type { ViewMode } from "../use-diff-checker";
 
 export interface ToolbarProps {

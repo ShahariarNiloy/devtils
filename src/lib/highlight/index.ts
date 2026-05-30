@@ -10,6 +10,7 @@ import { tokenizeCsv } from "./tokenize-csv";
 import { tokenizeCss } from "./tokenize-css";
 import { tokenizeMarkdown } from "./tokenize-markdown";
 import { tokenizeGraphql } from "./tokenize-graphql";
+import { tokenizeSql } from "./tokenize-sql";
 import {
   applySearchToTokens,
   escapeHtml,
@@ -45,6 +46,7 @@ function tokenizerFor(lang: Lang): (s: string) => Token[] {
     case "css": return tokenizeCss;
     case "markdown": return tokenizeMarkdown;
     case "graphql": return tokenizeGraphql;
+    case "sql": return tokenizeSql;
     case "plain": return () => [];
   }
 }

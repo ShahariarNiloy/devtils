@@ -47,6 +47,14 @@ export interface CodeViewProps {
    * code-formatter output pane) can safely pass a much larger value.
    */
   maxHighlightSize?: number;
+  /**
+   * Soft-wrap long lines instead of horizontal scrolling. With wrap on,
+   * source lines can span multiple visual rows, so the line-number gutter
+   * is hidden — it would otherwise drift out of sync with the wrapped
+   * content. Defaults off to preserve the json-formatter behaviour where
+   * navigating to a parse-error line matters more than line length.
+   */
+  wrap?: boolean;
 }
 
 /**
@@ -88,6 +96,7 @@ export function CodeView({
   search,
   placeholder = "Paste JSON here…",
   maxHighlightSize = HIGHLIGHT_SIZE_THRESHOLD,
+  wrap = false,
 }: CodeViewProps) {
   const gutterRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -356,21 +365,32 @@ export function CodeView({
   }, [jumpNonce, isReadOnly, syncScroll]);
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // With wrap on, both panes use whitespace-pre-wrap + break-words so
+  // the textarea's caret position lines up with the highlighted overlay
+  // even when long lines fold. Horizontal scrolling is suppressed; the
+  // gutter is hidden because its source-line numbers no longer correlate
+  // 1:1 with visual rows.
+  const wrapCls = wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre";
+  const preReadOnlyOverflow = wrap ? "overflow-y-auto overflow-x-hidden" : "overflow-auto";
+  const overlayOverflow = wrap ? "overflow-y-auto overflow-x-hidden" : "overflow-auto";
+
   return (
     <div className="relative flex h-full overflow-hidden">
-      <div
-        ref={gutterRef}
-        aria-hidden
-        className="no-scrollbar select-none overflow-hidden whitespace-pre bg-surface-soft/20 border-r border-border-subtle py-3 px-2 text-right font-mono text-base leading-code tracking-tight text-text-faint min-w-line-num shrink-0"
-      >
-        <GutterLines numLines={numLines} errorLine={errorLine} />
-      </div>
+      {!wrap && (
+        <div
+          ref={gutterRef}
+          aria-hidden
+          className="no-scrollbar select-none overflow-hidden whitespace-pre bg-surface-soft/20 border-r border-border-subtle py-3 px-2 text-right font-mono text-base leading-code tracking-tight text-text-faint min-w-line-num shrink-0"
+        >
+          <GutterLines numLines={numLines} errorLine={errorLine} />
+        </div>
+      )}
 
       {isReadOnly ? (
         <pre
           ref={preRef}
           onScroll={syncScroll}
-          className="flex-1 overflow-auto px-3 py-3 font-mono text-base leading-code tracking-tight text-text m-0"
+          className={`flex-1 ${preReadOnlyOverflow} px-3 py-3 font-mono text-base leading-code tracking-tight text-text m-0 ${wrapCls}`}
         >
           {value ? (
             <code dangerouslySetInnerHTML={{ __html: highlighted ?? "" }} />
@@ -381,7 +401,12 @@ export function CodeView({
       ) : (
         <div className="relative flex-1 overflow-hidden">
           {!plainMode && (
-            <HighlightOverlay preRef={preRef} html={editableHighlight} />
+            <HighlightOverlay
+              preRef={preRef}
+              html={editableHighlight}
+              wrapCls={wrapCls}
+              overflowCls={overlayOverflow}
+            />
           )}
           <textarea
             ref={textareaRef}
@@ -394,7 +419,7 @@ export function CodeView({
             onClick={handleClick}
             spellCheck={false}
             placeholder={placeholder}
-            className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none overflow-auto whitespace-pre`}
+            className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none ${overlayOverflow} ${wrapCls}`}
           />
         </div>
       )}
@@ -411,15 +436,19 @@ export function CodeView({
 const HighlightOverlay = memo(function HighlightOverlay({
   preRef,
   html,
+  wrapCls = "whitespace-pre",
+  overflowCls = "overflow-auto",
 }: {
   preRef: React.RefObject<HTMLPreElement | null>;
   html: string;
+  wrapCls?: string;
+  overflowCls?: string;
 }) {
   return (
     <pre
       ref={preRef}
       aria-hidden
-      className="absolute inset-0 m-0 px-3 py-3 overflow-auto font-mono text-base leading-code tracking-tight text-text pointer-events-none whitespace-pre"
+      className={`absolute inset-0 m-0 px-3 py-3 ${overflowCls} font-mono text-base leading-code tracking-tight text-text pointer-events-none ${wrapCls}`}
     >
       <code dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />
     </pre>

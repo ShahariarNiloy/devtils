@@ -490,6 +490,7 @@ function InputCard({
           lang={lang}
           placeholder="Paste source code to format…"
           maxHighlightSize={maxHighlight}
+          wrap
           // No onPasteFormatted — CodeView skips its JSON auto-format
           // path and the textarea handles paste natively.
         />
@@ -543,6 +544,7 @@ function OutputCard({
             indent="2"
             lang={lang}
             maxHighlightSize={maxHighlight}
+            wrap
           />
         </div>
       )}

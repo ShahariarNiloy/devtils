@@ -8,7 +8,7 @@ import {
   diffLines,
   formatUnifiedDiff,
   type DiffOptions,
-} from "./diff-checker.lib";
+} from "@/lib/diff";
 import { decodeShare, encodeShare, readShareFromHash, shareHashFor } from "./diff-share";
 
 export type ViewMode = "side-by-side" | "unified";
