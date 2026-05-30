@@ -28,6 +28,7 @@ import { seoData as jsonToZod } from "@/components/tools/json-to-zod/content";
 import { seoData as jwtDecoder } from "@/components/tools/jwt-decoder/content";
 import { seoData as regexTester } from "@/components/tools/regex-tester/content";
 import { seoData as sqlFormatter } from "@/components/tools/sql-formatter/content";
+import { seoData as xmlFormatter } from "@/components/tools/xml-formatter/content";
 import { seoData as textCase } from "@/components/tools/text-case/content";
 import { seoData as timestampConverter } from "@/components/tools/timestamp-converter/content";
 
@@ -52,6 +53,7 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "jwt-decoder": jwtDecoder,
   "regex-tester": regexTester,
   "sql-formatter": sqlFormatter,
+  "xml-formatter": xmlFormatter,
   "case-converter": textCase,
   "timestamp-converter": timestampConverter,
 };

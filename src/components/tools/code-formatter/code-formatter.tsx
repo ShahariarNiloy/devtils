@@ -1,8 +1,5 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
-import { Check, ChevronDown, Clipboard, ClipboardCopy, Download, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
 import {
   DropdownMenu,
@@ -17,12 +14,21 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/primitives/resizable";
-import { highlight } from "@/lib/highlight";
 import { CodeView } from "@/components/tools/json-formatter/views/code-view";
+import { highlight } from "@/lib/highlight";
 import { useShortcut } from "@/lib/keyboard";
-import { useIsMobile } from "@/lib/use-is-mobile";
 import type { Tool } from "@/lib/tools-registry";
-import { CodeFormatterContent } from "./content";
+import { useIsMobile } from "@/lib/use-is-mobile";
+import {
+  Check,
+  ChevronDown,
+  Clipboard,
+  ClipboardCopy,
+  Download,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import {
   getLanguage,
   LANGUAGES,
@@ -30,6 +36,7 @@ import {
   type FormatOptions,
   type LanguageId,
 } from "./code-formatter.lib";
+import { CodeFormatterContent } from "./content";
 import { useCodeFormatter } from "./use-code-formatter";
 
 /**
@@ -59,7 +66,7 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
   // doesn't re-tokenise on unrelated re-renders (cursor, status pill).
   const outputHtml = useMemo(
     () => (s.output ? highlight(s.output, hLang, MAX_HIGHLIGHT) : ""),
-    [s.output, hLang],
+    [s.output, hLang]
   );
 
   // ── Actions ─────────────────────────────────────────────────────────
@@ -159,7 +166,11 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
           )}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <StatusPill pending={s.pending} elapsed={s.elapsed} hasError={!!s.error} />
+            <StatusPill
+              pending={s.pending}
+              elapsed={s.elapsed}
+              hasError={!!s.error}
+            />
             <button
               type="button"
               onClick={onCopy}
@@ -236,11 +247,14 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
         {/* Stats footer */}
         <p className="px-1 font-mono text-sm text-text-faint">
           {s.stats.inputLines}→{s.stats.outputLines} lines ·{" "}
-          {s.stats.inputChars.toLocaleString()}→{s.stats.outputChars.toLocaleString()} chars
+          {s.stats.inputChars.toLocaleString()}→
+          {s.stats.outputChars.toLocaleString()} chars
           {s.stats.delta !== 0 && (
             <>
               {" "}
-              <span className={s.stats.delta < 0 ? "text-success" : "text-warning"}>
+              <span
+                className={s.stats.delta < 0 ? "text-success" : "text-warning"}
+              >
                 ({s.stats.delta > 0 ? "+" : ""}
                 {s.stats.delta.toLocaleString()})
               </span>
@@ -269,11 +283,11 @@ function LanguagePicker({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-bg px-2.5 text-sm text-text transition-colors hover:bg-surface-soft cursor-pointer"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-brand px-2.5 text-sm text-text-on-sage transition-colors hover:bg-brand/80 cursor-pointer"
           aria-label="Language"
         >
           <span className="font-mono">{current?.label ?? value}</span>
-          <ChevronDown size={13} aria-hidden className="text-text-faint" />
+          <ChevronDown size={13} aria-hidden className="text-inherit" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-44">
@@ -376,7 +390,10 @@ function MoreMenu({
   canDownload,
 }: {
   options: FormatOptions;
-  setOption: <K extends keyof FormatOptions>(key: K, value: FormatOptions[K]) => void;
+  setOption: <K extends keyof FormatOptions>(
+    key: K,
+    value: FormatOptions[K]
+  ) => void;
   groups: Set<string>;
   onDownload: () => void;
   onLoadSample: () => void;
@@ -397,7 +414,9 @@ function MoreMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {groups.has("indent") && (
-          <DropdownMenuItem onSelect={() => setOption("useTabs", !options.useTabs)}>
+          <DropdownMenuItem
+            onSelect={() => setOption("useTabs", !options.useTabs)}
+          >
             {options.useTabs ? "✓ " : ""}Use tabs
           </DropdownMenuItem>
         )}
@@ -406,18 +425,24 @@ function MoreMenu({
             <DropdownMenuItem onSelect={() => setOption("semi", !options.semi)}>
               {options.semi ? "✓ " : ""}Semicolons
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setOption("singleQuote", !options.singleQuote)}>
+            <DropdownMenuItem
+              onSelect={() => setOption("singleQuote", !options.singleQuote)}
+            >
               {options.singleQuote ? "✓ " : ""}Single quotes
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={() => setOption("bracketSpacing", !options.bracketSpacing)}
+              onSelect={() =>
+                setOption("bracketSpacing", !options.bracketSpacing)
+              }
             >
               {options.bracketSpacing ? "✓ " : ""}Bracket spacing
             </DropdownMenuItem>
           </>
         )}
         {groups.has("css") && (
-          <DropdownMenuItem onSelect={() => setOption("singleQuote", !options.singleQuote)}>
+          <DropdownMenuItem
+            onSelect={() => setOption("singleQuote", !options.singleQuote)}
+          >
             {options.singleQuote ? "✓ " : ""}Single quotes
           </DropdownMenuItem>
         )}

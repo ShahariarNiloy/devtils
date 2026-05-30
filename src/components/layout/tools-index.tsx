@@ -215,7 +215,7 @@ export function ToolsIndex({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search ${tools.length} tools by name, tag, or category…`}
-              className="w-full h-10 pl-9 pr-9 rounded-lg border border-border bg-surface text-sm text-text placeholder:text-text-faint outline-none focus:border-border-strong"
+              className="w-full h-12 pl-9 pr-9 rounded-lg border border-border bg-surface text-base text-text placeholder:text-text-faint outline-none focus:border-border-strong"
               aria-label="Search tools"
             />
             {query && (

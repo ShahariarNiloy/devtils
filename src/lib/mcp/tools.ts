@@ -39,6 +39,16 @@ import {
   type DialectId as SqlDialectId,
   type SqlFormatOptions,
 } from "@/components/tools/sql-formatter/sql-formatter.lib";
+import {
+  applyFlavor as applyXmlFlavor,
+  detectFlavor as detectXmlFlavor,
+  format as formatXml,
+  FLAVORS as XML_FLAVORS,
+  minify as minifyXml,
+  xmlToJson,
+  type Flavor as XmlFlavor,
+  type XmlFormatOptions,
+} from "@/components/tools/xml-formatter/xml-formatter.lib";
 import { cases as caseDefs } from "@/components/tools/text-case/text-case.lib";
 import {
   formatAll,
@@ -492,6 +502,82 @@ const TOOLS: Tool[] = [
         bracketSpacing: o.bracketSpacing !== false,
         arrowParens: o.arrowParens === "avoid" ? "avoid" : "always",
       });
+      if (!result.ok) return err(`parse error: ${result.error}`);
+      return text(result.output);
+    },
+  },
+
+  // ── XML formatter ──────────────────────────────────────────────────
+
+  {
+    name: "xml_format",
+    description:
+      "Format, minify, or convert XML to JSON. Auto-detects flavor (SVG, SOAP, RSS, Atom, POM, Android) from the root element. Set `mode: 'json'` to receive the XML-as-JSON conversion instead of formatted XML.",
+    inputSchema: {
+      type: "object",
+      required: ["xml"],
+      properties: {
+        xml: { type: "string", description: "XML source." },
+        mode: {
+          type: "string",
+          enum: ["format", "minify", "json"],
+          default: "format",
+        },
+        flavor: {
+          type: "string",
+          enum: XML_FLAVORS.map((f) => f.id),
+          default: "auto",
+          description: "auto picks SVG / SOAP / RSS / Atom / POM / Android from the root element.",
+        },
+        indent: { type: "integer", default: 2 },
+        useTab: { type: "boolean", default: false },
+        selfClosing: {
+          type: "string",
+          enum: ["preserve", "expand", "compact"],
+          default: "compact",
+        },
+        keepComments: { type: "boolean", default: false },
+        sortAttributes: { type: "boolean", default: false },
+        stripNamespaces: { type: "boolean", default: false },
+        declaration: {
+          type: "string",
+          enum: ["preserve", "strip", "add"],
+          default: "preserve",
+        },
+      },
+    },
+    handler: async (args) => {
+      const o = asObject(args);
+      const xml = asString(o.xml);
+      const mode = asString(o.mode || "format");
+
+      if (mode === "minify") return text(minifyXml(xml));
+      if (mode === "json") {
+        const r = await xmlToJson(xml);
+        if (!r.ok) return err(`parse error: ${r.error}`);
+        return text(r.output);
+      }
+
+      const flavor = (asString(o.flavor) || "auto") as XmlFlavor;
+      if (!XML_FLAVORS.some((f) => f.id === flavor)) {
+        return err(`unknown flavor: ${flavor}`);
+      }
+      const concrete = flavor === "auto" ? detectXmlFlavor(xml) : flavor;
+
+      const opts: XmlFormatOptions = {
+        indent: o.useTab === true ? "tab" : typeof o.indent === "number" ? o.indent : 2,
+        selfClosing:
+          o.selfClosing === "expand" || o.selfClosing === "compact" || o.selfClosing === "preserve"
+            ? o.selfClosing
+            : "compact",
+        keepComments: o.keepComments === true,
+        sortAttributes: o.sortAttributes === true,
+        stripNamespaces: o.stripNamespaces === true,
+        declaration:
+          o.declaration === "strip" || o.declaration === "add" ? o.declaration : "preserve",
+      };
+      const layered = applyXmlFlavor(opts, concrete);
+      const result = await formatXml(xml, layered);
       if (!result.ok) return err(`parse error: ${result.error}`);
       return text(result.output);
     },

@@ -35,6 +35,7 @@
     "client-zip": "^2.5.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "fast-xml-parser": "^5.8.0",
     "framer-motion": "^12.38.0",
     "idb-keyval": "^6.2.2",
     "js-yaml": "^4.1.1",

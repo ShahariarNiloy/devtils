@@ -1679,11 +1679,26 @@ export const TOOLS: Tool[] = [
   {
     slug: 'xml-formatter',
     name: 'XML formatter',
-    description: 'Format and validate XML with XSD schema support and pretty-printing.',
+    description:
+      'Format, minify, or convert XML to JSON — auto-detects SVG, SOAP, RSS, Atom, POM, Android.',
     category: 'Code',
     tier: 'free',
     icon: 'code',
-    tags: ['xml', 'format', 'validate'],
+    tags: [
+      'xml',
+      'format',
+      'validate',
+      'minify',
+      'json',
+      'svg',
+      'soap',
+      'rss',
+      'atom',
+      'pom',
+      'android',
+    ],
+    order: 14,
+    showcase: true,
   },
   {
     slug: 'yaml-to-json',

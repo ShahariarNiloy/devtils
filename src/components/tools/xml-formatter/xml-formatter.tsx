@@ -31,7 +31,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardCopy,
-  Database,
+  Code2,
   Download,
   FileText,
   Link2,
@@ -40,46 +40,34 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { SqlFormatterContent } from "./content";
+import { XmlFormatterContent } from "./content";
 import {
-  COPY_AS_OPTIONS,
-  DIALECTS,
-  type CopyAsFormat,
-  type DialectId,
-  type SqlFormatOptions,
-} from "./sql-formatter.lib";
-import {
-  useSqlFormatter,
+  useXmlFormatter,
   type OutputMode,
   type ViewMode,
-} from "./use-sql-formatter";
+} from "./use-xml-formatter";
+import {
+  FLAVORS,
+  type Flavor,
+  type XmlFormatOptions,
+} from "./xml-formatter.lib";
 
 const MAX_HIGHLIGHT = 1_000_000;
 
-/**
- * SQL formatter orchestrator. The dialect picker + case/indent chips
- * cover ~95% of real configuration; logical-operator placement, comma
- * style, and indent style live in the Options dropdown.
- *
- * The diff view (toggle in the toolbar) reuses the diff-checker engine
- * to show original ↔ formatted side-by-side — the answer to the user's
- * question "did the formatter actually change anything semantically?".
- */
-export function SqlFormatter({ tool }: { tool: Tool }) {
-  const s = useSqlFormatter();
+export function XmlFormatter({ tool }: { tool: Tool }) {
+  const s = useXmlFormatter();
   const isMobile = useIsMobile();
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const dragDepth = useRef(0);
 
-  // Pre-compute the highlighted output once per (output, dialect) change
-  // so it doesn't re-tokenise on unrelated re-renders.
+  // Pick the right highlighter for the active mode.
+  const outputLang = s.mode === "json" ? "json" : "xml";
   const outputHtml = useMemo(
-    () => (s.output ? highlight(s.output, "sql", MAX_HIGHLIGHT) : ""),
-    [s.output]
+    () => (s.output ? highlight(s.output, outputLang, MAX_HIGHLIGHT) : ""),
+    [s.output, outputLang]
   );
 
-  // ── Diff (lazy, only when the view is on) ───────────────────────────
   const diffRows = useMemo(() => {
     if (s.view !== "diff" || !s.output) return null;
     const ops = diffLines(s.input, s.output, { ignoreWhitespace: false });
@@ -103,41 +91,23 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
     }
     const ok = await s.copyOutput();
     if (ok) toast.success(`Copied ${s.output.length.toLocaleString()} chars`);
-    else toast.error("Couldn't copy to clipboard");
+    else toast.error("Couldn't copy");
   }, [s]);
-
-  const onCopyAs = useCallback(
-    async (fmt: CopyAsFormat) => {
-      if (!s.output) {
-        toast("Nothing to copy yet", { duration: 1000 });
-        return;
-      }
-      const ok = await s.copyAs(fmt);
-      if (ok) {
-        const opt = COPY_AS_OPTIONS.find((o) => o.id === fmt);
-        toast.success(`Copied as ${opt?.label ?? fmt}`);
-      } else {
-        toast.error("Couldn't copy to clipboard");
-      }
-    },
-    [s]
-  );
 
   const onShare = useCallback(async () => {
     const url = await s.share();
-    if (url) {
-      toast.success("Share link copied", {
-        description: "Anyone with the link sees this query + dialect.",
-        duration: 2400,
-      });
-    } else {
-      toast.error("Couldn't generate share link");
-    }
+    if (url) toast.success("Share link copied", { duration: 2400 });
+    else toast.error("Couldn't generate share link");
   }, [s]);
 
   const onDownload = useCallback(() => {
     if (s.download()) {
-      toast.success("formatted.sql downloaded", { duration: 1600 });
+      toast.success(
+        `formatted.${s.mode === "json" ? "json" : "xml"} downloaded`,
+        {
+          duration: 1600,
+        }
+      );
     } else {
       toast("Nothing to download", { duration: 1000 });
     }
@@ -153,14 +123,21 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
     void onCopy();
   });
   useShortcut(
-    { key: "d", meta: true, shift: true, ignoreInEditable: true },
+    { key: "m", meta: true, shift: true, ignoreInEditable: true },
     (e) => {
       e.preventDefault();
-      s.setView(s.view === "diff" ? "output" : "diff");
+      s.setMode(s.mode === "minify" ? "format" : "minify");
+    }
+  );
+  useShortcut(
+    { key: "j", meta: true, shift: true, ignoreInEditable: true },
+    (e) => {
+      e.preventDefault();
+      s.setMode(s.mode === "json" ? "format" : "json");
     }
   );
 
-  // ── Drag-and-drop a .sql file ───────────────────────────────────────
+  // ── Drag-and-drop ───────────────────────────────────────────────────
   const onDragEnter = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
@@ -189,7 +166,6 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
     [s]
   );
 
-  // ── Render ──────────────────────────────────────────────────────────
   return (
     <ToolShell tool={tool}>
       <div
@@ -201,43 +177,26 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
         onDrop={onDrop}
       >
         {dragOver && <DropOverlay />}
-
-        <TrustHeader />
+        <Hero />
 
         {/* Toolbar */}
         <div className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface/95 px-3 py-2 shadow-card backdrop-blur">
-          <DialectPicker value={s.dialect} onChange={s.setDialect} />
+          <FlavorPicker
+            value={s.flavor}
+            effective={s.effectiveFlavor}
+            onChange={s.setFlavor}
+          />
           <div className="hidden h-6 w-px bg-border-subtle md:block" />
 
-          <ChipGroup<NonNullable<SqlFormatOptions["keywordCase"]>>
-            label="case"
-            options={[
-              { v: "upper", label: "UPPER" },
-              { v: "lower", label: "lower" },
-              { v: "preserve", label: "as is" },
-            ]}
-            value={s.options.keywordCase ?? "upper"}
-            onChange={(v) => s.setOption("keywordCase", v)}
-          />
           <ChipGroup
             label="indent"
             options={[
               { v: 2, label: "2" },
               { v: 4, label: "4" },
-              { v: 8, label: "8" },
+              { v: "tab" as const, label: "tab" },
             ]}
-            value={s.options.tabWidth ?? 2}
-            onChange={(v) => s.setOption("tabWidth", v)}
-          />
-          <ChipGroup
-            label="width"
-            options={[
-              { v: 50, label: "50" },
-              { v: 80, label: "80" },
-              { v: 120, label: "120" },
-            ]}
-            value={s.options.expressionWidth ?? 50}
-            onChange={(v) => s.setOption("expressionWidth", v)}
+            value={s.options.indent ?? 2}
+            onChange={(v) => s.setOption("indent", v)}
           />
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -258,7 +217,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
               type="button"
               onClick={onCopy}
               disabled={!s.output}
-              aria-label="Copy formatted SQL"
+              aria-label="Copy output"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-bg text-text-faint transition-colors hover:bg-surface-soft hover:text-text disabled:opacity-40 cursor-pointer"
             >
               <ClipboardCopy size={13} aria-hidden />
@@ -277,14 +236,12 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
               onDownload={onDownload}
               onLoadSample={s.loadSample}
               onClear={s.clear}
-              onCopyAs={onCopyAs}
               canDownload={!!s.output}
-              hasOutput={!!s.output}
+              mode={s.mode}
             />
           </div>
         </div>
 
-        {/* Workspace */}
         {isMobile ? (
           <div className="flex flex-col gap-3">
             <InputCard
@@ -298,6 +255,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
               outputHtml={outputHtml}
               error={s.error}
               errorLine={s.errorLine}
+              lang={outputLang}
             />
           </div>
         ) : (
@@ -324,6 +282,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
                   outputHtml={outputHtml}
                   error={s.error}
                   errorLine={s.errorLine}
+                  lang={outputLang}
                   bare
                 />
               )}
@@ -331,22 +290,22 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
           </ResizablePanelGroup>
         )}
 
-        {/* Stats footer */}
         <p className="px-1 font-mono text-sm text-text-faint">
           {s.stats.inputLines}→{s.stats.outputLines} lines ·{" "}
-          {s.stats.inputChars.toLocaleString()}→
-          {s.stats.outputChars.toLocaleString()} chars ·{" "}
-          {s.stats.statementCount} statement
-          {s.stats.statementCount === 1 ? "" : "s"}
+          {s.stats.elementCount} element{s.stats.elementCount === 1 ? "" : "s"}{" "}
+          · {s.stats.attributeCount} attr
+          {s.stats.attributeCount === 1 ? "" : "s"} · depth {s.stats.maxDepth}
+          {s.stats.commentCount > 0 && ` · ${s.stats.commentCount} comments`}
           {!isMobile && (
             <>
               {" · "}
-              <Kbd>/</Kbd> focus · <Kbd>⌘⇧C</Kbd> copy · <Kbd>⌘⇧D</Kbd> diff
+              <Kbd>/</Kbd> focus · <Kbd>⌘⇧C</Kbd> copy · <Kbd>⌘⇧M</Kbd> minify ·{" "}
+              <Kbd>⌘⇧J</Kbd> JSON
             </>
           )}
         </p>
 
-        <SqlFormatterContent />
+        <XmlFormatterContent />
       </div>
     </ToolShell>
   );
@@ -354,47 +313,61 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
 
 // ── Sub-components ─────────────────────────────────────────────────────
 
-function TrustHeader() {
+function Hero() {
+  // Brand line + trust signal as a single editorial header. Serif italic
+  // on the top line picks up the codebase's "editorial sub-copy" rule
+  // (per AGENTS.md); the privacy line follows in the standard utility
+  // grey so the value prop reads first without the trust signal feeling
+  // demoted.
   return (
-    <div className="flex items-center gap-2 px-1 text-sm text-text-faint">
-      <Lock size={12} className="text-success" aria-hidden />
-      <span>
-        <span className="text-text">Stays on your device.</span> SQL never
-        leaves the browser — the formatter runs locally.
-      </span>
-    </div>
+    <header className="flex flex-col gap-1.5 px-1">
+      <div className="flex items-center gap-2 text-sm text-text-faint">
+        <Lock size={12} className="text-success" aria-hidden />
+        <span>
+          <span className="text-text">Stays on your device.</span> Runs entirely
+          in your browser — pasted XML never leaves the tab.
+        </span>
+      </div>
+    </header>
   );
 }
 
-function DialectPicker({
+function FlavorPicker({
   value,
+  effective,
   onChange,
 }: {
-  value: DialectId;
-  onChange: (v: DialectId) => void;
+  value: Flavor;
+  effective: Exclude<Flavor, "auto">;
+  onChange: (v: Flavor) => void;
 }) {
-  const current = DIALECTS.find((d) => d.id === value);
+  const current = FLAVORS.find((f) => f.id === value);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-brand px-2.5 text-sm text-text-on-sage transition-colors hover:bg-brand/80 cursor-pointer"
-          aria-label="Dialect"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-bg px-2.5 text-sm text-text transition-colors hover:bg-surface-soft cursor-pointer"
+          aria-label="Flavor"
         >
-          <Database size={13} aria-hidden className="text-inherit" />
+          <Code2 size={13} aria-hidden className="text-text-faint" />
           <span className="font-mono">{current?.label ?? value}</span>
-          <ChevronDown size={13} aria-hidden className="text-inherit" />
+          {value === "auto" && (
+            <span className="font-mono text-sm text-text-faint">
+              → {effective}
+            </span>
+          )}
+          <ChevronDown size={13} aria-hidden className="text-text-faint" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Dialect</DropdownMenuLabel>
-        {DIALECTS.map((d) => {
-          const selected = d.id === value;
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuLabel>Flavor</DropdownMenuLabel>
+        {FLAVORS.map((f) => {
+          const selected = f.id === value;
           return (
             <DropdownMenuItem
-              key={d.id}
-              onSelect={() => onChange(d.id)}
+              key={f.id}
+              onSelect={() => onChange(f.id)}
               className="pl-7"
             >
               {selected && (
@@ -405,9 +378,9 @@ function DialectPicker({
                 />
               )}
               <div className="flex flex-col">
-                <span className="font-mono">{d.label}</span>
+                <span className="font-mono">{f.label}</span>
                 <span className="font-mono text-sm text-text-faint">
-                  {d.hint}
+                  {f.hint}
                 </span>
               </div>
             </DropdownMenuItem>
@@ -482,6 +455,39 @@ function StatusPill({
   );
 }
 
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: OutputMode;
+  onChange: (m: OutputMode) => void;
+}) {
+  const modes: ReadonlyArray<{ id: OutputMode; label: string }> = [
+    { id: "format", label: "Format" },
+    { id: "minify", label: "Minify" },
+    { id: "json", label: "JSON" },
+  ];
+  return (
+    <div className="inline-flex h-8 items-center rounded-md border border-border-subtle bg-bg p-0.5">
+      {modes.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onChange(m.id)}
+          className={`inline-flex h-7 items-center rounded px-2.5 text-sm transition-colors cursor-pointer ${
+            mode === m.id
+              ? "bg-surface text-text shadow-sm"
+              : "text-text-faint hover:text-text"
+          }`}
+          aria-label={`${m.label} mode`}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ViewToggle({
   view,
   onChange,
@@ -520,65 +526,29 @@ function ViewToggle({
   );
 }
 
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: OutputMode;
-  onChange: (m: OutputMode) => void;
-}) {
-  return (
-    <div className="inline-flex h-8 items-center rounded-md border border-border-subtle bg-bg p-0.5">
-      <button
-        type="button"
-        onClick={() => onChange("format")}
-        className={`inline-flex h-7 items-center rounded px-2.5 text-sm transition-colors cursor-pointer ${
-          mode === "format"
-            ? "bg-surface text-text shadow-sm"
-            : "text-text-faint hover:text-text"
-        }`}
-        aria-label="Format mode"
-      >
-        Format
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("minify")}
-        className={`inline-flex h-7 items-center rounded px-2.5 text-sm transition-colors cursor-pointer ${
-          mode === "minify"
-            ? "bg-surface text-text shadow-sm"
-            : "text-text-faint hover:text-text"
-        }`}
-        aria-label="Minify mode"
-      >
-        Minify
-      </button>
-    </div>
-  );
-}
-
 function MoreMenu({
   options,
   setOption,
   onDownload,
   onLoadSample,
   onClear,
-  onCopyAs,
   canDownload,
-  hasOutput,
+  mode,
 }: {
-  options: SqlFormatOptions;
-  setOption: <K extends keyof SqlFormatOptions>(
+  options: XmlFormatOptions;
+  setOption: <K extends keyof XmlFormatOptions>(
     key: K,
-    value: SqlFormatOptions[K]
+    value: XmlFormatOptions[K]
   ) => void;
   onDownload: () => void;
   onLoadSample: () => void;
   onClear: () => void;
-  onCopyAs: (fmt: CopyAsFormat) => void;
   canDownload: boolean;
-  hasOutput: boolean;
+  mode: OutputMode;
 }) {
+  // The format-specific toggles are irrelevant in Minify / JSON modes —
+  // grey them out so users know which view they affect.
+  const formatActive = mode === "format";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -591,93 +561,68 @@ function MoreMenu({
           <ChevronDown size={13} aria-hidden />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel>Case</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel>Format</DropdownMenuLabel>
         <DropdownMenuItem
           onSelect={() =>
             setOption(
-              "identifierCase",
-              options.identifierCase === "upper" ? "preserve" : "upper"
+              "selfClosing",
+              options.selfClosing === "expand" ? "compact" : "expand"
             )
           }
+          disabled={!formatActive}
         >
-          {options.identifierCase === "upper" ? "✓ " : ""}Uppercase identifiers
+          {options.selfClosing === "expand"
+            ? "✓ Expand <foo></foo>"
+            : "Expand self-closing"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => setOption("keepComments", !options.keepComments)}
+          disabled={!formatActive}
+        >
+          {options.keepComments ? "✓ " : ""}Keep comments
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => setOption("sortAttributes", !options.sortAttributes)}
+          disabled={!formatActive}
+        >
+          {options.sortAttributes ? "✓ " : ""}Sort attributes
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() =>
-            setOption(
-              "functionCase",
-              options.functionCase === "upper" ? "preserve" : "upper"
-            )
+            setOption("stripNamespaces", !options.stripNamespaces)
           }
+          disabled={!formatActive}
         >
-          {options.functionCase === "upper" ? "✓ " : ""}Uppercase functions
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() =>
-            setOption(
-              "dataTypeCase",
-              options.dataTypeCase === "upper" ? "preserve" : "upper"
-            )
-          }
-        >
-          {options.dataTypeCase === "upper" ? "✓ " : ""}Uppercase data types
+          {options.stripNamespaces ? "✓ " : ""}Strip xmlns
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Layout</DropdownMenuLabel>
+        <DropdownMenuLabel>Declaration</DropdownMenuLabel>
         <DropdownMenuItem
-          onSelect={() =>
-            setOption(
-              "logicalOperatorNewline",
-              options.logicalOperatorNewline === "before" ? "after" : "before"
-            )
-          }
+          onSelect={() => setOption("declaration", "preserve")}
+          disabled={!formatActive}
         >
-          AND/OR at{" "}
-          {options.logicalOperatorNewline === "before"
-            ? "start of next line"
-            : "end of line"}
+          {(options.declaration ?? "preserve") === "preserve" ? "✓ " : ""}
+          Preserve
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => setOption("leadingComma", !options.leadingComma)}
+          onSelect={() => setOption("declaration", "strip")}
+          disabled={!formatActive}
         >
-          {options.leadingComma ? "✓ " : ""}Leading commas
+          {options.declaration === "strip" ? "✓ " : ""}Strip
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => setOption("useTabs", !options.useTabs)}
+          onSelect={() => setOption("declaration", "add")}
+          disabled={!formatActive}
         >
-          {options.useTabs ? "✓ " : ""}Use tabs
+          {options.declaration === "add" ? "✓ " : ""}Add if missing
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() =>
-            setOption("newlineBeforeSemicolon", !options.newlineBeforeSemicolon)
-          }
-        >
-          {options.newlineBeforeSemicolon ? "✓ " : ""}Newline before `;`
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Copy as</DropdownMenuLabel>
-        {COPY_AS_OPTIONS.map((o) => (
-          <DropdownMenuItem
-            key={o.id}
-            onSelect={() => onCopyAs(o.id)}
-            disabled={!hasOutput}
-          >
-            <div className="flex w-full items-center justify-between gap-3">
-              <span>{o.label}</span>
-              <span className="font-mono text-sm text-text-faint">
-                {o.hint}
-              </span>
-            </div>
-          </DropdownMenuItem>
-        ))}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onDownload} disabled={!canDownload}>
           <Download size={13} aria-hidden />
-          Download .sql
+          Download .{mode === "json" ? "json" : "xml"}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onLoadSample}>Load sample</DropdownMenuItem>
         <DropdownMenuItem onSelect={onClear}>Clear input</DropdownMenuItem>
@@ -709,7 +654,7 @@ function InputCard({
           Input
         </span>
         <span className="font-mono text-sm text-text-faint">
-          {value ? `${value.length.toLocaleString()} chars` : "paste SQL"}
+          {value ? `${value.length.toLocaleString()} chars` : "paste XML"}
         </span>
         <div className="ml-auto flex items-center gap-0.5">
           <button
@@ -736,8 +681,8 @@ function InputCard({
           value={value}
           onChange={onChange}
           indent="2"
-          lang="sql"
-          placeholder="Paste any SQL — minified, one-liner, or multi-statement…"
+          lang="xml"
+          placeholder="Paste any XML — SOAP envelope, RSS feed, SVG, Maven POM, Android layout…"
           maxHighlightSize={MAX_HIGHLIGHT}
           wrap
         />
@@ -751,12 +696,14 @@ function OutputCard({
   outputHtml,
   error,
   errorLine,
+  lang,
   bare,
 }: {
   output: string;
   outputHtml: string;
   error: string | null;
   errorLine: number | undefined;
+  lang: "xml" | "json";
   bare?: boolean;
 }) {
   const wrapper = bare
@@ -785,7 +732,7 @@ function OutputCard({
             value={output}
             highlighted={outputHtml}
             indent="2"
-            lang="sql"
+            lang={lang}
             maxHighlightSize={MAX_HIGHLIGHT}
             wrap
           />
@@ -921,9 +868,9 @@ function DropOverlay() {
     <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl bg-bg/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-brand/60 bg-surface/95 px-8 py-6 shadow-card">
         <FileText size={28} className="text-brand" aria-hidden />
-        <p className="font-serif italic text-text">Drop a .sql file</p>
+        <p className="font-serif italic text-text">Drop an XML file</p>
         <p className="font-mono text-sm text-text-faint">
-          we&apos;ll auto-detect the dialect
+          we&apos;ll detect the flavor
         </p>
       </div>
     </div>
