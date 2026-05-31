@@ -90,17 +90,6 @@ export function ToolCard({
                 Soon
               </span>
             )}
-            {tool.isNew && available && (
-              <span
-                className="rounded-md px-2 h-5 inline-flex items-center text-sm font-semibold uppercase tracking-widest"
-                style={{
-                  background: "var(--color-tier-pro-bg)",
-                  color: "var(--color-tier-pro-text)",
-                }}
-              >
-                New
-              </span>
-            )}
             {tool.wasm && (
               <span
                 className="rounded-md px-2 h-5 inline-flex items-center text-sm font-medium uppercase tracking-widest text-text-faint"

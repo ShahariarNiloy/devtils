@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { Base64 } from "@/components/tools/base64";
 import { CodeFormatter } from "@/components/tools/code-formatter";
 import { ColorConverter } from "@/components/tools/color-converter";
+import { CssUnitConverter } from "@/components/tools/css-unit-converter";
 import { DiffChecker } from "@/components/tools/diff-checker";
 import { ImageCompressor } from "@/components/tools/image-compressor";
 import { JsonFormatter } from "@/components/tools/json-formatter";
@@ -20,7 +21,7 @@ import { SqlFormatter } from "@/components/tools/sql-formatter";
 import { XmlFormatter } from "@/components/tools/xml-formatter";
 import { TextCase } from "@/components/tools/text-case";
 import { TimestampConverter } from "@/components/tools/timestamp-converter";
-import { TOOLS } from "./tools/data";
+import type { TOOLS } from "./tools/data";
 import type { Tool } from "./tools/types";
 
 export type ToolComponent = ComponentType<{ tool: Tool }>;
@@ -58,6 +59,14 @@ export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   "sql-formatter": SqlFormatter,
   "xml-formatter": XmlFormatter,
   "color-converter": ColorConverter,
+  "css-unit-converter": CssUnitConverter,
+  // SEO alias routes — same component, slug-aware UI + content.
+  "px-to-rem-converter": CssUnitConverter,
+  "rem-to-px-converter": CssUnitConverter,
+  "px-to-em-converter": CssUnitConverter,
+  "em-to-px-converter": CssUnitConverter,
+  "px-to-pt-converter": CssUnitConverter,
+  "pt-to-px-converter": CssUnitConverter,
   "diff-checker": DiffChecker,
   "timestamp-converter": TimestampConverter,
   "image-compressor": ImageCompressor,

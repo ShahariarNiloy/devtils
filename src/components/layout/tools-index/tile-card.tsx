@@ -49,9 +49,6 @@ export function TileCard({ tool, isLive, compact = false }: TileCardProps) {
           <span className="text-[13.5px] font-medium tracking-tight text-text truncate group-hover:text-[color:var(--color-brand)] transition-colors">
             {tool.name}
           </span>
-          {tool.isNew && (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--color-clay)]" aria-label="New" />
-          )}
         </div>
         <span
           className="shrink-0 rounded px-1.5 h-5 inline-flex items-center text-[10px] font-semibold uppercase tracking-wider"
@@ -92,9 +89,6 @@ export function TileCard({ tool, isLive, compact = false }: TileCardProps) {
           <h3 className="text-[13.5px] font-semibold tracking-tight text-text truncate group-hover:text-[color:var(--color-brand)] transition-colors">
             {tool.name}
           </h3>
-          {tool.isNew && (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--color-clay)]" aria-label="New" />
-          )}
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span

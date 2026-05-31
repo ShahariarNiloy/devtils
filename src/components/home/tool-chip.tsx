@@ -53,17 +53,6 @@ export function ToolChip({ tool, index, available }: ToolChipProps) {
             Soon
           </span>
         )}
-        {tool.isNew && available && (
-          <span
-            className="rounded px-1.5 h-4 inline-flex items-center text-sm font-bold uppercase tracking-widest shrink-0"
-            style={{
-              background: "var(--color-tier-pro-bg)",
-              color: "var(--color-tier-pro-text)",
-            }}
-          >
-            New
-          </span>
-        )}
       </Link>
     </motion.div>
   );
