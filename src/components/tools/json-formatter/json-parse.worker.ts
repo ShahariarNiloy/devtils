@@ -1,19 +1,58 @@
 /// <reference lib="webworker" />
 
+import { tryJsToJson, type Transform } from "./js-to-json.lib";
+
 /**
- * Off-main-thread JSON.parse + validation. Used for large inputs (see
- * `use-async-parsed`). The worker owns the heavy parse AND derives the
- * validity / error position, so the main thread never re-parses the
- * document just to drive the validation banner.
+ * Off-main-thread JSON.parse + validation, plus JS-object → JSON conversion.
+ * The worker owns heavy synchronous work so the main thread stays paint-able
+ * — that's what makes the "Analysing…" spinner in the JS→JSON banner real.
+ *
+ * Two request shapes share the one worker (one channel, fewer singletons):
+ *   - `parse`     — JSON.parse + validation for big inputs
+ *   - `transform` — tryJsToJson + JSON.stringify, returns formatted JSON
+ *
+ * Responses carry the same `kind` so a listener can filter by request type
+ * before checking the request id.
  */
 
 interface ParseRequest {
+  kind: "parse";
   id: number;
   src: string;
 }
+interface TransformRequest {
+  kind: "transform";
+  id: number;
+  src: string;
+}
+type WorkerRequest = ParseRequest | TransformRequest;
+
 type ParseResponse =
-  | { id: number; ok: true; value: unknown; bytes: number; lines: number }
-  | { id: number; ok: false; message: string; line: number; col: number };
+  | {
+      kind: "parse";
+      id: number;
+      ok: true;
+      value: unknown;
+      bytes: number;
+      lines: number;
+    }
+  | {
+      kind: "parse";
+      id: number;
+      ok: false;
+      message: string;
+      line: number;
+      col: number;
+    };
+type TransformResponse =
+  | {
+      kind: "transform";
+      id: number;
+      ok: true;
+      output: string;
+      transforms: Transform[];
+    }
+  | { kind: "transform"; id: number; ok: false };
 
 // Worker globals collide with the DOM lib in this project's tsconfig; this
 // single cast narrows `self` to the worker scope so the message API is typed.
@@ -51,11 +90,35 @@ function errorPos(
   return { message, line: 1, col: 1 };
 }
 
-ctx.onmessage = (e: MessageEvent<ParseRequest>) => {
-  const { id, src } = e.data;
+ctx.onmessage = (e: MessageEvent<WorkerRequest>) => {
+  const req = e.data;
+
+  if (req.kind === "transform") {
+    const { id, src } = req;
+    const result = tryJsToJson(src);
+    if (result.ok) {
+      ctx.postMessage({
+        kind: "transform",
+        id,
+        ok: true,
+        output: result.output,
+        transforms: result.transforms,
+      } satisfies TransformResponse);
+    } else {
+      ctx.postMessage({
+        kind: "transform",
+        id,
+        ok: false,
+      } satisfies TransformResponse);
+    }
+    return;
+  }
+
+  const { id, src } = req;
   try {
     const value: unknown = JSON.parse(src);
     ctx.postMessage({
+      kind: "parse",
       id,
       ok: true,
       value,
@@ -66,6 +129,7 @@ ctx.onmessage = (e: MessageEvent<ParseRequest>) => {
     const msg = err instanceof Error ? err.message : String(err);
     const { message, line, col } = errorPos(msg, src);
     ctx.postMessage({
+      kind: "parse",
       id,
       ok: false,
       message,

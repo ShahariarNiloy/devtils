@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { parseJson } from "../json-formatter.lib";
+import type { Transform } from "../js-to-json.lib";
 import type { ValidationState } from "../json-formatter.types";
 
 // Below this, parse synchronously in render — identical to the old behaviour,
@@ -9,7 +10,7 @@ import type { ValidationState } from "../json-formatter.types";
 export const WORKER_THRESHOLD = 256_000; // chars (~256 KB)
 
 let workerSingleton: Worker | null = null;
-function getParseWorker(): Worker {
+export function getJsonWorker(): Worker {
   if (!workerSingleton) {
     workerSingleton = new Worker(
       new URL("../json-parse.worker.ts", import.meta.url),
@@ -19,10 +20,37 @@ function getParseWorker(): Worker {
 }
 
 let seq = 0;
+export function nextWorkerSeq(): number {
+  return ++seq;
+}
 
 type ParseResponse =
-  | { id: number; ok: true; value: unknown; bytes: number; lines: number }
-  | { id: number; ok: false; message: string; line: number; col: number };
+  | {
+      kind: "parse";
+      id: number;
+      ok: true;
+      value: unknown;
+      bytes: number;
+      lines: number;
+    }
+  | {
+      kind: "parse";
+      id: number;
+      ok: false;
+      message: string;
+      line: number;
+      col: number;
+    };
+
+export type TransformResponse =
+  | {
+      kind: "transform";
+      id: number;
+      ok: true;
+      output: string;
+      transforms: Transform[];
+    }
+  | { kind: "transform"; id: number; ok: false };
 
 export interface AsyncParsed {
   value: unknown;
@@ -61,10 +89,11 @@ export function useAsyncParsed(src: string): AsyncParsed {
 
   useEffect(() => {
     if (small || !src.trim()) return;
-    const worker = getParseWorker();
-    const id = ++seq;
-    const onMessage = (e: MessageEvent<ParseResponse>) => {
+    const worker = getJsonWorker();
+    const id = nextWorkerSeq();
+    const onMessage = (e: MessageEvent<ParseResponse | TransformResponse>) => {
       const data = e.data;
+      if (data.kind !== "parse") return; // not our channel
       if (data.id !== id) return; // stale response from a superseded edit
       if (data.ok) {
         setAsyncState({
@@ -88,7 +117,7 @@ export function useAsyncParsed(src: string): AsyncParsed {
       }
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({ id, src });
+    worker.postMessage({ kind: "parse", id, src });
     return () => worker.removeEventListener("message", onMessage);
   }, [src, small]);
 

@@ -16,7 +16,8 @@ import {
   queryJsonPath,
   isArrayOfObjects,
 } from "../json-formatter.lib";
-import { tryJsToJson, type Transform } from "../js-to-json.lib";
+import type { Transform } from "../js-to-json.lib";
+import { useAsyncJsToJson } from "./use-async-js-to-json";
 import { useAsyncParsed, WORKER_THRESHOLD } from "./use-async-parsed";
 
 /** JS-object → JSON banner state. Non-null when the transformer found a
@@ -65,7 +66,6 @@ export function useJsonState() {
   // JS → JSON banner: non-null only when the input fails JSON.parse but
   // the transformer can produce a parseable result. Cleared on input
   // change so dismissal doesn't bleed across paste sessions.
-  const [jsConversion, setJsConversion] = useState<JsConversionState | null>(null);
   const [jsConversionDismissedFor, setJsConversionDismissedFor] = useState<string | null>(null);
 
   const deferredInput = useDeferredValue(input);
@@ -113,36 +113,26 @@ export function useJsonState() {
     if (!inputIsLarge) validateDebounced(input);
   }, [input, inputIsLarge, validateDebounced]);
 
-  // JS → JSON detection. Runs only when validation has just landed as
-  // 'invalid' for the current input. Cheap (small inputs only) — skipped
-  // for large inputs where the worker path already costs us more than a
-  // banner is worth. Result is cleared when input changes so the banner
-  // disappears the moment the user edits.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setJsConversion(null);
-    if (inputIsLarge) return;
-    if (validation.status !== "invalid") return;
-    if (jsConversionDismissedFor === input) return;
-    const result = tryJsToJson(input);
-    if (result.ok && result.output) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setJsConversion({ output: result.output, transforms: result.transforms });
-    }
-    // We intentionally don't depend on `jsConversionDismissedFor`: it changes
-    // only on dismiss, and we don't want a dismiss to re-fire detection.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, validation, inputIsLarge]);
+  // JS → JSON detection. Runs the transform in the JSON worker so even
+  // multi-MB inputs leave the main thread paint-able — the banner spinner
+  // actually spins. The hook fires only when the gate below is true; when
+  // the gate flips off the hook drops its result so dismissals and edits
+  // never leave a stale banner behind.
+  const jsConversionEnabled =
+    effectiveValidation.status === "invalid" &&
+    jsConversionDismissedFor !== input;
+  const jsTransform = useAsyncJsToJson(input, jsConversionEnabled);
+  const jsConversion: JsConversionState | null = jsTransform.result;
+  const isAnalysingJs = jsTransform.isAnalysing;
 
   const applyJsConversion = useCallback(() => {
-    if (!jsConversion) return;
-    setInput(jsConversion.output);
-    setJsConversion(null);
+    const out = jsTransform.result?.output;
+    if (!out) return;
+    setInput(out);
     setJsConversionDismissedFor(null);
-  }, [jsConversion]);
+  }, [jsTransform.result]);
 
   const dismissJsConversion = useCallback(() => {
-    setJsConversion(null);
     setJsConversionDismissedFor(input);
   }, [input]);
 
@@ -204,6 +194,7 @@ export function useJsonState() {
     isValid,
     canUseTableView,
     jsConversion,
+    isAnalysingJs,
     applyJsConversion,
     dismissJsConversion,
   };

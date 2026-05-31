@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Copy,
   Globe,
+  Loader2,
   Maximize2,
   Minimize2,
   MoreHorizontal,
@@ -200,35 +201,57 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
         </div>
       </div>
 
-      {/* JS-object → JSON conversion banner. Appears above the validation
-          banner when the input fails JSON.parse but the transformer can
-          fix it. Apply replaces the input; Dismiss hides until edit. */}
-      {state.jsConversion && (
+      {/* JS-object → JSON conversion banner. Two states:
+          - Analysing: worker is computing, no result yet. Spinner only — no
+            Apply button to click (would be a no-op).
+          - Ready: worker returned a successful conversion. Show transforms +
+            Apply + Dismiss.
+          Both swap in/out without layout shift since the banner row is the
+          same height in both states. */}
+      {(state.isAnalysingJs || state.jsConversion) && (
         <div
           role="region"
           aria-label="Convert JavaScript object to JSON"
+          aria-busy={state.isAnalysingJs}
           className="flex w-full shrink-0 items-center gap-3 border-b border-info-border bg-info-bg px-3 py-2 text-sm text-info-text"
         >
-          <Wand2 size={14} className="shrink-0 text-info" aria-hidden />
+          {state.isAnalysingJs ? (
+            <Loader2
+              size={14}
+              className="shrink-0 animate-spin text-info motion-reduce:animate-none"
+              aria-hidden
+            />
+          ) : (
+            <Wand2 size={14} className="shrink-0 text-info" aria-hidden />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="font-medium">
-              Looks like a JS object — convert to JSON?
-            </p>
-            <p className="mt-0.5 truncate font-mono text-xs-plus opacity-80">
-              Will:{" "}
-              {state.jsConversion.transforms
-                .map((t) => TRANSFORM_LABELS[t])
-                .join(" · ")}
-            </p>
+            {state.isAnalysingJs && (
+              <p className="font-medium">Analysing for JS-object pattern…</p>
+            )}
+            {!state.isAnalysingJs && state.jsConversion && (
+              <>
+                <p className="font-medium">
+                  Looks like a JS object — convert to JSON?
+                </p>
+                <p className="mt-0.5 truncate font-mono text-xs-plus opacity-80">
+                  Will:{" "}
+                  {state.jsConversion.transforms
+                    .map((t) => TRANSFORM_LABELS[t])
+                    .join(" · ")}
+                </p>
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={state.applyJsConversion}
-            className="inline-flex h-7 items-center rounded-md border border-info-border bg-info px-2.5 text-sm font-medium text-text-on-sage transition-opacity hover:opacity-90 cursor-pointer"
-            aria-label="Apply conversion"
-          >
-            Apply
-          </button>
+          {state.jsConversion && !state.isAnalysingJs && (
+            <button
+              type="button"
+              onClick={state.applyJsConversion}
+              className="inline-flex h-7 items-center rounded-md border border-info-border bg-info px-2.5 text-sm font-medium text-text-on-sage transition-opacity hover:opacity-90 cursor-pointer"
+              aria-label="Apply conversion"
+            >
+              Apply
+            </button>
+          )}
           <button
             type="button"
             onClick={state.dismissJsConversion}

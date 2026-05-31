@@ -118,6 +118,27 @@ section("TypeScript");
 }
 
 {
+  // Regression: a sibling with an empty array used to poison element-type
+  // inference — mergeTwo would build oneOf([{}, ObjectShape]) and the
+  // emitter collapsed that to `unknown[]`. The first entry's array carries
+  // the real shape; the second's empty `[]` should defer to it.
+  const out = toTypeScript([
+    { tags: [{ id: 1, name: "a" }] },
+    { tags: [] },
+  ]).output;
+  assertNotIncludes(
+    "empty sibling array doesn't degrade element type to unknown[]",
+    out,
+    "unknown[]",
+  );
+  assertIncludes(
+    "empty sibling array still references the inferred item interface",
+    out,
+    "tags: Tag[]",
+  );
+}
+
+{
   const out = toTypeScript({ "foo-bar": 1, "123": 2 }).output;
   assertIncludes("non-identifier keys get quoted (foo-bar)", out, '"foo-bar"');
   assertIncludes("numeric keys get quoted (123)", out, '"123"');

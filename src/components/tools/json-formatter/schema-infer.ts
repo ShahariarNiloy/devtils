@@ -110,11 +110,25 @@ function sameType(a: JsonSchema, b: JsonSchema): boolean {
 }
 
 /**
+ * "No information" sentinel — a schema with no fields was produced by either
+ * an empty array (no items observed) or a path that found nothing
+ * inferrable. Treating this as the identity element of `mergeTwo` is what
+ * stops a single empty `[]` in a sample from collapsing the inferred element
+ * type to `unknown`: an empty array genuinely tells us nothing about the
+ * elements, so it should defer to any sibling that does.
+ */
+function isEmptySchema(s: JsonSchema): boolean {
+  return Object.keys(s).length === 0;
+}
+
+/**
  * Merge two schemas into the most specific schema that accepts every value
  * either of them accepted. Same-type schemas merge structurally; different
  * types fall through to a `oneOf`.
  */
 function mergeTwo(a: JsonSchema, b: JsonSchema): JsonSchema {
+  if (isEmptySchema(a)) return b;
+  if (isEmptySchema(b)) return a;
   if (canon(a) === canon(b)) return a;
   if (!sameType(a, b)) return { oneOf: [a, b] };
 
@@ -189,7 +203,10 @@ function inferInner(value: unknown): JsonSchema {
     return fmt ? { type: "string", format: fmt } : { type: "string" };
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return { type: "array", items: {} };
+    // No items observed — leave items off so `mergeTwo`'s array branch picks
+    // up sibling items rather than producing a `oneOf` against an empty
+    // sub-schema (which would collapse to `unknown[]` in codegen).
+    if (value.length === 0) return { type: "array" };
     const sample = value.length > MAX_ARRAY_SAMPLE
       ? value.slice(0, MAX_ARRAY_SAMPLE)
       : value;
