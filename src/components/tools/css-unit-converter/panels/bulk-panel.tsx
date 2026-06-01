@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Check, Copy, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Copy, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -143,7 +143,7 @@ export function BulkPanel({
                 className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs-plus text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
               >
                 {BULK_SCOPE_PRESETS.find((p) => p.id === scopeId)?.label}
-                <span className="text-text-faint">▾</span>
+                <ChevronDown size={12} className="text-text-faint" aria-hidden />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -244,7 +244,7 @@ function UnitPill({
           className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 font-mono text-sm text-text transition-colors hover:bg-surface"
         >
           {value}
-          <span className="text-text-faint">▾</span>
+          <ChevronDown size={11} className="text-text-faint" aria-hidden />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">

@@ -832,11 +832,13 @@ export const TOOLS: Tool[] = [
   {
     slug: 'json-diff',
     name: 'JSON diff',
-    description: 'Compare two JSON objects with structural diff and visual tree view.',
+    description: 'Semantic JSON diff with move detection, identity-keyed array compare, and JSON Patch (RFC 6902) export.',
     category: 'JSON',
-    tier: 'pro',
+    tier: 'free',
     icon: 'diff',
-    tags: ['json', 'diff', 'compare'],
+    tags: ['json', 'diff', 'compare', 'json patch', 'rfc 6902'],
+    isNew: true,
+    showcase: true,
   },
   {
     slug: 'json-formatter',

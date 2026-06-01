@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/primitives/input";
 import {
   Popover,
@@ -47,7 +48,11 @@ export function BasePopover({
           <span className="font-medium">1rem</span>
           <span className="text-text-faint">=</span>
           <span className="font-mono">{baseFontSize}px</span>
-          <span className="text-text-faint group-hover:text-text-muted">▾</span>
+          <ChevronDown
+            size={12}
+            className="text-text-faint transition-colors group-hover:text-text-muted"
+            aria-hidden
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[360px]">

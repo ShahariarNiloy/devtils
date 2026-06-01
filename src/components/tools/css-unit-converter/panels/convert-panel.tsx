@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Copy, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -409,7 +409,7 @@ function UnitSelector({
           aria-label={`Unit (current: ${value})`}
         >
           {value}
-          <span className="text-text-faint">▾</span>
+          <ChevronDown size={12} className="text-text-faint" aria-hidden />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

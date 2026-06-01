@@ -4,6 +4,7 @@ import { CodeFormatter } from "@/components/tools/code-formatter";
 import { ColorConverter } from "@/components/tools/color-converter";
 import { CssUnitConverter } from "@/components/tools/css-unit-converter";
 import { DiffChecker } from "@/components/tools/diff-checker";
+import { JsonDiff } from "@/components/tools/json-diff";
 import { ImageCompressor } from "@/components/tools/image-compressor";
 import { JsonFormatter } from "@/components/tools/json-formatter";
 import { JsonSchema } from "@/components/tools/json-schema";
@@ -41,6 +42,7 @@ type RegistrySlug = (typeof TOOLS)[number]["slug"];
  * the build instead of disappearing into runtime silence.
  */
 export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
+  "json-diff": JsonDiff,
   "json-formatter": JsonFormatter,
   "json-schema": JsonSchema,
   "json-to-csv": JsonToCsv,
