@@ -1,7 +1,8 @@
 import { CATEGORIES, CATEGORY_COUNTS } from "@/lib/tools-registry";
 import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
-import { SITE_NAME, SITE_WORDMARK } from "@/lib/site";
+import { SITE_NAME } from "@/lib/site";
 import Link from "next/link";
+import { Logo } from "./brand/Logo";
 
 /**
  * Multi-column footer with category links, tier counts, and a small
@@ -17,19 +18,9 @@ export function HomeFooter() {
       <div className="relative mx-auto grid max-w-8xl grid-cols-2 gap-y-10 gap-x-6 px-6 sm:px-10 py-12 sm:grid-cols-4">
         {/* Brand block */}
         <div className="col-span-2 sm:col-span-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ background: "var(--color-sage-olive)" }}
-              aria-hidden
-            />
-            <span
-              className="display text-base font-bold text-text"
-              style={{ letterSpacing: "-0.025em" }}
-            >
-              {SITE_WORDMARK}
-            </span>
-          </div>
+          <Link href="/" aria-label="utilyx — home" className="inline-flex">
+            <Logo variant="wordmark" />
+          </Link>
           <p
             className="mt-3 text-sm text-text-muted leading-desc"
             style={{ maxWidth: 240 }}

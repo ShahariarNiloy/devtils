@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { parseJwt } from "./jwt-decoder.lib";
 import { getSecurityWarnings } from "./jwt-claims";
-import { verifyJwt, fetchJwks, parseJwks, selectJwksKey } from "./jwt-verify";
-import { encodeJwt } from "./jwt-encode";
-import { isParseError } from "./jwt-decoder.types";
+import { parseJwt } from "./jwt-decoder.lib";
 import type {
   Algorithm,
   Mode,
   ParsedJwt,
   VerificationResult,
 } from "./jwt-decoder.types";
+import { isParseError } from "./jwt-decoder.types";
+import { encodeJwt } from "./jwt-encode";
+import { fetchJwks, parseJwks, selectJwksKey, verifyJwt } from "./jwt-verify";
 
 const SAMPLE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
@@ -20,7 +20,7 @@ const SAMPLE =
 
 const DEFAULT_ENCODE_HEADER = '{\n  "alg": "HS256",\n  "typ": "JWT"\n}';
 const DEFAULT_ENCODE_PAYLOAD =
-  '{\n  "iss": "utilyx.dev",\n  "sub": "utilyx",\n  "name": "Utilyx",\n  "iat": 1730864000\n}';
+  '{\n  "iss": "utilyx.dev",\n  "sub": "utilyx",\n  "name": "utilyx",\n  "iat": 1730864000\n}';
 
 export function useJwtDecoder() {
   const [mode, setMode] = useState<Mode>("decode");
@@ -36,10 +36,7 @@ export function useJwtDecoder() {
   const parsed = useMemo(() => parseJwt(debounced), [debounced]);
   const jwt: ParsedJwt | null = isParseError(parsed) ? null : parsed;
   const parseError = isParseError(parsed) ? parsed : null;
-  const warnings = useMemo(
-    () => (jwt ? getSecurityWarnings(jwt) : []),
-    [jwt],
-  );
+  const warnings = useMemo(() => (jwt ? getSecurityWarnings(jwt) : []), [jwt]);
 
   const forceDecode = useCallback(() => setDebounced(rawInput), [rawInput]);
 
@@ -47,7 +44,7 @@ export function useJwtDecoder() {
   const [keyMaterial, setKeyMaterial] = useState("");
   const [jwks, setJwksInput] = useState("");
   const [verification, setVerification] = useState<VerificationResult | null>(
-    null,
+    null
   );
   const [verifying, setVerifying] = useState(false);
   const [jwksNote, setJwksNote] = useState<string | null>(null);
@@ -61,9 +58,7 @@ export function useJwtDecoder() {
       let material = keyMaterial;
       const j = jwks.trim();
       if (j && !keyMaterial.trim()) {
-        const keys = /^https?:\/\//.test(j)
-          ? await fetchJwks(j)
-          : parseJwks(j);
+        const keys = /^https?:\/\//.test(j) ? await fetchJwks(j) : parseJwks(j);
         const selected = selectJwksKey(keys, jwt.header.kid);
         if (!selected) {
           setVerification({
@@ -120,7 +115,7 @@ export function useJwtDecoder() {
     } catch (e) {
       setEncoded("");
       setEncodeError(
-        e instanceof Error ? e.message : "Could not encode — check the JSON.",
+        e instanceof Error ? e.message : "Could not encode — check the JSON."
       );
     }
   }, [encHeader, encPayload, encAlg, encKey]);
@@ -161,17 +156,40 @@ export function useJwtDecoder() {
   }, [rawInput]);
 
   return {
-    mode, setMode,
-    rawInput, setRawInput,
-    jwt, parseError, warnings, forceDecode,
-    keyMaterial, setKeyMaterial,
-    jwks, setJwksInput,
-    verification, verifying, jwksNote, runVerify,
-    encHeader, setEncHeader, encPayload, setEncPayload,
-    encAlg, setEncAlg, encKey, setEncKey,
-    encoded, encodeError, runEncode,
-    diffA, setDiffA, diffB, setDiffB,
-    loadSample, clear, shareLink,
+    mode,
+    setMode,
+    rawInput,
+    setRawInput,
+    jwt,
+    parseError,
+    warnings,
+    forceDecode,
+    keyMaterial,
+    setKeyMaterial,
+    jwks,
+    setJwksInput,
+    verification,
+    verifying,
+    jwksNote,
+    runVerify,
+    encHeader,
+    setEncHeader,
+    encPayload,
+    setEncPayload,
+    encAlg,
+    setEncAlg,
+    encKey,
+    setEncKey,
+    encoded,
+    encodeError,
+    runEncode,
+    diffA,
+    setDiffA,
+    diffB,
+    setDiffB,
+    loadSample,
+    clear,
+    shareLink,
   };
 }
 

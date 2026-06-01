@@ -1,5 +1,5 @@
 /**
- * Utilyx — Tools Registry (barrel).
+ * utilyx — Tools Registry (barrel).
  *
  * The registry was split into:
  *   - `tools/types.ts`         — Tool / ToolCategory / ToolTier / CategoryMeta
@@ -12,30 +12,25 @@
  * specific submodule for narrower bundle graphs.
  */
 
-export type {
-  Tool,
-  ToolCategory,
-  ToolTier,
-  CategoryMeta,
-} from "./tools/types";
+export type { CategoryMeta, Tool, ToolCategory, ToolTier } from "./tools/types";
 
 export { TOOLS } from "./tools/data";
 
 export { CATEGORY_META } from "./tools/category-meta";
 
 export {
-  SHOWCASE_TOOLS,
-  TOOL_COUNT,
   CATEGORIES,
   CATEGORY_COUNTS,
-  TIER_COUNTS,
+  getCategoryMeta,
+  getFeaturedTools,
+  getNewTools,
+  getRelatedTools,
   getToolBySlug,
   getToolsByCategory,
   getToolsByTier,
-  getNewTools,
-  getFeaturedTools,
-  getCategoryMeta,
-  getRelatedTools,
-  searchTools,
   groupToolsAlphabetically,
+  searchTools,
+  SHOWCASE_TOOLS,
+  TIER_COUNTS,
+  TOOL_COUNT,
 } from "./tools/queries";

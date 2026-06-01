@@ -5,9 +5,9 @@ import {
   useCommandPalette,
 } from '@/components/primitives/command-palette';
 import { Kbd } from '@/components/primitives/kbd';
-import { SITE_WORDMARK } from '@/lib/site';
 import { Search } from "lucide-react";
 import Link from "next/link";
+import { Logo } from './brand/Logo';
 import { ThemeToggle } from './theme-toggle';
 
 /**
@@ -26,22 +26,14 @@ export function Header() {
       }}
     >
       <div className="mx-auto flex h-full max-w-8xl items-center gap-6 px-6 sm:px-10">
-        {/* Brand wordmark */}
+        {/* Brand wordmark — inlined SVG so the S2 gradient renders cleanly
+            on both light and dark themes. Height tokenized via h-logo. */}
         <Link
           href="/"
-          className="group flex items-center gap-2 text-text transition-colors"
+          aria-label="utilyx — home"
+          className="flex items-center"
         >
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full transition-transform group-hover:scale-150"
-            style={{ background: "var(--color-sage-olive)" }}
-            aria-hidden
-          />
-          <span
-            className="display text-lg font-bold"
-            style={{ letterSpacing: "-0.025em" }}
-          >
-            {SITE_WORDMARK}
-          </span>
+          <Logo variant="wordmark" />
         </Link>
 
         {/* Center nav */}

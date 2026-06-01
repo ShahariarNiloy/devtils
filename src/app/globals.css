@@ -142,6 +142,7 @@
 
   /* ── Spacing: component heights ───────────────────── */
   /* h-5=20px h-6=24px h-7=28px h-9=36px h-10=40px h-11=44px h-12=48px h-20=80px */
+  --spacing-logo: 1.375rem; /* 22px — header wordmark height */
   --spacing-badge: 1.375rem; /* 22px — tag/badge height */
   --spacing-kbd: 1.125rem; /* 18px — keyboard chip height */
   --spacing-btn-md: 2.625rem; /* 42px — medium button */

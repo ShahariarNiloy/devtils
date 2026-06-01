@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { Check, ChevronLeft, Clipboard, Copy, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
-import { CaseConverterContent } from "./content";
 import { useShortcut } from "@/lib/keyboard";
-import { cases } from "./text-case.lib";
 import type { Tool } from "@/lib/tools-registry";
+import { Check, ChevronLeft, Clipboard, Copy, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { CaseConverterContent } from "./content";
+import { cases } from "./text-case.lib";
 
 export function TextCase({ tool }: { tool: Tool }) {
-  const [input, setInput] = useState("Hello world from Utilyx");
+  const [input, setInput] = useState("Hello world from utilyx");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -24,16 +24,16 @@ export function TextCase({ tool }: { tool: Tool }) {
 
   const conversions = useMemo(
     () => cases.map((c) => ({ ...c, output: c.convert(input) })),
-    [input],
+    [input]
   );
 
   const wordCount = useMemo(
     () => input.split(/\s+/).filter(Boolean).length,
-    [input],
+    [input]
   );
   const lineCount = useMemo(
     () => (input ? input.split(/\r\n|\r|\n/).length : 0),
-    [input],
+    [input]
   );
 
   const onPaste = async () => {
@@ -53,7 +53,7 @@ export function TextCase({ tool }: { tool: Tool }) {
       toast.success(`Copied ${cases.find((c) => c.id === id)?.label}`);
       setTimeout(
         () => setCopiedId((prev) => (prev === id ? null : prev)),
-        1300,
+        1300
       );
     } catch {
       toast.error("Couldn't access clipboard");

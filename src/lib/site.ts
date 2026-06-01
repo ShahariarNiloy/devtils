@@ -8,7 +8,7 @@
  */
 
 /** Title-case brand name for prose, metadata, OG, JSON-LD. */
-export const SITE_NAME = "Utilyx";
+export const SITE_NAME = "utilyx";
 
 /** Lowercase brand for the header wordmark / logotype. */
 export const SITE_WORDMARK = "utilyx";
