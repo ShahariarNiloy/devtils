@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Wand2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CodeView } from "../views/code-view";
 import type { JsonFormatterState } from "../use-json-formatter";
@@ -50,13 +50,25 @@ export function MobileInputView({ state, onLoadFile }: MobileInputViewProps) {
         }}
       />
 
-      {/* Invalid banner — compact on mobile */}
+      {/* Invalid banner — compact on mobile, with a Repair CTA so auto-fix
+          is discoverable here too (not just behind the toolbar). */}
       {v.status === "invalid" && (
-        <div className="flex shrink-0 items-start gap-2 border-b border-danger/30 bg-danger/10 px-3 py-1.5 text-[12px] text-danger">
-          <AlertCircle size={12} className="mt-0.5 shrink-0" />
-          <span className="leading-snug">
+        <div className="flex shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-1.5 text-[12px] text-danger">
+          <AlertCircle size={12} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate leading-snug">
             Line {v.line}, col {v.col}: {v.message}
           </span>
+          {!state.jsConversion && (
+            <button
+              type="button"
+              onClick={state.repair}
+              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-danger px-2 text-[11px] font-medium text-bg"
+              title="Auto-fix this JSON"
+            >
+              <Wand2 size={11} aria-hidden />
+              Repair
+            </button>
+          )}
         </div>
       )}
 

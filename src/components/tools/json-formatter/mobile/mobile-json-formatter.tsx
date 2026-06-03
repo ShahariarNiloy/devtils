@@ -7,6 +7,7 @@ import type { ConvertTarget, ViewMode } from "../json-formatter.types";
 import type { JsonFormatterState } from "../use-json-formatter";
 import type { HistoryEntry } from "../hooks/use-history";
 import { QueryPanel } from "../panels/query-panel";
+import { RepairPreviewDialog } from "../panels/repair-preview-dialog";
 import { StatsPanel } from "../panels/stats-panel";
 import { MobileAppBar } from "./mobile-app-bar";
 import { MobileModeSwitch, type MobileMode } from "./mobile-mode-switch";
@@ -249,6 +250,15 @@ export function MobileJsonFormatter({
         onShare={onShare}
         onDownload={handleDownload}
         onOpenFind={onOpenFind}
+      />
+
+      {/* Repair preview — previously unrendered on mobile, so Repair set
+          state but showed nothing. Rendering it here makes both the
+          more-sheet action and the inline error-banner CTA work. */}
+      <RepairPreviewDialog
+        preview={state.repairPreview}
+        onApply={state.applyRepair}
+        onCancel={state.cancelRepair}
       />
     </div>
   );

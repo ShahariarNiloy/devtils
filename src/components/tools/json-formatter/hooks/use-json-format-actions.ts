@@ -102,10 +102,14 @@ export function useJsonFormatActions(state: JsonState) {
   );
 
   /**
-   * Run the repair pipeline but DON'T apply the result. We surface a
-   * preview that the user can inspect and accept. Even on failure (partial
-   * repair) we show what we did manage to fix alongside the actual parse
-   * error — that's usually all the user needs to fix the last bit by hand.
+   * Repair, with a risk-gated flow:
+   *   - all-`safe` fixes (reformatting only — quotes, commas; zero data
+   *     loss) apply INSTANTLY with an Undo toast. No dialog, no extra click.
+   *   - any `lossy`/`structural` fix (Infinity→null, dropped text, wrapped
+   *     roots, closed brackets) opens the preview so the user reviews the
+   *     data-changing edits before committing.
+   *   - a partial repair (still invalid) always opens the preview, since
+   *     there's a real error + best-effort result to inspect.
    */
   const repair = useCallback(() => {
     if (!input.trim()) return;
@@ -115,12 +119,28 @@ export function useJsonFormatActions(state: JsonState) {
         toast.info("JSON is already valid — no repairs needed");
         return;
       }
-      setRepairPreview({
-        original: input,
-        fixed: result.fixed,
-        changes: result.changes,
-        events: result.events,
-      });
+
+      const hasRisk = result.events.some((e) => e.risk !== "safe");
+      if (hasRisk) {
+        setRepairPreview({
+          original: input,
+          fixed: result.fixed,
+          changes: result.changes,
+          events: result.events,
+        });
+        return;
+      }
+
+      // All safe → apply immediately. Keep the pre-repair input so the toast
+      // can offer a one-tap Undo.
+      const original = input;
+      const n = result.changes.length;
+      setInput(result.fixed);
+      runFormat(result.fixed);
+      toast.success(
+        `Fixed ${n} issue${n !== 1 ? "s" : ""}`,
+        { action: { label: "Undo", onClick: () => setInput(original) } },
+      );
     } catch (err) {
       if (err instanceof RepairError) {
         setRepairPreview({
@@ -134,7 +154,7 @@ export function useJsonFormatActions(state: JsonState) {
         toast.error(err instanceof Error ? err.message : "Repair failed");
       }
     }
-  }, [input, setRepairPreview]);
+  }, [input, setRepairPreview, setInput, runFormat]);
 
   /** Apply the previewed repair to the input and trigger a format. */
   const applyRepair = useCallback(() => {

@@ -243,22 +243,38 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
         </div>
       )}
 
-      {/* Validation banner — click to jump the caret to the error */}
+      {/* Validation banner. The message jumps the caret to the error; the
+          Repair CTA on the right makes the (now much more capable) auto-fix
+          discoverable right where the user sees the error, instead of being
+          hidden behind a toolbar button they have to know about. The CTA is
+          suppressed when the JS-object banner is already offering a one-click
+          Apply — never two competing fix buttons at once. */}
       {v.status === "invalid" && (
-        <button
-          type="button"
-          onClick={() => setJumpNonce((n) => n + 1)}
-          className="group flex w-full shrink-0 items-center gap-2 border-b border-error-border bg-error-bg px-3 py-2 text-left text-sm text-error-text transition-colors hover:bg-error/10"
-          title="Jump to error"
-        >
+        <div className="flex w-full shrink-0 items-center gap-2 border-b border-error-border bg-error-bg px-3 py-2 text-sm text-error-text">
           <AlertCircle size={13} className="shrink-0" />
-          <span className="truncate">
+          <button
+            type="button"
+            onClick={() => setJumpNonce((n) => n + 1)}
+            className="group min-w-0 flex-1 truncate text-left transition-opacity hover:opacity-80"
+            title="Jump to error"
+          >
             Line {v.line}, col {v.col}: {v.message}
-          </span>
-          <span className="ml-auto shrink-0 text-sm font-medium opacity-60 transition-opacity group-hover:opacity-100">
-            Jump →
-          </span>
-        </button>
+            <span className="ml-2 text-sm font-medium opacity-50 transition-opacity group-hover:opacity-100">
+              Jump →
+            </span>
+          </button>
+          {!state.jsConversion && (
+            <button
+              type="button"
+              onClick={state.repair}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-error-text px-2.5 text-xs-plus font-medium text-error-bg transition-opacity hover:opacity-90 cursor-pointer"
+              title="Auto-fix this JSON"
+            >
+              <Wand2 size={12} aria-hidden />
+              Repair
+            </button>
+          )}
+        </div>
       )}
 
       {/* Editor */}
