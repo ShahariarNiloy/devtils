@@ -53,6 +53,8 @@ export function Logo({ variant = "wordmark", className }: LogoProps) {
 const WORDMARK_VB = "-33.8 -789.8 2541.4 1083.1";
 const GLYPH_VB = "-61.5 -581.5 680.0 680.0";
 
+// UCLAY S1 gradient. Light: olive → sage. Dark: sage → mist so the mark
+// stays visible on the warm-charcoal background.
 const GRAD_LIGHT_STOPS = (
   <>
     <stop offset="0" stopColor="#3D4435" />

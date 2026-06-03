@@ -129,10 +129,7 @@ export function ComingSoon({ tool }: Props) {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/tools"
-                className="inline-flex items-center gap-2 rounded-button px-4 h-btn-md text-sm font-semibold transition-transform hover:-translate-y-px bg-brand text-text-on-sage"
-                style={{
-                  boxShadow: "0 6px 18px -10px rgba(61, 68, 53, 0.55)",
-                }}
+                className="inline-flex items-center gap-2 rounded-button px-4 h-btn-md text-sm font-semibold transition-transform hover:-translate-y-px bg-brand text-text-on-sage shadow-float"
               >
                 <ArrowLeft size={14} />
                 Back to all tools
