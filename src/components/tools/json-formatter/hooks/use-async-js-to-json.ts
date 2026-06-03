@@ -33,14 +33,18 @@ const DEBOUNCE_MS = 400;
  * Detect a JS-object-shaped input and offer a JSON conversion, off the main
  * thread via the shared JSON worker.
  *
- * Debounced on purpose: the detection only runs once the user *pauses*
- * typing (`DEBOUNCE_MS`). Earlier this fired on every keystroke and flashed
- * an "Analysing…" state each time, which read as the banner flickering
- * show/hide as you typed. Now the banner is simply absent while you type and
- * settles in shortly after you stop — no per-keystroke churn.
+ * Debounced + sticky:
+ * - The detection only runs once the user *pauses* typing (`DEBOUNCE_MS`),
+ *   so it never fires per-keystroke.
+ * - Crucially, an already-shown result is NOT cleared while you keep typing.
+ *   The banner stays put; once you pause we re-check and either replace it
+ *   with the fresh conversion or hide it if the input no longer converts.
+ *   (Earlier we cleared on every change, which made the banner vanish
+ *   mid-type and pop back on pause — that's the churn this avoids.)
  *
- * While the debounce is pending we clear any previous result, so a stale
- * conversion can never be shown (or Applied) for input you've since edited.
+ * Because the banner is sticky, the worker-computed result can lag a few
+ * keystrokes behind what's on screen. Apply guards against that by
+ * recomputing synchronously on the current input (see use-json-state).
  */
 export function useAsyncJsToJson(
   input: string,
@@ -58,10 +62,9 @@ export function useAsyncJsToJson(
       return;
     }
 
-    // Input changed (or just became enabled): drop any prior result so the
-    // banner doesn't show a conversion for text the user has moved past.
-    // No `isAnalysing` flash here — that was the flicker.
-    setState({ result: null, isAnalysing: false });
+    // NOTE: we deliberately do NOT clear the existing result here. Keeping it
+    // means the banner stays visible while the user types; it's only ever
+    // replaced/hidden by the debounced re-check below.
 
     let cancelled = false;
     let removeListener: (() => void) | null = null;
@@ -70,7 +73,9 @@ export function useAsyncJsToJson(
       if (cancelled) return;
       const worker = getJsonWorker();
       const id = nextWorkerSeq();
-      setState({ result: null, isAnalysing: true });
+      // Only show the "analysing" state when there's nothing on screen yet —
+      // never flash it over an already-visible banner.
+      setState((s) => ({ result: s.result, isAnalysing: s.result === null }));
 
       const onMessage = (e: MessageEvent<TransformResponse>) => {
         const data = e.data;
@@ -83,6 +88,7 @@ export function useAsyncJsToJson(
             isAnalysing: false,
           });
         } else {
+          // Re-check says it no longer converts → hide the banner.
           setState({ result: null, isAnalysing: false });
         }
       };

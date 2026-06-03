@@ -16,7 +16,7 @@ import {
   queryJsonPath,
   isArrayOfObjects,
 } from "../json-formatter.lib";
-import type { Transform } from "../js-to-json.lib";
+import { tryJsToJson, type Transform } from "../js-to-json.lib";
 import { useAsyncJsToJson } from "./use-async-js-to-json";
 import { useAsyncParsed, WORKER_THRESHOLD } from "./use-async-parsed";
 
@@ -126,13 +126,16 @@ export function useJsonState() {
   const isAnalysingJs = jsTransform.isAnalysing;
 
   const applyJsConversion = useCallback(() => {
-    const r = jsTransform.result;
-    // Only apply a conversion computed for the CURRENT input — never a stale
-    // one from text the user has since edited.
-    if (!r || r.forInput !== input) return;
-    setInput(r.output);
-    setJsConversionDismissedFor(null);
-  }, [jsTransform.result, input]);
+    // Recompute synchronously on the CURRENT input. The banner is sticky —
+    // it stays visible while you keep typing — so the worker-computed result
+    // may lag a few keystrokes behind. Converting fresh here guarantees Apply
+    // always acts on exactly what's on screen, never a stale snapshot.
+    const r = tryJsToJson(input);
+    if (r.ok && r.output) {
+      setInput(r.output);
+      setJsConversionDismissedFor(null);
+    }
+  }, [input]);
 
   const dismissJsConversion = useCallback(() => {
     setJsConversionDismissedFor(input);
