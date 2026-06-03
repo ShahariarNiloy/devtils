@@ -26,10 +26,14 @@ const ID_CONT = /[A-Za-z0-9_$]/;
 export type Transform =
   | "single-quotes"
   | "unquoted-keys"
+  | "unquoted-values"
   | "trailing-commas"
   | "comments"
   | "decimals"
   | "assignment-prefix";
+
+/** JS literals that are valid JSON values and must NOT be quoted. */
+const JSON_LITERAL = new Set(["true", "false", "null"]);
 
 export type JsToJsonResult =
   | { ok: true; output: string; transforms: Transform[] }
@@ -153,10 +157,16 @@ export function tryJsToJson(input: string): JsToJsonResult {
           continue;
         }
 
-        // Value position. JSON literals (true/false/null) pass through;
-        // anything else (variable refs) will be rejected by JSON.parse —
-        // honest error.
-        out.push(ident);
+        // Value position. JSON literals (true/false/null) pass through.
+        // An unquoted bareword value (`{status: active}`) is the JS-object
+        // pattern users hit most after unquoted keys — quote it as a string
+        // rather than letting JSON.parse reject it.
+        if (JSON_LITERAL.has(ident)) {
+          out.push(ident);
+        } else {
+          out.push(`"${ident}"`);
+          transforms.add("unquoted-values");
+        }
         i = j;
         continue;
       }
@@ -299,6 +309,7 @@ export const TRANSFORM_LABELS: Record<Transform, string> = {
   "assignment-prefix": "strip `const/let/var =`",
   "single-quotes": "single → double quotes",
   "unquoted-keys": "quote bare keys",
+  "unquoted-values": "quote bare values",
   "trailing-commas": "drop trailing commas",
   comments: "strip comments",
   decimals: "normalise decimal edges",

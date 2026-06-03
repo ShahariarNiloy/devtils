@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { CATEGORIES } from "@/lib/tools-registry";
-import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { ToolIcon } from "@/components/shared/tool-icon";
+import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
+import { CATEGORIES } from "@/lib/tools-registry";
+import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { HeroLeft, type StatItem } from "./hero-left";
 import { HeroPreview } from "./hero-preview";
 
@@ -40,7 +40,7 @@ export function Hero() {
       dotColor: "var(--color-text-faint)",
     },
     {
-      value: "$0",
+      value: "Free",
       label: "Forever",
       dotColor: "var(--color-success)",
     },

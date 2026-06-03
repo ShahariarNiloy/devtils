@@ -45,9 +45,23 @@ export interface ConversionResult {
   size: number;
 }
 
+/** Risk tier for a single repair (re-exported from the parser engine). */
+export type RepairRisk = "safe" | "lossy" | "structural";
+
+/** One located, risk-classified repair. */
+export interface RepairChange {
+  message: string;
+  risk: RepairRisk;
+  line: number;
+  col: number;
+}
+
 export interface RepairResult {
   fixed: string;
+  /** Flat human-readable list (back-compat). Derived from `events`. */
   changes: string[];
+  /** Structured, risk-classified, located repairs. */
+  events: RepairChange[];
   wasValid: boolean;
 }
 
@@ -58,6 +72,8 @@ export interface RepairPreview {
   fixed: string;
   /** Human-readable list of what changed. */
   changes: string[];
+  /** Structured, risk-classified, located repairs. */
+  events?: RepairChange[];
   /** Post-repair JSON.parse error if we couldn't make it valid. */
   error?: string;
 }

@@ -126,11 +126,13 @@ export function useJsonState() {
   const isAnalysingJs = jsTransform.isAnalysing;
 
   const applyJsConversion = useCallback(() => {
-    const out = jsTransform.result?.output;
-    if (!out) return;
-    setInput(out);
+    const r = jsTransform.result;
+    // Only apply a conversion computed for the CURRENT input — never a stale
+    // one from text the user has since edited.
+    if (!r || r.forInput !== input) return;
+    setInput(r.output);
     setJsConversionDismissedFor(null);
-  }, [jsTransform.result]);
+  }, [jsTransform.result, input]);
 
   const dismissJsConversion = useCallback(() => {
     setJsConversionDismissedFor(input);

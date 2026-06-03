@@ -119,6 +119,7 @@ export function useJsonFormatActions(state: JsonState) {
         original: input,
         fixed: result.fixed,
         changes: result.changes,
+        events: result.events,
       });
     } catch (err) {
       if (err instanceof RepairError) {
@@ -126,6 +127,7 @@ export function useJsonFormatActions(state: JsonState) {
           original: input,
           fixed: err.partialFixed,
           changes: err.partialChanges,
+          events: err.partialEvents,
           error: err.parseError,
         });
       } else {

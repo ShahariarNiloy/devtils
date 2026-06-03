@@ -11,6 +11,9 @@ import {
 export interface AsyncTransformResult {
   output: string;
   transforms: Transform[];
+  /** The input this result was computed for — guards Apply against acting on
+   *  a stale conversion if the input changed after the result landed. */
+  forInput: string;
 }
 
 export interface AsyncTransformState {
@@ -18,20 +21,26 @@ export interface AsyncTransformState {
    *  current `enabled + input` pair. Cleared the moment `enabled` flips off
    *  or input changes — no stale banners. */
   result: AsyncTransformResult | null;
-  /** True from the moment the request is dispatched until the matching
-   *  response (or supersession). Drives the "Analysing…" spinner. */
+  /** True only while a dispatched request is in flight (after the debounce
+   *  has fired). Drives the "Analysing…" spinner for genuinely large inputs. */
   isAnalysing: boolean;
 }
 
+/** How long the user must pause typing before we evaluate JS→JSON. */
+const DEBOUNCE_MS = 400;
+
 /**
- * Send `input` to the shared JSON worker and surface the result. The worker
- * runs the state-machine transform and JSON.stringify off the main thread, so
- * even multi-MB inputs leave the UI paint-able — the spinner actually spins.
+ * Detect a JS-object-shaped input and offer a JSON conversion, off the main
+ * thread via the shared JSON worker.
  *
- * The request only fires when `enabled` is true (caller's call: typically
- * "validation just landed invalid and the user hasn't dismissed"). When
- * enabled flips off, `result` is dropped and a still-in-flight response is
- * ignored via the per-request id guard.
+ * Debounced on purpose: the detection only runs once the user *pauses*
+ * typing (`DEBOUNCE_MS`). Earlier this fired on every keystroke and flashed
+ * an "Analysing…" state each time, which read as the banner flickering
+ * show/hide as you typed. Now the banner is simply absent while you type and
+ * settles in shortly after you stop — no per-keystroke churn.
+ *
+ * While the debounce is pending we clear any previous result, so a stale
+ * conversion can never be shown (or Applied) for input you've since edited.
  */
 export function useAsyncJsToJson(
   input: string,
@@ -44,43 +53,49 @@ export function useAsyncJsToJson(
 
   useEffect(() => {
     if (!enabled || !input.trim()) {
-      // Sync the worker-driven state machine with the disabled signal. The
-      // codebase already uses this exception for worker/state synchronisation
-      // (see use-json-state.ts for the same pattern).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ result: null, isAnalysing: false });
       return;
     }
 
-    const worker = getJsonWorker();
-    const id = nextWorkerSeq();
+    // Input changed (or just became enabled): drop any prior result so the
+    // banner doesn't show a conversion for text the user has moved past.
+    // No `isAnalysing` flash here — that was the flicker.
+    setState({ result: null, isAnalysing: false });
+
     let cancelled = false;
+    let removeListener: (() => void) | null = null;
 
-    // Mark in-flight before postMessage so the banner spinner is visible
-    // even if the worker responds in the same task.
-    setState({ result: null, isAnalysing: true });
-
-    const onMessage = (e: MessageEvent<TransformResponse>) => {
-      const data = e.data;
-      if (data.kind !== "transform") return;
-      if (data.id !== id) return; // stale: a newer request superseded us
+    const timer = setTimeout(() => {
       if (cancelled) return;
-      if (data.ok) {
-        setState({
-          result: { output: data.output, transforms: data.transforms },
-          isAnalysing: false,
-        });
-      } else {
-        setState({ result: null, isAnalysing: false });
-      }
-    };
+      const worker = getJsonWorker();
+      const id = nextWorkerSeq();
+      setState({ result: null, isAnalysing: true });
 
-    worker.addEventListener("message", onMessage);
-    worker.postMessage({ kind: "transform", id, src: input });
+      const onMessage = (e: MessageEvent<TransformResponse>) => {
+        const data = e.data;
+        if (data.kind !== "transform") return;
+        if (data.id !== id) return; // stale: a newer request superseded us
+        if (cancelled) return;
+        if (data.ok) {
+          setState({
+            result: { output: data.output, transforms: data.transforms, forInput: input },
+            isAnalysing: false,
+          });
+        } else {
+          setState({ result: null, isAnalysing: false });
+        }
+      };
+
+      worker.addEventListener("message", onMessage);
+      removeListener = () => worker.removeEventListener("message", onMessage);
+      worker.postMessage({ kind: "transform", id, src: input });
+    }, DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
-      worker.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      removeListener?.();
     };
   }, [input, enabled]);
 
