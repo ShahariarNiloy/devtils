@@ -373,6 +373,22 @@ export function ExpandedRow({
             </p>
           </div>
         ) : null}
+        {file.result.iccStatus === "cmyk" ? (
+          <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-bg px-3.5 py-2.5 text-sm text-warning-text">
+            <AlertTriangle
+              size={14}
+              strokeWidth={2}
+              className="mt-0.5 shrink-0"
+              aria-hidden
+            />
+            <p className="leading-relaxed">
+              This JPEG uses a <b>CMYK</b> color profile (common from Photoshop
+              or print exports). Browsers and this tool decode CMYK only
+              approximately, so colors may shift. For accurate color, re-export
+              the source as <b>sRGB</b> before compressing.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {/* Full-screen comparison for pixel-level inspection. */}

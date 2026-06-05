@@ -287,6 +287,39 @@ async function decodeHeic(buffer: ArrayBuffer): Promise<ImageData> {
   return new ImageData(data, width, height);
 }
 
+/**
+ * Detect a CMYK / YCCK JPEG by reading the component count from the Start-
+ * Of-Frame marker. RGB JPEGs have 3 components (Y/Cb/Cr); CMYK/YCCK have 4.
+ * The @jsquash (mozjpeg) decoder converts 4-component JPEGs to RGB only
+ * approximately — there's no embedded-profile-aware CMYK transform — so
+ * these sources can come out colour-shifted. We surface a warning instead
+ * of silently distorting (per the tool's colour-honesty rule).
+ */
+function detectJpegCmyk(buffer: ArrayBuffer): boolean {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0, false) !== 0xffd8) return false;
+  let offset = 2;
+  while (offset + 4 <= view.byteLength) {
+    const marker = view.getUint16(offset, false);
+    offset += 2;
+    if (marker === 0xffd9 || marker === 0xffda) break; // EOI / SOS
+    if ((marker & 0xff00) !== 0xff00) break; // desync
+    const segLen = view.getUint16(offset, false);
+    const m = marker & 0xff;
+    // SOF markers are 0xC0–0xCF except DHT(C4), JPG(C8), DAC(CC).
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      // SOF data: precision(1) height(2) width(2) Nf(1) → Nf at +7 from the
+      // length field.
+      if (offset + 7 < view.byteLength) {
+        return view.getUint8(offset + 7) === 4;
+      }
+      return false;
+    }
+    offset += segLen;
+  }
+  return false;
+}
+
 // ── Public decode/resize ─────────────────────────────────────────
 
 /** Decode an image buffer into ImageData. Mime must be one of the
@@ -497,34 +530,54 @@ async function searchQualityBySSIM(
 
 // ── Chroma detection for JPEG ─────────────────────────────────────
 
+/**
+ * Decide JPEG chroma subsampling. 4:2:0 halves chroma resolution; on any
+ * image whose colour changes sharply between neighbouring pixels (saturated
+ * edges, skin/fabric detail, coloured text, red flowers) that visibly bleeds
+ * and distorts colour. So we measure the *high-frequency chroma content* —
+ * how much Cb/Cr actually changes between adjacent pixels — NOT the average
+ * colourfulness.
+ *
+ * The previous version summed `Cb² + Cr²` (mean chroma *energy*) and called
+ * it "variance". That mislabels two very different things: a uniformly
+ * saturated photo has high energy but no chroma *detail*, while a muted photo
+ * with fine coloured edges has low energy but real detail. Natural photos
+ * often fell below the energy threshold and were forced to 4:2:0, degrading
+ * their colour — the bug behind "any photo looks distorted".
+ *
+ * Per the tool's "colour preservation over file size" rule we bias toward
+ * full-chroma 4:4:4 and only drop to 4:2:0 for near-monochrome content
+ * (scans, grayscale, flat solid-colour graphics) where it's genuinely free.
+ */
 async function detectChromaMode(
   imageData: ImageData,
 ): Promise<"4:2:0" | "4:4:4"> {
   const { width, height, data } = imageData;
+  if (width < 2) return "4:4:4";
   const totalPixels = width * height;
-  // Cap at ~1024 stratified samples regardless of image size. For a 4K
-  // image the previous stride-8 walk did ~130k samples; variance
-  // estimation converges long before that.
-  const targetSamples = 1024;
+  // ~4096 stratified samples — plenty for an edge-energy estimate.
+  const targetSamples = 4096;
   const stride = Math.max(1, Math.floor(Math.sqrt(totalPixels / targetSamples)));
-  let sumSq = 0;
+
+  let edgeSum = 0;
   let count = 0;
   for (let y = 0; y < height; y += stride) {
-    for (let x = 0; x < width; x += stride) {
+    for (let x = 0; x + 1 < width; x += stride) {
       const i = (y * width + x) * 4;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      // Approximate Cb/Cr chroma signal (BT.601). High variance ⇒ high
-      // chroma detail (logos, screenshots) ⇒ 4:4:4.
-      const cb = -0.169 * r - 0.331 * g + 0.500 * b;
-      const cr =  0.500 * r - 0.419 * g - 0.081 * b;
-      sumSq += cb * cb + cr * cr;
+      const j = i + 4; // horizontally adjacent pixel
+      // BT.601 chroma for both pixels.
+      const cb1 = -0.169 * data[i] - 0.331 * data[i + 1] + 0.5 * data[i + 2];
+      const cr1 = 0.5 * data[i] - 0.419 * data[i + 1] - 0.081 * data[i + 2];
+      const cb2 = -0.169 * data[j] - 0.331 * data[j + 1] + 0.5 * data[j + 2];
+      const cr2 = 0.5 * data[j] - 0.419 * data[j + 1] - 0.081 * data[j + 2];
+      edgeSum += Math.abs(cb1 - cb2) + Math.abs(cr1 - cr2);
       count++;
     }
   }
-  const variance = count === 0 ? 0 : sumSq / count;
-  return variance > 200 ? "4:4:4" : "4:2:0";
+  const meanChromaEdge = count === 0 ? 0 : edgeSum / count;
+  // Low threshold → keep full chroma for anything with real colour detail.
+  // Near-monochrome content sits well under this and still gets 4:2:0.
+  return meanChromaEdge > 1.5 ? "4:4:4" : "4:2:0";
 }
 
 // ── Per-format encoders ───────────────────────────────────────────
@@ -857,6 +910,8 @@ export async function compressImageData(
   // buffer; it doesn't consume it, but we extract early to keep the
   // contract simple.
   const sourceIcc = supportsIcc(mime) ? extractIcc(buffer, mime) : null;
+  // CMYK/YCCK JPEGs decode approximately — flag so we can warn the user.
+  const cmykSource = mime === "image/jpeg" && detectJpegCmyk(buffer);
 
   let decoded: ImageData;
   let dimensions: { width: number; height: number };
@@ -1006,7 +1061,7 @@ export async function compressImageData(
       codec: `Original — couldn't reach "${settings.qualityMode}" quality`,
       dimensions: { width: dimensions.width, height: dimensions.height },
       sourceDimensions: { width: dimensions.width, height: dimensions.height },
-      iccStatus: "none",
+      iccStatus: cmykSource ? "cmyk" : "none",
       qualityModeUsed: settings.qualityMode,
       pngPhotoAdvisory: false,
       qualityFloorMissed: true,
@@ -1020,7 +1075,7 @@ export async function compressImageData(
   // changes container (PNG → JPEG, etc.) the chunk format differs and
   // we can't preserve the profile bit-exactly without color conversion.
   let finalBuffer = encoded.buffer;
-  let iccStatus: "none" | "preserved" | "converted" | "lost" = "none";
+  let iccStatus: "none" | "preserved" | "converted" | "lost" | "cmyk" = "none";
   if (sourceIcc) {
     if (mime === encoded.mimeType && supportsIcc(encoded.mimeType)) {
       const result = injectIcc(finalBuffer, encoded.mimeType, sourceIcc);
@@ -1036,6 +1091,9 @@ export async function compressImageData(
       iccStatus = "lost";
     }
   }
+  // A CMYK source is the dominant colour concern — its warning wins over the
+  // profile-status messages above.
+  if (cmykSource) iccStatus = "cmyk";
 
   const newSize = finalBuffer.byteLength;
   // savedPct is the *signed* reduction. Positive = output is smaller

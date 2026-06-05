@@ -67,8 +67,11 @@ export interface CompressionResult {
    *                 color-managed (Display P3 → sRGB) so colors stay correct
    *   "lost"      → source had a profile that was dropped without conversion
    *                 (injection failed, or a non-P3 wide-gamut profile on swap)
+   *   "cmyk"      → source is a CMYK/YCCK JPEG (Photoshop / print export);
+   *                 the WASM decoder converts CMYK → RGB only approximately,
+   *                 so colours may shift. Warn rather than silently distort.
    */
-  iccStatus: "none" | "preserved" | "converted" | "lost";
+  iccStatus: "none" | "preserved" | "converted" | "lost" | "cmyk";
   /**
    * The quality mode this result was produced under. Captured so the
    * UI can show estimates honestly: if the user changes the chip
