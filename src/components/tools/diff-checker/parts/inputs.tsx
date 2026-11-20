@@ -1,21 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ChevronDown, ChevronUp, Clipboard, Trash2 } from "lucide-react";
+import { Clipboard, Trash2 } from "lucide-react";
+import { SideAction, SideHeader } from "./chrome";
 
 /**
  * Two flavours of the input UI:
  *
- *   - `InputsStrip` — collapsed. Shows side stats + an "Edit inputs"
- *     button. This is the default once both sides are populated; the
- *     diff dominates the viewport.
- *   - `InputsPanel` — expanded. The full editable textareas, with synced
- *     scroll so the two sides stay aligned as the user reads.
+ *   - `InputsPanel` — the mockup: two labelled, vertically resizable
+ *     textareas side by side (stacked on phones), with synced scroll so
+ *     the two sides stay aligned while reading.
+ *   - `InputsStrip` — collapsed ("Hide inputs" / `e`). One line with the
+ *     side line counts and a "Show inputs" button.
  *
  * Synced scroll uses a guard flag (`syncingFrom`) to prevent the cyclic
- * "A scrolled → set B → B fires onScroll → set A" feedback loop. The
- * cheaper alternative (debounce) feels laggy; the flag is one ref and
- * costs nothing.
+ * "A scrolled → set B → B fires onScroll → set A" feedback loop.
  */
 
 export interface InputsStripProps {
@@ -26,22 +25,20 @@ export interface InputsStripProps {
 
 export function InputsStrip({ leftLines, rightLines, onEdit }: InputsStripProps) {
   return (
-    <button
-      type="button"
-      onClick={onEdit}
-      className="group flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2 text-left shadow-card transition-colors hover:border-border-strong/60 hover:bg-surface-soft/30 cursor-pointer"
-    >
-      <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
-        Inputs
-      </span>
-      <span className="font-mono text-sm text-text-faint">
+    <div className="flex min-h-[42px] items-center gap-3 border-b border-border-subtle px-4 text-[13px]">
+      <span className="font-bold">Inputs hidden</span>
+      <span className="font-mono text-xs text-text-faint">
         {leftLines.toLocaleString()} ↔ {rightLines.toLocaleString()} lines
       </span>
-      <span className="ml-auto inline-flex items-center gap-1.5 text-sm text-text-faint group-hover:text-text">
-        Edit inputs
-        <ChevronDown size={14} aria-hidden />
-      </span>
-    </button>
+      <span className="grow" />
+      <button
+        type="button"
+        onClick={onEdit}
+        className="inline-flex min-h-9 cursor-pointer items-center rounded-lg px-2.5 font-semibold text-text-key transition-colors hover:bg-surface-soft"
+      >
+        Show inputs
+      </button>
+    </div>
   );
 }
 
@@ -50,21 +47,12 @@ export interface InputsPanelProps {
   right: string;
   onChangeLeft: (v: string) => void;
   onChangeRight: (v: string) => void;
-  onCollapse: () => void;
+  onPasteError: () => void;
   leftRef: React.RefObject<HTMLTextAreaElement | null>;
   rightRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
-export function InputsPanel({
-  left,
-  right,
-  onChangeLeft,
-  onChangeRight,
-  onCollapse,
-  leftRef,
-  rightRef,
-}: InputsPanelProps) {
-  // Synced scroll between the two textareas.
+export function InputsPanel({ left, right, onChangeLeft, onChangeRight, onPasteError, leftRef, rightRef }: InputsPanelProps) {
   const syncingFrom = useRef<"left" | "right" | null>(null);
 
   useEffect(() => {
@@ -79,11 +67,8 @@ export function InputsPanel({
       // Mirror by ratio so unequal-height contents still align reasonably.
       const range = src.scrollHeight - src.clientHeight;
       const ratio = range > 0 ? src.scrollTop / range : 0;
-      const dstRange = dst.scrollHeight - dst.clientHeight;
       syncingFrom.current = source;
-      dst.scrollTop = ratio * dstRange;
-      // Release the lock on the next frame so the resulting "scroll" event
-      // doesn't get treated as a fresh user-initiated scroll.
+      dst.scrollTop = ratio * (dst.scrollHeight - dst.clientHeight);
       requestAnimationFrame(() => {
         syncingFrom.current = null;
       });
@@ -100,111 +85,57 @@ export function InputsPanel({
   }, [leftRef, rightRef]);
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-card">
-      <div className="flex h-11 items-center gap-2 border-b border-border-subtle px-3">
-        <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
-          Inputs
-        </span>
-        <span className="font-mono text-sm text-text-faint">
-          paste or drop two files
-        </span>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-        >
-          <ChevronUp size={14} aria-hidden />
-          Collapse
-        </button>
-      </div>
-      <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
-        <InputSide
-          label="Original"
-          value={left}
-          onChange={onChangeLeft}
-          textareaRef={leftRef}
-          placeholder="Paste the original text…"
-          side="left"
-        />
-        <InputSide
-          label="Changed"
-          value={right}
-          onChange={onChangeRight}
-          textareaRef={rightRef}
-          placeholder="Paste the changed text…"
-          side="right"
-        />
-      </div>
+    <div className="flex flex-wrap border-b border-border-subtle">
+      <InputSide id="df-l" side="left" label="Original" value={left} onChange={onChangeLeft} onPasteError={onPasteError} textareaRef={leftRef} />
+      <InputSide id="df-r" side="right" label="Changed" value={right} onChange={onChangeRight} onPasteError={onPasteError} textareaRef={rightRef} />
     </div>
   );
 }
 
 function InputSide({
+  id,
+  side,
   label,
   value,
   onChange,
+  onPasteError,
   textareaRef,
-  placeholder,
-  side,
 }: {
+  id: string;
+  side: "left" | "right";
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onPasteError: () => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  placeholder: string;
-  side: "left" | "right";
 }) {
-  const onPaste = async () => {
+  const paste = async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text) onChange(text);
     } catch {
-      // Clipboard blocked / unavailable — let the user retry; toast lives
-      // in the orchestrator so this leaf component stays sonner-free.
+      onPasteError();
     }
   };
 
   return (
-    <div
-      className={`flex flex-col ${side === "left" ? "md:border-r" : ""} border-border-subtle`}
-    >
-      <div className="flex h-9 items-center gap-2 border-b border-border-subtle px-3">
-        <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
-          {label}
-        </span>
-        <span className="font-mono text-sm text-text-faint">
-          {value ? `${value.length.toLocaleString()} chars` : ""}
-        </span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={onPaste}
-            aria-label={`Paste into ${label}`}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-          >
-            <Clipboard size={13} aria-hidden />
-            Paste
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            disabled={!value}
-            aria-label={`Clear ${label}`}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-danger disabled:opacity-40 cursor-pointer"
-          >
-            <Trash2 size={13} aria-hidden />
-            Clear
-          </button>
-        </div>
-      </div>
+    <div className={`flex min-w-0 flex-[1_1_340px] flex-col ${side === "left" ? "border-r border-border-subtle" : ""}`}>
+      <SideHeader htmlFor={id} side={side} label={label} meta={value ? `${value.length.toLocaleString()} chars` : undefined}>
+        <SideAction label={`Paste into ${label}`} onClick={() => void paste()}>
+          <Clipboard size={14} aria-hidden />
+        </SideAction>
+        <SideAction label={`Clear ${label}`} onClick={() => onChange("")} disabled={!value}>
+          <Trash2 size={14} aria-hidden />
+        </SideAction>
+      </SideHeader>
       <textarea
+        id={id}
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
-        placeholder={placeholder}
-        aria-label={label}
-        className="min-h-[180px] w-full resize-none border-0 bg-transparent px-3 py-3 font-mono text-[16px] leading-[1.6] text-text outline-none placeholder:text-text-faint"
+        placeholder={`Paste the ${label.toLowerCase()} text…`}
+        className="m-0 box-border h-[220px] resize-y border-0 bg-transparent px-4 py-3.5 font-mono text-[12.5px] leading-[1.7] text-syntax-plain outline-none placeholder:text-placeholder sm:text-[13px]"
       />
     </div>
   );

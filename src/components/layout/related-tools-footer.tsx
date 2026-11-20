@@ -1,62 +1,64 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { ToolIcon } from "@/components/shared/tool-icon";
-import { getRelatedTools, type Tool } from "@/lib/tools-registry";
+import { cn } from "@/lib/cn";
+import { getRelatedTools, getToolBySlug, type Tool } from "@/lib/tools-registry";
+import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
+import { categoryAnchor } from "./tool-shell-header";
+import { KeyIcon, toolIcon } from "@/components/shared/key-icon";
+
+const TINT_TEXT: Record<Tint, string> = {
+  clay: "text-cat-clay",
+  teal: "text-cat-teal",
+  sage: "text-cat-sage",
+  rose: "text-cat-rose",
+};
 
 interface Props {
   tool: Tool;
+  /** Curated related slugs (from the tool's seoData); falls back to same-category tools. */
+  slugs?: readonly string[];
 }
 
-/**
- * Bottom-of-page footer: a grid of related tools in the same category. A
- * different design from the old in-header chip strip — proper cards with
- * icon + name + one-line description, click-to-navigate.
- */
-export function RelatedToolsFooter({ tool }: Props) {
-  const related = getRelatedTools(tool.slug, 8);
+/** "More JSON tools" / "Related tools" — four keycap cards under the tool. */
+export function RelatedToolsFooter({ tool, slugs }: Props) {
+  const curated = (slugs ?? [])
+    .map((s) => getToolBySlug(s))
+    .filter((t): t is Tool => Boolean(t) && t?.slug !== tool.slug);
+  const related = (curated.length > 0 ? curated : getRelatedTools(tool.slug, 4)).slice(0, 4);
   if (related.length === 0) return null;
 
+  const sameCategory = related.every((t) => t.category === tool.category);
   return (
-    <section className="border-t border-border-subtle bg-bg">
-      <div className="mx-auto max-w-8xl px-5 py-8 sm:px-8">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-            More in {tool.category}
-          </h2>
-          <Link
-            href={`/tools?cat=${encodeURIComponent(tool.category)}`}
-            className="inline-flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text"
-          >
-            See all
-            <ArrowUpRight size={13} aria-hidden />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {related.map((t) => (
+    <section className="mt-14 sm:mt-16" aria-labelledby="related-tools">
+      <div className="mb-3.5 flex items-baseline gap-3">
+        <h2 id="related-tools" className="m-0 font-sans text-base font-bold tracking-normal">
+          {sameCategory ? `More ${tool.category} tools` : "Related tools"}
+        </h2>
+        <span className="grow" />
+        <Link href={sameCategory ? categoryAnchor(tool.category) : "/tools"} className="text-sm text-text-tertiary hover:text-text">
+          See all →
+        </Link>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-2.5">
+        {related.map((t) => {
+          const p = TOOL_PRESENTATION[t.slug];
+          return (
             <Link
               key={t.slug}
               href={`/tools/${t.slug}`}
-              className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-3 transition-colors hover:border-border-strong/60 hover:bg-surface-soft"
+              className="surface-panel flex items-center gap-3 rounded-[14px] p-3.5 text-text transition-colors hover:border-white/18 hover:text-text"
             >
-              <span
-                aria-hidden
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-soft text-text-muted transition-colors group-hover:bg-bg"
-              >
-                <ToolIcon name={t.icon} size={16} />
+              <span aria-hidden="true" className={cn("surface-key flex size-[34px] shrink-0 items-center justify-center rounded-[9px] font-mono text-xs", TINT_TEXT[p?.tint ?? CATEGORY_TINT[t.category]])}>
+                <KeyIcon icon={toolIcon(t.slug)} box={32} />
               </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-text">
-                  {t.name}
-                </div>
-                <div className="line-clamp-2 text-[12px] text-text-muted">
-                  {t.description}
-                </div>
-              </div>
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm font-bold">{p?.label ?? t.name}</span>
+                <span className="truncate text-xs text-text-faint">{p?.card ?? p?.desc ?? t.description}</span>
+              </span>
             </Link>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );

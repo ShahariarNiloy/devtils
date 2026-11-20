@@ -1,6 +1,7 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
+  usesNote: "Queries you can read in a code review.",
   intro:
     "Format SQL queries from any dialect — PostgreSQL, MySQL, MariaDB, SQLite, SQL Server (T-SQL), Oracle (PL/SQL), BigQuery, Snowflake, Redshift, or generic ANSI. Configurable keyword case, indent, comma style, logical-operator placement, and line width. Multi-statement-aware. Runs entirely in your browser — pasted SQL never leaves the tab.",
   useCases: [
@@ -12,7 +13,7 @@ export const seoData = {
     {
       title: "Normalising a migration before review",
       description:
-        "Drop a `.sql` file in to standardise indentation, comma style, and AND/OR placement to your team's convention. The diff view shows exactly what whitespace changed so reviewers don't lose time on layout.",
+        "Drop a `.sql` file in to standardise indentation, comma style, and AND/OR placement to your team's convention. Compare with input (in the ⋯ menu) shows exactly what whitespace changed so reviewers don't lose time on layout.",
     },
     {
       title: "Sanity-checking dialect-specific syntax",
@@ -39,12 +40,12 @@ export const seoData = {
     {
       question: "Will it change the meaning of my query?",
       answer:
-        "No — only whitespace, indentation, and (optionally) keyword/identifier case. Identifiers and literals are preserved exactly. The Diff view shows exactly which lines moved or split, so you can confirm semantically nothing has shifted before pasting back.",
+        "No — only whitespace, indentation, and (optionally) keyword/identifier case. Identifiers and literals are preserved exactly. Compare with input, in the ⋯ menu, shows exactly which lines moved or split, so you can confirm semantically nothing has shifted before pasting back.",
     },
     {
-      question: "What's the difference between Output and Diff view?",
+      question: "What does Compare with input show?",
       answer:
-        "Output shows the formatted result. Diff shows your original input and the formatted output side-by-side with line-by-line markers — useful for confirming the formatter only re-indented (didn't drop comments, rename tokens, etc.) before you commit the change.",
+        "The output pane normally shows the formatted result. Compare with input (⋯ menu, or ⌘⇧D) shows your original input and the formatted output side by side with line-by-line markers — useful for confirming the formatter only re-indented (didn't drop comments, rename tokens, etc.) before you commit the change.",
     },
     {
       question: "How does the leading-comma option work?",
@@ -54,15 +55,15 @@ export const seoData = {
     {
       question: "Why are AND / OR sometimes at the start of the next line?",
       answer:
-        "That's the default — readability research suggests leading-AND lets you scan a WHERE clause vertically. Flip to trailing-AND in the Options menu if you prefer end-of-line. The setting persists across pages.",
+        "That's the default — readability research suggests leading-AND lets you scan a WHERE clause vertically. Untick \"AND / OR start the line\" in the ⋯ menu if you prefer end-of-line.",
     },
     {
       question: "Are keyboard shortcuts available?",
       answer:
-        "`/` focuses the input, `⌘⇧C` copies the output, `⌘⇧D` toggles the diff view. The dropdown menus are keyboard-navigable; the dialect picker remembers your last choice in localStorage.",
+        "`/` focuses the input, `⌘⇧C` copies the output, `⌘⇧D` toggles the side-by-side compare. The ⋯ menu is keyboard-navigable, and the dialect picker remembers your last choice on this device.",
     },
   ],
-  relatedSlugs: ["code-formatter", "json-formatter", "diff-checker", "json-to-csv"],
+  relatedSlugs: ["code-formatter", "xml-formatter", "json-formatter", "diff-checker"],
 } as const;
 
 export function SqlFormatterContent() {

@@ -5,6 +5,7 @@
  */
 
 import { Temporal } from "@js-temporal/polyfill";
+import type { DetectedFormat } from "./timestamp-converter.types";
 
 /** Fallback primary timezone when the runtime zone can't be resolved. */
 export const DEFAULT_PRIMARY_TZ = "UTC";
@@ -28,6 +29,15 @@ export const DEFAULT_CUSTOM_FORMAT = "YYYY-MM-DD HH:mm:ss";
 export const MAX_HISTORY_ITEMS = 50;
 export const MAX_BATCH_ROWS = 100_000;
 export const DST_WARN_WINDOW_HOURS = 24;
+
+/** The "Around the world" list in the v2 workspace (city, IANA zone). */
+export const WORLD_ZONES: readonly (readonly [string, string])[] = [
+  ["UTC", "UTC"],
+  ["New York", "America/New_York"],
+  ["London", "Europe/London"],
+  ["Dhaka", "Asia/Dhaka"],
+  ["Tokyo", "Asia/Tokyo"],
+];
 
 export interface SupportedLanguage {
   id: string;
@@ -80,4 +90,29 @@ export const EPOCH_LANDMARKS: EpochLandmark[] = [
     instant: Temporal.Instant.fromEpochMilliseconds(8_640_000_000_000_000),
     description: "Largest date a JS Date can represent (8.64e15 ms).",
   },
+];
+
+/** Human label for each detected input format (the kind pill). */
+export const DETECTED_FORMAT_LABEL: Record<DetectedFormat, string> = {
+  "unix-s": "Unix seconds",
+  "unix-ms": "Unix milliseconds",
+  "unix-us": "Unix microseconds",
+  "unix-ns": "Unix nanoseconds",
+  "iso-8601": "ISO 8601",
+  "rfc-2822": "RFC 2822",
+  "rfc-3339": "RFC 3339",
+  "js-date-string": "Date string",
+  "log-format": "Log timestamp",
+  "natural-language": "Natural language",
+  "excel-serial": "Excel serial",
+  unknown: "Unrecognised",
+};
+
+/** Reinterpretations offered for an all-digits input. */
+export const FORMAT_OVERRIDES: readonly DetectedFormat[] = [
+  "unix-s",
+  "unix-ms",
+  "unix-us",
+  "unix-ns",
+  "excel-serial",
 ];

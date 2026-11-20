@@ -26,7 +26,7 @@ import {
 
 const DEBOUNCE_MS = 250;
 const SAMPLES: Record<LanguageId, string> = {
-  javascript: `function greet(name){const greeting="hello";return greeting+", "+name+"!";}const users=["a","b","c"].map((n,i)=>({id:i,name:n}));`,
+  javascript: `const greet = (name) => {if (!name) {return 'Hello, stranger';} const hour = new Date().getHours(); return hour < 12 ? \`Good morning, \${name}\` : \`Hello, \${name}\`;}; export default greet;`,
   typescript: `interface User{id:number;name:string;email?:string;}function getUser(id:number):User{return{id,name:"a",email:"a@b.com"};}const list:User[]=[1,2,3].map(i=>getUser(i));`,
   jsx: `function Card({title,children}){return(<div className="card"><h2>{title}</h2><div className="body">{children}</div></div>);}`,
   tsx: `function Card<T>({items,render}:{items:T[];render:(item:T)=>React.ReactNode}){return(<ul>{items.map((x,i)=>(<li key={i}>{render(x)}</li>))}</ul>);}`,
@@ -34,10 +34,10 @@ const SAMPLES: Record<LanguageId, string> = {
   json: `{"name":"utilyx","version":"1.0.0","dependencies":{"react":"^19.0.0","next":"^16.0.0"},"scripts":{"dev":"next dev","build":"next build"}}`,
   json5: `{name:'utilyx',version:'1.0.0',// dependencies\ndeps:{react:"^19.0.0",next:"^16.0.0",}}`,
   jsonc: `{\n// Reference: https://www.typescriptlang.org/tsconfig\n"compilerOptions":{"target":"ES2022","strict":true,/* enables every strict-mode check */"jsx":"preserve","paths":{"@/*":["./src/*"]}},"exclude":["node_modules"]}`,
-  css: `body{margin:0;padding:0;font-family:sans-serif}.card{padding:12px;border:1px solid #ddd;border-radius:8px}.card>h2{margin:0 0 8px;font-size:18px}`,
+  css: `.card{display:flex;gap:12px;padding:16px 20px;border-radius:12px;background:#121211}.card:hover{border-color:rgba(224,160,114,.45)}@media (max-width:600px){.card{flex-direction:column}}`,
   scss: `$brand:#cde65a;.card{padding:12px;border:1px solid #ddd;border-radius:8px;&__header{font-size:18px;color:$brand;&:hover{opacity:.8}}}`,
   less: `@brand:#cde65a;.card{padding:12px;border:1px solid #ddd;border-radius:8px;.header{font-size:18px;color:@brand;&:hover{opacity:.8}}}`,
-  html: `<div class="card"><h2>Hello</h2><p>A paragraph with <em>emphasis</em> and a <a href="https://example.com">link</a>.</p><ul><li>One</li><li>Two</li></ul></div>`,
+  html: `<!doctype html><html><head><meta charset="utf-8"><title>utilyx</title></head><body><main class="hero"><h1>Every tool you need.</h1><p>Fast, private, <strong>free</strong>.</p><img src="logo.svg" alt="utilyx"></main></body></html>`,
   vue: `<template><div class="card"><h2>{{title}}</h2><slot></slot></div></template><script setup>defineProps({title:String})</script><style scoped>.card{padding:12px}</style>`,
   angular: `<div class="card" [class.active]="isActive" (click)="onClick($event)"><h2>{{title|titlecase}}</h2><ng-container *ngIf="items as list"><p *ngFor="let i of list;trackBy:trackId">{{i.name}}</p></ng-container></div>`,
   handlebars: `<div class="card">{{#if user}}<h2>Hi {{user.name}}</h2>{{else}}<h2>Welcome</h2>{{/if}}<ul>{{#each items as |item index|}}<li>{{index}}: {{item.title}}</li>{{/each}}</ul></div>`,
@@ -69,7 +69,7 @@ export function useCodeFormatter(): CodeFormatterState {
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorLine, setErrorLine] = useState<number | undefined>(undefined);
-  const [language, setLanguage] = useState<LanguageId>("javascript");
+  const [language, setLanguageRaw] = useState<LanguageId>("javascript");
   const [options, setOptions] = useState<FormatOptions>({
     tabWidth: 2,
     useTabs: false,
@@ -128,6 +128,16 @@ export function useCodeFormatter(): CodeFormatterState {
       setOptions((o) => ({ ...o, [key]: value }));
     },
     [],
+  );
+
+  // Switching language swaps in that language's sample — but only while the
+  // editor still holds an untouched sample (or nothing); real input stays.
+  const setLanguage = useCallback(
+    (id: LanguageId) => {
+      setLanguageRaw(id);
+      setInput((cur) => (!cur.trim() || cur === SAMPLES[language] ? SAMPLES[id] : cur));
+    },
+    [language],
   );
 
   const loadSample = useCallback(() => {

@@ -15,7 +15,7 @@ const SHORTCUTS: [string, string][] = [
   ["⌘ C", "Copy primary ISO 8601"],
   ["Esc", "Clear input"],
   ["?", "Toggle this help"],
-  ["⌘ 1–4", "Switch mode (Single / Compare / Arithmetic / Batch)"],
+  ["⌘ 1–4", "Switch mode (Convert / Compare / Arithmetic / Batch)"],
 ];
 
 interface Props {

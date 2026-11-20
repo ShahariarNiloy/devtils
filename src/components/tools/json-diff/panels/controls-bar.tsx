@@ -1,46 +1,40 @@
 "use client";
 
-import { AlertTriangle, ArrowLeftRight, Check, ChevronDown } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCopy, Eraser, FileText, Link2 } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
-import { Input } from "@/components/primitives/input";
-import { cn } from "@/lib/cn";
+import { CountPill, MoreButton, SwapButton } from "@/components/tools/diff-checker/parts/chrome";
 import type { ArrayStrategy, DiffResult } from "../json-diff.lib";
-import type { PointerStyle } from "../use-json-diff";
+import type { PointerStyle, ResultView } from "../use-json-diff";
 
 const STRATEGIES: { id: ArrayStrategy; label: string; help: string }[] = [
-  { id: "ordered", label: "Ordered", help: "Match items by position; detect moves" },
-  { id: "set", label: "Set-like", help: "Treat arrays as unordered collections" },
-  { id: "identity", label: "By id", help: "Match items by an identity key (e.g. id)" },
+  { id: "ordered", label: "Ordered", help: "by position; detects moves" },
+  { id: "set", label: "Set-like", help: "order doesn't matter" },
+  { id: "identity", label: "By id", help: "match items by a key" },
 ];
 
-/**
- * Strip of inline toggles that affect the diff result + display. Order
- * mirrors importance: array strategy first (highest-impact decision), then
- * sort-keys / hide-unchanged / pointer-style. Type-change warning sits at
- * the right when present — visible at all times so you don't miss a bug.
- */
-export function ControlsBar({
-  result,
-  arrayStrategy,
-  onArrayStrategy,
-  identityKey,
-  onIdentityKey,
-  sortKeys,
-  onSortKeys,
-  hideUnchanged,
-  onHideUnchanged,
-  pointerStyle,
-  onPointerStyle,
-  onSwap,
-}: {
+const VIEWS: { id: ResultView; label: string }[] = [
+  { id: "changes", label: "Change list" },
+  { id: "patch", label: "JSON Patch (RFC 6902)" },
+  { id: "side-by-side", label: "Text side-by-side" },
+];
+
+export function strategyLabel(s: ArrayStrategy): string {
+  return STRATEGIES.find((x) => x.id === s)?.label ?? s;
+}
+
+interface Props {
   result: DiffResult | null;
+  view: ResultView;
+  onView: (v: ResultView) => void;
   arrayStrategy: ArrayStrategy;
   onArrayStrategy: (s: ArrayStrategy) => void;
   identityKey: string;
@@ -52,154 +46,117 @@ export function ControlsBar({
   pointerStyle: PointerStyle;
   onPointerStyle: (s: PointerStyle) => void;
   onSwap: () => void;
-}) {
-  const activeStrategy =
-    STRATEGIES.find((s) => s.id === arrayStrategy) ?? STRATEGIES[0];
-  const typeChanges = result?.stats.typeChanges ?? 0;
+  onCopyPatch: () => void;
+  onShare: () => void;
+  onLoadSample: () => void;
+  onClear: () => void;
+  canClear: boolean;
+}
 
+/**
+ * v2 JSON diff toolbar: added / removed / changed pills (plus type-change
+ * and moved pills only when they occur), Swap, and ⋯ for the result view,
+ * array strategy, key sorting, path style and the share / sample actions.
+ * The identity-key field appears inline while "By id" is active — it's a
+ * text input, which doesn't belong inside a menu.
+ */
+export function ControlsBar(p: Props) {
+  const st = p.result?.stats;
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2">
-      {/* Array strategy */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-muted">Arrays:</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 text-xs-plus font-medium text-text transition-colors hover:bg-surface"
-            >
-              {activeStrategy.label}
-              <ChevronDown size={12} className="text-text-faint" aria-hidden />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>How to compare arrays</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {STRATEGIES.map((s) => (
-              <DropdownMenuItem key={s.id} onClick={() => onArrayStrategy(s.id)}>
-                {arrayStrategy === s.id ? <Check size={12} /> : <span className="w-3" />}
-                <span className="ml-1.5">
-                  <span className="font-medium">{s.label}</span>
-                  <span className="ml-2 text-text-faint">{s.help}</span>
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {arrayStrategy === "identity" && (
-          <Input
+    <div className="flex flex-wrap items-center gap-2.5 border-b border-border-subtle bg-toolbar p-3">
+      <div className="flex flex-wrap gap-1.5">
+        <CountPill tone="added">{st?.added ?? 0} added</CountPill>
+        <CountPill tone="removed">{st?.removed ?? 0} removed</CountPill>
+        <CountPill tone="changed" title={st?.typeChanges ? "Includes type changes" : undefined}>
+          {(st?.changed ?? 0) + (st?.typeChanges ?? 0)} changed
+        </CountPill>
+        {st && st.typeChanges > 0 && (
+          <CountPill tone="warning" title="A value changed type (e.g. number → string) — usually a bug">
+            <AlertTriangle size={13} aria-hidden />
+            {st.typeChanges} type change{st.typeChanges === 1 ? "" : "s"}
+          </CountPill>
+        )}
+        {st && st.moves > 0 && <CountPill tone="info">{st.moves} moved</CountPill>}
+      </div>
+      <span className="grow" />
+      {p.arrayStrategy === "identity" && (
+        <label className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-border pr-1 pl-3 text-[13px] font-semibold text-text-key">
+          Match arrays by
+          <input
             type="text"
-            value={identityKey}
-            onChange={(e) => onIdentityKey(e.target.value)}
+            value={p.identityKey}
+            onChange={(e) => p.onIdentityKey(e.target.value)}
             placeholder="id"
-            className="h-8 w-28 font-mono text-base"
-            aria-label="Identity key"
+            spellCheck={false}
+            className="h-9 w-24 rounded-lg border border-border-subtle bg-[#0d0d0c] px-2 font-mono text-[13px] text-text outline-none focus-visible:border-border-strong"
           />
-        )}
-      </div>
-
-      <Divider />
-
-      {/* Sort keys */}
-      <Toggle
-        label="Sort keys"
-        checked={sortKeys}
-        onChange={onSortKeys}
-        title="Canonicalize both sides — recursively sort object keys before compare"
-      />
-
-      {/* Hide unchanged */}
-      <Toggle
-        label="Hide unchanged"
-        checked={hideUnchanged}
-        onChange={onHideUnchanged}
-        title="Collapse the unchanged branches of the result tree"
-      />
-
-      <Divider />
-
-      {/* Pointer style */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-muted">Paths:</span>
-        <div className="inline-flex rounded-md border border-border bg-surface-2 p-0.5">
-          {(
-            [
-              { id: "json-pointer", label: "/a/b" },
-              { id: "dot", label: "a.b" },
-            ] as const
-          ).map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onPointerStyle(p.id as PointerStyle)}
-              className={cn(
-                "h-6 rounded-sm px-2 text-xs font-mono transition-colors",
-                pointerStyle === p.id
-                  ? "bg-surface text-text shadow-sm"
-                  : "text-text-muted hover:text-text",
-              )}
-            >
-              {p.label}
-            </button>
+        </label>
+      )}
+      <SwapButton onClick={p.onSwap} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <MoreButton />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          {VIEWS.map((v) => (
+            <Choice key={v.id} on={p.view === v.id} onSelect={() => p.onView(v.id)}>
+              {v.label}
+            </Choice>
           ))}
-        </div>
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        {/* Type-change warning — only when present, but prominent */}
-        {typeChanges > 0 && (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md border border-warning-border bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-text"
-            title="Type changes are almost always bugs — check these first"
-          >
-            <AlertTriangle size={11} />
-            {typeChanges} type change{typeChanges === 1 ? "" : "s"}
-          </span>
-        )}
-
-        {/* Swap sides */}
-        <button
-          type="button"
-          onClick={onSwap}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs-plus text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-          aria-label="Swap sides"
-          title="Swap left and right"
-        >
-          <ArrowLeftRight size={12} />
-          Swap
-        </button>
-      </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Compare arrays</DropdownMenuLabel>
+          {STRATEGIES.map((s) => (
+            <Choice key={s.id} on={p.arrayStrategy === s.id} onSelect={() => p.onArrayStrategy(s.id)}>
+              {s.label}
+              <span className="text-text-faint">{s.help}</span>
+            </Choice>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem checked={p.sortKeys} onCheckedChange={(v) => p.onSortKeys(v === true)}>
+            Sort keys before comparing
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={p.hideUnchanged} onCheckedChange={(v) => p.onHideUnchanged(v === true)}>
+            Fold unchanged lines (side-by-side)
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Paths</DropdownMenuLabel>
+          <Choice on={p.pointerStyle === "dot"} onSelect={() => p.onPointerStyle("dot")}>
+            <span className="font-mono">$.a.b</span>
+          </Choice>
+          <Choice on={p.pointerStyle === "json-pointer"} onSelect={() => p.onPointerStyle("json-pointer")}>
+            <span className="font-mono">/a/b</span>
+            <span className="text-text-faint">JSON Pointer</span>
+          </Choice>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={p.onCopyPatch} disabled={!st?.total}>
+            <ClipboardCopy size={13} aria-hidden />
+            Copy JSON Patch
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onShare}>
+            <Link2 size={13} aria-hidden />
+            Copy share link
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onLoadSample}>
+            <FileText size={13} aria-hidden />
+            Load sample
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onClear} disabled={!p.canClear}>
+            <Eraser size={13} aria-hidden />
+            Clear both
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
 
-function Toggle({
-  label,
-  checked,
-  onChange,
-  title,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (b: boolean) => void;
-  title?: string;
-}) {
+function Choice({ on, onSelect, children }: { on: boolean; onSelect: () => void; children: ReactNode }) {
   return (
-    <label
-      className="inline-flex cursor-pointer items-center gap-1.5 text-xs-plus text-text-muted"
-      title={title}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 cursor-pointer accent-brand"
-      />
-      {label}
-    </label>
+    <DropdownMenuItem onSelect={onSelect}>
+      <span className="inline-flex w-3.5 shrink-0 justify-center">{on && <Check size={13} aria-hidden />}</span>
+      {children}
+      {on && <span className="sr-only">(selected)</span>}
+    </DropdownMenuItem>
   );
-}
-
-function Divider() {
-  return <span className="hidden text-text-faint sm:inline">·</span>;
 }

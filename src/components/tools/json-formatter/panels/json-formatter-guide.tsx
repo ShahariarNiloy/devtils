@@ -1,7 +1,5 @@
 "use client";
 
-import { BookOpen } from "lucide-react";
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +58,7 @@ function Strong({ children }: { children: React.ReactNode }) {
   return <strong className="font-medium text-text">{children}</strong>;
 }
 
-function GuideDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function GuideDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-1/2 -translate-y-1/2 w-[min(820px,calc(100vw-32px))] flex flex-col max-h-[min(820px,calc(100vh-48px))]">
@@ -222,23 +220,5 @@ function GuideDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-export function JsonFormatterGuide() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-sm text-text underline underline-offset-2 hover:text-text-muted transition-colors cursor-pointer shrink-0"
-      >
-        <BookOpen size={14} aria-hidden />
-        How to use
-      </button>
-      <GuideDialog open={open} onOpenChange={setOpen} />
-    </>
   );
 }

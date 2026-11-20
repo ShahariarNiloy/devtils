@@ -1,117 +1,120 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
 @theme {
-  /* ── Color: brand palette ─────────────────────────── */
-  --color-olive-ink: #3d4435;
-  --color-sage-olive: #7e8a6c;
-  --color-mist-sage: #dde0d0;
-  --color-bone-cream: #f6f2ea;
-  /* clay was #c58e5e; darkened so it clears AA (≥ 4.5:1) on bg / surface /
-     surface-soft for hero headlines and section numbers. The original
-     warmth is preserved — just a few shades down. */
-  --color-clay: #a76f3e;
+  /* ── Color ────────────────────────────────────────────
+     utilyx v2 is dark-only (warm near-black, cream type, one clay accent).
+     Source of truth: the "Colour palette" artboard of the v2 redesign.
+     Lines are white-at-low-opacity so they adapt to any surface. */
+
+  /* Ground and surfaces — layered by lightness */
+  --color-bg: #0b0b0a; /* ground: page background everywhere */
+  --color-canvas: #101010; /* workspace: tool window behind the editor */
+  --color-surface: #121211; /* panel: category panels, FAQ, cards */
+  --color-toolbar: #141413; /* toolbars, status bar, keycap bottom */
+  --color-surface-soft: #1c1c1a; /* inputs, hover fills, command palette */
+  --color-key-top: #1f1f1d; /* keycap gradient top */
+  --color-selected: #2a2a27; /* active tab, chip or segment */
+  --color-glass: rgba(24, 24, 22, 0.72); /* floating nav, dock · 14px blur */
+  --color-surface-sage: #2a2a27;
+  --color-silver: #1c1c1a;
+
+  /* Lines */
+  --color-border-subtle: rgba(255, 255, 255, 0.06); /* hairline */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-key-border: rgba(255, 255, 255, 0.09);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Text — cream stepping down to warm greys (contrast vs #0B0B0A) */
+  --color-text: #f6f2ea; /* primary · 17.8:1 */
+  --color-text-key: #e8e4da; /* text and glyphs on keys */
+  --color-text-strong: #d6d2c6; /* category headings, hex values */
+  --color-text-muted: #b9b6aa; /* secondary: supporting copy, footer links */
+  --color-text-tertiary: #a8a69c; /* descriptions, nav links */
+  --color-text-faint: #8b8a82; /* muted: meta, counts, second heading tone · 5.6:1 */
+  --color-text-ghost: #66655e; /* line numbers only (decor, below AA) */
+  --color-placeholder: #7d7c74;
+  --color-text-on-sage: #1a1a18;
+
+  /* Brand — clay is the one warm moment; cream is the action colour */
+  --color-brand: #f6f2ea; /* action: primary buttons, focus rings */
+  --color-brand-hover: #ffffff;
+  --color-on-brand: #1a1a18; /* text on cream buttons */
   --color-charcoal: #1a1a18;
+  --color-clay-light: #e0a072; /* accents, ⌘K glyph, section numbers */
+  --color-accent: #c58e5e; /* glows and gradients */
+  --color-clay: #a76f3e; /* logo gradient end */
+  --color-clay-cream: #f0d3b5; /* text on clay-tinted cards */
+  --color-accent-soft: rgba(224, 160, 114, 0.16);
 
-  /* ── Color: surfaces ──────────────────────────────── */
-  --color-bg: #f6f2ea;
-  /* Tool workspace canvas — deeper sand so white panels visibly float.
-     Scoped to ToolShell; the rest of the app stays on the lighter --bg. */
-  --color-canvas: #f6f2ea;
-  --color-surface: #fbfaf5;
-  --color-surface-soft: #ebede5;
-  --color-surface-sage: #dde0d0;
-  /* Cool silver — a deliberately un-warm near-white for dense list UI
-     (the search finder) where the warm sand reads heavy. Tuned to sit
-     beside the warm palette without fighting it. */
-  --color-silver: #ebede5;
+  /* Category accents — one per family, same lightness so none shouts */
+  --color-cat-clay: #e0a072; /* JSON, Security */
+  --color-cat-teal: #6fa6af; /* Code, Image, Network */
+  --color-cat-sage: #adb99a; /* Text, Calc */
+  --color-cat-rose: #d08070; /* Encoding, Design */
+  --color-code-clay: #f0d3b5;
+  --color-code-teal: #c4e0e4;
+  --color-code-sage: #dde4cf;
+  --color-code-rose: #f0c9bf;
 
-  /* ── Color: text ──────────────────────────────────── */
-  --color-text: #1a1a18;
-  --color-text-muted: #3d4435;
-  /* text-faint was #6b7264; darkened to clear AA on bg + surface-soft.
-     Used pervasively for breadcrumbs, eyebrow labels, footer text, etc. */
-  --color-text-faint: #5a615a;
-  --color-text-on-sage: #f6f2ea;
+  /* Legacy palette names, remapped onto v2 */
+  --color-olive-ink: #b9b6aa;
+  --color-sage-olive: #8b8a82;
+  --color-mist-sage: #2a2a27;
+  --color-bone-cream: #f6f2ea;
 
-  /* ── Color: borders ───────────────────────────────── */
-  --color-border: #d6d2c2;
-  --color-border-subtle: #e6e2d3;
-  --color-border-strong: #7e8a6c;
+  /* Tier badges */
+  --color-tier-free-bg: rgba(255, 255, 255, 0.06);
+  --color-tier-free-text: #b9b6aa;
+  --color-tier-pro-bg: rgba(224, 160, 114, 0.16);
+  --color-tier-pro-text: #f0c9a0;
+  --color-tier-ai-bg: rgba(111, 166, 175, 0.16);
+  --color-tier-ai-text: #9ccbd2;
 
-  /* ── Color: brand / accents ───────────────────────── */
-  --color-brand: #3d4435;
-  --color-brand-hover: #2c3127;
-  --color-accent: #c58e5e;
-  --color-accent-soft: #efe0cc;
+  /* Status */
+  --color-error: #e0795f;
+  --color-error-bg: #2a1914;
+  --color-error-text: #f0a892;
+  --color-error-border: #5c3128;
 
-  /* ── Color: tier badges ───────────────────────────── */
-  --color-tier-free-bg: #dde0d0;
-  --color-tier-free-text: #3d4435;
-  --color-tier-pro-bg: #efe0cc;
-  --color-tier-pro-text: #8e5d36;
-  --color-tier-ai-bg: #d4d8c5;
-  --color-tier-ai-text: #2c3127;
+  --color-warning: #d9a841;
+  --color-warning-bg: #352b14;
+  --color-warning-text: #ecc871;
+  --color-warning-border: #574615;
 
-  /* ── Functional: semantic status (light / default) ── */
-  /* Warm-tuned status colours that belong with UCLAY but carry enough
-     hue/chroma to read instantly as error/warning/success/info. Each
-     family follows the tier-token shape: solid + bg/text/border. */
+  --color-success: #84b36a;
+  --color-success-bg: rgba(132, 179, 106, 0.1);
+  --color-success-text: #a9ce92;
+  --color-success-border: #3c512c;
 
-  /* Error — warm brick red, distinct from clay. Required by JSON validator. */
-  --color-error: #b04a33;
-  --color-error-bg: #f4ded7;
-  --color-error-text: #8f3520;
-  --color-error-border: #e0b3a6;
+  --color-info: #6fa6af;
+  --color-info-bg: rgba(111, 166, 175, 0.12);
+  --color-info-text: #9ccbd2;
+  --color-info-border: #2e4b50;
 
-  /* Warning — ochre/amber, native to an earth palette. */
-  --color-warning: #bc8a1e;
-  --color-warning-bg: #f3e7c9;
-  --color-warning-text: #6f500d;
-  --color-warning-border: #dfc98a;
-
-  /* Success — leaf green. Sage-olive stays NEUTRAL/idle; this means "done". */
-  --color-success: #5a8a43;
-  --color-success-bg: #dee9d0;
-  --color-success-text: #3c5e2c;
-  --color-success-border: #bbd0a4;
-
-  /* Info — muted teal. The one deliberate cool tone. */
-  --color-info: #45757e;
-  --color-info-bg: #d7e2e3;
-  --color-info-text: #2f555c;
-  --color-info-border: #a9c5c8;
-
-  /* Back-compat: `danger` was the pre-functional-layer name for "error".
-     Aliased so existing `text-danger` / `bg-danger` references keep
-     working. New code should use `error`. */
   --color-danger: var(--color-error);
 
-  /* ── Functional: syntax highlight (light / default) ── */
-  /* Code-context ONLY. Generates `text-syntax-*` utilities so the
-     highlighter stays arbitrary-value-free. Mapped for JSON first. */
-  --color-syntax-key: #2f6b73;
-  --color-syntax-string: #4f7d3e;
-  --color-syntax-number: #b0653a;
-  --color-syntax-boolean: #8a5a7a;
-  --color-syntax-punctuation: #6b7264;
-  --color-syntax-comment: #9aa08c;
-  --color-syntax-error: #b04a33;
+  /* Syntax */
+  --color-syntax-key: #5faab4;
+  --color-syntax-string: #8fbe6f;
+  --color-syntax-number: #d98f5f;
+  --color-syntax-boolean: #c28fb0;
+  --color-syntax-punctuation: #8a8f7e;
+  --color-syntax-comment: #6e7263;
+  --color-syntax-error: #e0795f;
+  --color-syntax-plain: #dde0d0;
 
   /* USAGE
-     - -text is the only token safe for small body text on the page bg;
-       the solid base (-) is for icons / strokes / borders / status dots / large text.
-     - Status badges mirror tier badges:  bg-error-bg text-error-text
-     - syntax-* are foregrounds only; editor surface stays --color-surface.
+     - text / text-muted / text-tertiary / text-faint are AA on every surface;
+       text-ghost is decorative only.
+     - Status badges: bg-error-bg text-error-text (mirrors tier badges).
      - Invalid tokens: text-syntax-error PLUS a wavy underline — never color alone. */
 
   /* ── Typography: families ─────────────────────────── */
-  --font-sans: var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans-noto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-jetbrains), ui-monospace, "SF Mono", monospace;
-  --font-display:
-    var(--font-sans-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-fredoka), var(--font-sans-noto), ui-sans-serif, system-ui, sans-serif;
 
   /* ── Typography: sizes ────────────────────────────── */
   /* Minimum size is 14px (text-sm). text-base (16px) is the default. */
@@ -166,30 +169,47 @@
   /* 6px → rounded-md | 8px → rounded-lg | 12px → rounded-xl | 16px → rounded-2xl */
 
   /* ── Dusty rose — palette extension (quantifier tokens only) ── */
-  --color-dusty-rose: #e8d5ce;
-  --color-rose-deep: #7a4a3d;
-  --color-charcoal-soft: #e0dcc8;
+  --color-dusty-rose: #3b2922;
+  --color-rose-deep: #d08070;
+  --color-charcoal-soft: #2a2a27;
 
   /* ── Token category colors ────────────────────────── */
-  --color-token-anchor-bg: var(--color-mist-sage);
-  --color-token-anchor-text: var(--color-olive-ink);
-  --color-token-class-bg: #efe0cc;
-  --color-token-class-text: #8e5d36;
-  --color-token-quant-bg: var(--color-dusty-rose);
-  --color-token-quant-text: var(--color-rose-deep);
+  --color-token-anchor-bg: #263326;
+  --color-token-anchor-text: #90b485;
+  --color-token-class-bg: #3d3122;
+  --color-token-class-text: #c8924c;
+  --color-token-quant-bg: #3b2922;
+  --color-token-quant-text: #d08070;
   --color-token-group-bg: var(--color-surface-soft);
-  --color-token-group-text: var(--color-olive-ink);
+  --color-token-group-text: #9aaa8a;
   --color-token-literal-bg: var(--color-surface-soft);
   --color-token-literal-text: var(--color-text-faint);
 
   /* ── Shadows ──────────────────────────────────────── */
   --shadow-card:
-    0 1px 2px -1px rgba(26, 26, 24, 0.1),
-    0 12px 30px -16px rgba(26, 26, 24, 0.26);
-  --shadow-float: 0 6px 18px -10px rgba(61, 68, 53, 0.55);
-  --shadow-search: 0 6px 20px -16px rgba(26, 26, 24, 0.18);
-  --shadow-focus: 0 0 0 3px var(--color-mist-sage);
-  --shadow-btn-primary: 0 4px 14px -6px rgba(61, 68, 53, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 12px 30px -12px rgba(0, 0, 0, 0.8);
+  --shadow-search:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 30px 60px -20px rgba(0, 0, 0, 0.8);
+  /* Tool workspace window (tool pages). */
+  --shadow-window-tool:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 80px -10px rgba(197, 142, 94, 0.28), 0 40px 80px -40px rgba(0, 0, 0, 0.9);
+  /* Search box with a faint clay halo (catalogue). */
+  --shadow-search-glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 60px -18px rgba(197, 142, 94, 0.22), 0 24px 50px -20px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 0 3px rgba(246, 242, 234, 0.22);
+  --shadow-btn-primary:
+    0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 30px -8px rgba(246, 242, 234, 0.35);
+  /* keycap: inset highlight + 2px "travel" edge + soft drop */
+  --shadow-key:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 2px 0 #050505,
+    0 10px 24px -8px rgba(0, 0, 0, 0.7);
+  --shadow-window:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 80px -10px rgba(197, 142, 94, 0.28), 0 60px 120px -40px rgba(0, 0, 0, 0.9);
 
   /* ── Line heights (unitless ratios) ───────────────── */
   --leading-hero: 1.04; /* landing hero headline */
@@ -214,102 +234,6 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* ── DARK THEME ───────────────────────────────────────────────────
-   Updated values vs. previous version:
-   1. --color-canvas: #10130d → #15140f
-      The old value was indistinguishable from pure black on typical
-      monitors, collapsing the canvas < bg < surface hierarchy.
-   2. --color-border: #3d4435 → #3a3833
-      Olive-ink at low luminance read as "near-black with green cast"
-      and made card edges invisible (2:1 contrast against bg). The
-      neutral charcoal value sits cleanly between bg and text without
-      fighting the warm cream type.
-   3. --color-border-subtle: #2c3127 → #2c2b27 (same reasoning)
-   4. Status colors explicitly redefined for dark mode — previously
-      inherited light values that read dim on dark surfaces.
-   ───────────────────────────────────────────────────────────────── */
-[data-theme="dark"] {
-  --color-bg: #1a1a18;
-  /* Darker than --surface so tool panels lift on the workspace. */
-  --color-canvas: #1a1a1a;
-  --color-surface: #242420;
-  --color-surface-soft: #2d2e28;
-  --color-surface-sage: #3d4435;
-  --color-silver: #2d2e28;
-  --color-text: #f6f2ea;
-  --color-text-muted: #dde0d0;
-  /* text-faint was #8a9080; lightened to clear AA on the darker
-     surface-soft (#2d2e28) where it's commonly placed. */
-  --color-text-faint: #9da393;
-  --color-text-on-sage: #1a1a18;
-  --color-border: #3a3833;
-  --color-border-subtle: #2c2b27;
-  --color-border-strong: #7e8a6c;
-  --color-brand: #adb99a;
-  --color-brand-hover: #f6f2ea;
-  --color-accent-soft: #3d3528;
-  --color-tier-free-bg: #2c3127;
-  --color-tier-free-text: #dde0d0;
-  --color-tier-pro-bg: #3d3528;
-  --color-tier-pro-text: #efe0cc;
-  --color-tier-ai-bg: #2c3127;
-  --color-tier-ai-text: #dde0d0;
-
-  /* ── Functional: semantic status (dark) ───────────── */
-  /* NOT a token swap — semantic colours brighten and -bg fills go
-     deep-warm so they stay legible on the warm-charcoal base. */
-
-  --color-error: #e0795f;
-  --color-error-bg: #3a201a;
-  --color-error-text: #f0a892;
-  --color-error-border: #5c3128;
-
-  --color-warning: #d9a841;
-  --color-warning-bg: #352b14;
-  --color-warning-text: #ecc871;
-  --color-warning-border: #574615;
-
-  --color-success: #84b36a;
-  --color-success-bg: #232e1a;
-  --color-success-text: #a9ce92;
-  --color-success-border: #3c512c;
-
-  --color-info: #6fa6af;
-  --color-info-bg: #16292c;
-  --color-info-text: #9ccbd2;
-  --color-info-border: #2e4b50;
-
-  /* `danger` alias inherits from light-mode definition; the var()
-     reference resolves dynamically to the dark `--color-error` above. */
-
-  /* ── Functional: syntax highlight (dark) ──────────── */
-  --color-syntax-key: #5faab4;
-  --color-syntax-string: #8fbe6f;
-  --color-syntax-number: #d98f5f;
-  --color-syntax-boolean: #c28fb0;
-  --color-syntax-punctuation: #8a8f7e;
-  --color-syntax-comment: #6e7263;
-  --color-syntax-error: #e0795f;
-
-  --shadow-focus: 0 0 0 3px rgba(61, 68, 53, 0.4);
-
-  /* ── Dusty-rose dark mode ─────────────────────────── */
-  --color-dusty-rose: #3b2922;
-  --color-rose-deep: #d08070;
-
-  /* ── Token category colors dark mode ─────────────── */
-  --color-token-anchor-bg: #263326;
-  --color-token-anchor-text: #90b485;
-  --color-token-class-bg: #3d3122;
-  --color-token-class-text: #c8924c;
-  --color-token-quant-bg: #3b2922;
-  --color-token-quant-text: #d08070;
-  --color-token-group-bg: var(--color-surface-soft);
-  --color-token-group-text: #9aaa8a;
-  --color-token-literal-bg: var(--color-surface-soft);
-  --color-token-literal-text: var(--color-text-faint);
-}
-
 html {
   background: var(--color-bg);
   color: var(--color-text);
@@ -326,26 +250,50 @@ body {
   font-feature-settings: "ss01", "ss02", "cv11";
 }
 
+/* Heading type is a brand rule, not a per-element choice: every h1/h2/h3
+   and the "utilyx" wordmark (.wm) is Fredoka 600 at -0.01em (rounded
+   letters crowd at tighter tracking). Deliberately UNLAYERED so it wins over
+   utilities like font-bold / tracking-[…] / font-sans on headings — the v2
+   mockup enforces the same with !important. Size and colour stay utilities. */
 h1,
 h2,
 h3,
+.wm,
 .display {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
-code,
-kbd,
-pre,
-.mono {
-  font-family: var(--font-mono);
+/* Rendered user content (Markdown preview) shows the document's headings in
+   the body font, bold — they're the user's text, not site chrome. More
+   specific than the brand heading rule above, so it wins. */
+.md-render :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Element defaults live in the base layer so utilities win. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  .display {
+    color: var(--color-text);
+  }
+
+  code,
+  kbd,
+  pre,
+  .mono {
+    font-family: var(--font-mono);
+  }
 }
 
 ::selection {
-  background: var(--color-mist-sage);
-  color: var(--color-charcoal);
+  background: rgba(224, 160, 114, 0.32);
+  color: var(--color-text);
 }
 
 *:focus-visible {
@@ -376,6 +324,77 @@ textarea:focus,
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-strong);
+}
+
+/* ── v2 surfaces ─────────────────────────────────────────────────────
+   Named recipes for the launcher look. Each is a multi-layer background /
+   shadow that would be unreadable as an arbitrary Tailwind value. */
+@layer components {
+  /* Floating nav, dock. */
+  .surface-glass {
+    background: var(--color-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  /* Raised keycap — also used for cards that should feel "pressable". */
+  .surface-key {
+    background: linear-gradient(var(--color-key-top), var(--color-toolbar));
+    border: 1px solid var(--color-key-border);
+    box-shadow: var(--shadow-key);
+  }
+  /* Decorative, unlit keycap for background keyboards. */
+  .surface-key-ghost {
+    background: linear-gradient(#141413, #0f0f0e);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+  /* Category-tinted glow cards: set --tint (r,g,b) and --tint-base. */
+  .surface-tint {
+    border: 1px solid rgb(var(--tint-line, var(--tint)) / var(--tint-border-a));
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgb(var(--tint) / var(--tint-bg-a)), rgb(var(--tint-deep) / 0.6) 55%),
+      var(--tint-base);
+    box-shadow: 0 0 60px -20px rgb(var(--tint) / var(--tint-glow-a));
+  }
+  .tint-clay { --tint: 197 142 94; --tint-line: 224 160 114; --tint-deep: 26 22 18; --tint-base: #141311; --tint-bg-a: 0.3; --tint-border-a: 0.28; --tint-glow-a: 0.45; }
+  .tint-teal { --tint: 111 166 175; --tint-deep: 16 22 23; --tint-base: #111413; --tint-bg-a: 0.28; --tint-border-a: 0.26; --tint-glow-a: 0.4; }
+  .tint-sage { --tint: 173 185 154; --tint-deep: 20 22 17; --tint-base: #121311; --tint-bg-a: 0.26; --tint-border-a: 0.26; --tint-glow-a: 0.38; }
+  .tint-rose { --tint: 208 128 112; --tint-deep: 24 17 15; --tint-base: #141110; --tint-bg-a: 0.28; --tint-border-a: 0.26; --tint-glow-a: 0.4; }
+  /* Catalogue panel (category groups, empty state). */
+  .surface-panel {
+    background: var(--color-surface);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+  /* "Most used" card — softer cousin of .surface-tint (no outer glow). */
+  .surface-feat {
+    border: 1px solid rgb(var(--tint-line, var(--tint)) / var(--feat-border-a));
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgb(var(--tint) / var(--feat-bg-a)), rgb(var(--feat-deep) / 0.6) 60%),
+      var(--feat-base);
+  }
+  .tint-clay { --feat-deep: 20 18 15; --feat-base: #131210; --feat-bg-a: 0.22; --feat-border-a: 0.28; }
+  .tint-teal { --feat-deep: 16 20 21; --feat-base: #111312; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
+  .tint-sage { --feat-deep: 18 20 16; --feat-base: #121311; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
+  .tint-rose { --feat-deep: 22 16 15; --feat-base: #131110; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
+  /* Cream primary action. */
+  .btn-action {
+    background: var(--color-brand);
+    color: var(--color-on-brand);
+    transition: background-color 150ms ease;
+  }
+  .btn-action:hover {
+    background: var(--color-brand-hover);
+    color: var(--color-on-brand);
+  }
+}
+
+/* Tool "full window" mode: secondary sections step aside; workspaces sized
+   from --chrome-top (set by ToolShell) get the freed-up height. */
+.tool-full-window [data-full-window-hide] {
+  display: none;
+}
+.tool-full-window {
+  --ws-min: 320px;
 }
 
 /* Custom utilities not in Tailwind's default scale */
@@ -532,7 +551,7 @@ textarea:focus,
   --tok-string: var(--color-syntax-string);
   --tok-number: var(--color-syntax-number);
   --tok-bool: var(--color-syntax-boolean);
-  --tok-null: var(--color-syntax-comment);
+  --tok-null: var(--color-syntax-punctuation);
   --tok-punct: var(--color-syntax-punctuation);
   --tok-op: var(--color-syntax-punctuation);
   --tok-kw: var(--color-syntax-boolean);
@@ -550,7 +569,7 @@ textarea:focus,
   --tok-string: var(--color-syntax-string);
   --tok-number: var(--color-syntax-number);
   --tok-bool: var(--color-syntax-boolean);
-  --tok-null: var(--color-syntax-comment);
+  --tok-null: var(--color-syntax-punctuation);
   --tok-punct: var(--color-syntax-punctuation);
   --tok-op: var(--color-syntax-punctuation);
   --tok-kw: var(--color-syntax-boolean);
@@ -578,7 +597,6 @@ textarea:focus,
 }
 .tok-null {
   color: var(--tok-null);
-  font-style: italic;
 }
 .tok-punct {
   color: var(--tok-punct);
@@ -629,7 +647,6 @@ textarea:focus,
 }
 .json-null {
   color: var(--tok-null);
-  font-style: italic;
 }
 .json-punct {
   color: var(--tok-punct);

@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import { ToolIcon } from "@/components/shared/tool-icon";
-import { getToolBySlug } from "@/lib/tools-registry";
+import { useState } from "react";
 
 export interface ToolUseCase {
   title: string;
   description: string;
+  /** Short mono tag on the card ("API", "fix"), v2. */
+  tag?: string;
+  tint?: "clay" | "teal" | "sage" | "rose";
 }
 
 export interface ToolFaqEntry {
@@ -16,143 +16,101 @@ export interface ToolFaqEntry {
 }
 
 export interface ToolContentProps {
-  /** One-paragraph intro shown right under the editor. */
+  /** One-paragraph intro. Shown under the use-case heading unless `usesNote` is set. */
   intro: string;
+  /** Use-case heading (default "What it's good for"). */
+  usesTitle?: string;
+  /** One-line subline under the use-case heading (v2 mockup copy). */
+  usesNote?: string;
   /** 3-5 representative use cases, each one line. */
   useCases: readonly ToolUseCase[];
   /** 5-8 FAQ entries, plain prose answers. */
   faqs: readonly ToolFaqEntry[];
-  /** Related tool slugs to cross-link at the bottom. */
+  /**
+   * Related tool slugs. Rendered by ToolShell's related-tools section (pass
+   * them as `relatedSlugs`); kept here because seoData is the source.
+   */
   relatedSlugs?: readonly string[];
 }
 
+const FAQ_PREVIEW = 4;
+
+const TAG_TINT = {
+  clay: "text-cat-clay",
+  teal: "text-cat-teal",
+  sage: "text-cat-sage",
+  rose: "text-cat-rose",
+} as const;
+
 /**
- * SEO + discoverability block rendered below the editor on each converter
- * tool page. Crawlers find this content under the heading hierarchy that
- * matches the page's intent ("JSON to TypeScript"), and visitors who scroll
- * past the editor get a clear map of related tools to try next.
- *
- * The FAQ block uses real `<details>` / `<summary>` so the answers are
- * indexable without client JavaScript.
+ * v2 below-the-tool block: use cases + FAQ, side by side. Every FAQ answer
+ * stays in the DOM (real <details>) so it's indexable without JS; only the
+ * entries past the first four are visually collapsed until asked for.
  */
-export function ToolContent({
-  intro,
-  useCases,
-  faqs,
-  relatedSlugs = [],
-}: ToolContentProps) {
-  const related = relatedSlugs
-    .map((slug) => getToolBySlug(slug))
-    .filter((t): t is NonNullable<ReturnType<typeof getToolBySlug>> => Boolean(t));
+export function ToolContent({ intro, usesTitle, usesNote, useCases, faqs }: ToolContentProps) {
+  const [allFaqs, setAllFaqs] = useState(false);
 
   return (
-    <>
-      <SectionOrnament />
-      <section
-        aria-label="About this tool"
-        className="rounded-xl border border-border bg-surface shadow-card overflow-hidden"
-      >
-        <div className="grid gap-8 px-5 py-6 md:px-8 md:py-10 md:grid-cols-[1.4fr_1fr]">
-        <div className="space-y-6">
-          <p className="text-[13.5px] leading-relaxed text-text-muted">
-            {intro}
-          </p>
-
-          {useCases.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-[15px] font-medium tracking-tight text-text">
-                Common use cases
-              </h2>
-              <ul className="space-y-2.5">
-                {useCases.map((u) => (
-                  <li
-                    key={u.title}
-                    className="text-[13px] leading-relaxed text-text-muted"
-                  >
-                    <span className="font-medium text-text">{u.title}.</span>{" "}
-                    {u.description}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+    <section
+      data-full-window-hide
+      aria-label="About this tool"
+      className="mt-12 grid grid-cols-[repeat(auto-fit,minmax(min(100%,440px),1fr))] items-start gap-x-14 gap-y-10 sm:mt-[72px]"
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <h2 className="m-0 font-sans text-[22px] font-bold tracking-[-0.02em]">{usesTitle ?? "What it’s good for"}</h2>
+          <p className="m-0 text-[15px] text-text-faint">{usesNote ?? intro}</p>
         </div>
+        {useCases.length > 0 && (
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-2.5 p-0">
+            {useCases.map((u) => (
+              <li key={u.title} className={`surface-panel flex flex-col rounded-[14px] p-4 ${u.tag ? "gap-2" : "gap-1.5"}`}>
+                {u.tag && <span className={`font-mono text-xs ${TAG_TINT[u.tint ?? "clay"]}`}>{u.tag}</span>}
+                <span className="text-sm font-bold">{u.title}</span>
+                <span className="text-[13px] text-text-tertiary">{u.description}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-        <div className="space-y-3">
-          <h2 className="text-[15px] font-medium tracking-tight text-text">
-            Frequently asked
-          </h2>
-          <div className="space-y-1">
-            {faqs.map((f) => (
+      {faqs.length > 0 && (
+        <div id="faq" className="flex scroll-mt-6 flex-col gap-4">
+          <div>
+            <h2 className="m-0 font-sans text-[22px] font-bold tracking-[-0.02em]">Questions</h2>
+            <p className="m-0 text-[15px] text-text-faint">The short answers.</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {faqs.map((f, i) => (
               <details
                 key={f.question}
-                className="group rounded-lg px-3 py-2 hover:bg-surface-soft transition-colors"
+                open={i === 0}
+                className={
+                  !allFaqs && i >= FAQ_PREVIEW
+                    ? "hidden"
+                    : "group surface-panel rounded-xl px-4"
+                }
               >
-                <summary className="flex cursor-pointer items-start gap-2 text-[13px] font-medium text-text [&::-webkit-details-marker]:hidden">
-                  <ChevronRight
-                    size={14}
-                    className="mt-0.5 shrink-0 text-text-faint transition-transform group-open:rotate-90"
-                    aria-hidden
-                  />
-                  <span>{f.question}</span>
+                <summary className="flex min-h-[50px] cursor-pointer list-none items-center gap-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                  <span className="grow">{f.question}</span>
+                  <span aria-hidden="true" className="text-text-faint transition-transform duration-200 group-open:rotate-45">+</span>
                 </summary>
-                <p className="pl-6 pt-2 text-[12.5px] leading-relaxed text-text-muted">
-                  {f.answer}
-                </p>
+                <p className="m-0 mb-3.5 text-sm text-text-tertiary">{f.answer}</p>
               </details>
             ))}
+            {faqs.length > FAQ_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setAllFaqs((v) => !v)}
+                aria-expanded={allFaqs}
+                className="self-start px-0.5 py-1.5 text-sm text-clay-light hover:text-clay-cream"
+              >
+                {allFaqs ? "Show fewer" : `All ${faqs.length} questions →`}
+              </button>
+            )}
           </div>
         </div>
-      </div>
-
-        {related.length > 0 && (
-          <div className="border-t border-border-subtle bg-surface-soft/30 px-5 py-5 md:px-8">
-            <h2 className="mb-3 text-[12px] uppercase tracking-wider font-semibold text-text-faint">
-              Related converters
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {related.map((t) => (
-                <Link
-                  key={t.slug}
-                  href={`/tools/${t.slug}`}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12.5px] text-text hover:border-border-strong hover:bg-surface-soft transition-colors"
-                >
-                  <ToolIcon name={t.icon} size={13} className="text-text-faint" />
-                  <span>{t.name}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
-
-/**
- * Editorial separator between the tool workspace and the SEO section.
- * Generous vertical breathing room (the user explicitly asked for a
- * substantial gap), with a small brand-accented ornament centered between
- * two fade-to-transparent lines so the page feels intentional, not
- * stitched-together.
- *
- * Decorative only — `aria-hidden` so screen readers skip it; the
- * following `<section aria-label="About this tool">` carries the
- * semantic boundary.
- */
-function SectionOrnament() {
-  return (
-    <div
-      aria-hidden
-      className="mt-16 mb-6 flex items-center justify-center gap-4 md:mt-28 md:mb-10"
-    >
-      <div className="h-px w-24 bg-gradient-to-r from-transparent to-border md:w-40" />
-      <div className="flex items-center gap-2 text-brand">
-        <span className="inline-block h-1 w-1 rounded-full bg-current opacity-50" />
-        <span className="inline-block h-2 w-2 rotate-45 bg-current" />
-        <span className="inline-block h-1 w-1 rounded-full bg-current opacity-50" />
-      </div>
-      <div className="h-px w-24 bg-gradient-to-l from-transparent to-border md:w-40" />
-    </div>
+      )}
+    </section>
   );
 }

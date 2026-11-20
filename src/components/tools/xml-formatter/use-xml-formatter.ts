@@ -30,8 +30,7 @@ const STORAGE_KEY = "xml-formatter:flavor";
  * Android layout attribute soup).
  */
 const SAMPLES: Record<Exclude<Flavor, "auto">, string> = {
-  generic: `<?xml version="1.0" encoding="UTF-8"?>
-<utilyx version="1.0"><catalog><tool slug="json-formatter" tier="free" featured="true"><name>JSON formatter</name><category>JSON</category><runtime>browser</runtime></tool><tool slug="sql-formatter" tier="free"><name>SQL formatter</name><category>Code</category><dialects>10</dialects></tool><tool slug="xml-formatter" tier="free"><name>XML formatter</name><category>Code</category><flavors>7</flavors></tool></catalog><privacy><staysOnDevice>true</staysOnDevice><note>All formatting runs locally in your browser.</note></privacy></utilyx>`,
+  generic: `<?xml version="1.0"?><catalog><tool id="json-formatter" live="true"><name>JSON formatter</name><category>JSON</category><tags><tag>format</tag><tag>validate</tag></tags></tool><tool id="pdf-merge" live="false"><name>PDF merge</name><category>PDF</category><tags/></tool></catalog>`,
   svg: `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32"><!-- a simple icon --><circle cx="12" cy="12" r="10" fill="#cde65a"/><path d="M8 12l2 2 4-4" stroke="#3d4435" stroke-width="2" fill="none"/></svg>`,
   soap: `<?xml version="1.0"?>
@@ -87,7 +86,7 @@ export function useXmlFormatter(): XmlFormatterState {
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorLine, setErrorLine] = useState<number | undefined>(undefined);
-  const [options, setOptions] = useState<XmlFormatOptions>({});
+  const [options, setOptions] = useState<XmlFormatOptions>({ keepComments: true });
   const [mode, setMode] = useState<OutputMode>("format");
   const [view, setView] = useState<ViewMode>("output");
   const [pending, setPending] = useState<boolean>(true);

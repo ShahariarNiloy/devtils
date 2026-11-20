@@ -1,176 +1,93 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import type {
-  Hunk,
-  LineOp,
-  SideRow,
-  WordOp,
-} from "@/lib/diff";
+import { useMemo, useState } from "react";
+import type { LineOp, SideRow, WordOp } from "@/lib/diff";
+import { cn } from "@/lib/cn";
+import { foldEqualRuns, type ListingItem } from "../diff-checker.lib";
 
 /**
- * Diff renderers + the scroll-tracking glue that updates the toolbar's
- * "active hunk" indicator as you scroll. Both views own their own
- * scrollable container so the toolbar above stays put.
- *
- * Sticky `@@ … @@` headers in the unified view keep the hunk's location
- * visible while reading through its lines — same affordance as GitHub /
- * Linear's diff browser.
+ * v2 diff listings. Both render the whole comparison (not just hunks) the
+ * way the mockup does; only long unchanged runs fold into a
+ * "Show N unchanged lines" row so big files stay scannable. The first row
+ * of each change block registers in `changeRefs` for n / p navigation, and
+ * the active one gets a clay edge marker.
  */
 
-export interface DiffViewProps {
-  hunks: Hunk[];
-  activeHunk: number;
-  onActiveHunkChange: (idx: number) => void;
-  /** Provided so keyboard nav can scrollIntoView the right element. */
-  hunkRefs: React.RefObject<Array<HTMLDivElement | null>>;
+interface ListingProps {
+  /** Index (into ops / rows) where each change block starts. */
+  changeStarts: number[];
+  activeChange: number | null;
+  changeRefs: React.RefObject<Array<HTMLDivElement | null>>;
 }
 
-// ── Active-hunk tracking on scroll ─────────────────────────────────────
+const CODE = "py-2 font-mono text-[12.5px] leading-[1.75] sm:text-[13px]";
+const ACTIVE_EDGE = "shadow-[inset_2px_0_0_var(--color-clay-light)]";
 
-/**
- * Picks "the most-visible hunk" by intersection ratio, with a stable tie-
- * break (earlier hunks win) so scrolling up doesn't bounce the indicator.
- * Updates the parent on change.
- */
-function useHunkObserver(
-  rootRef: React.RefObject<HTMLDivElement | null>,
-  hunkRefs: React.RefObject<Array<HTMLDivElement | null>>,
-  count: number,
-  onChange: (idx: number) => void,
-) {
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || count === 0) return;
-    const visible = new Map<number, number>();
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const idx = Number(
-            (entry.target as HTMLElement).dataset.hunkIdx ?? "-1",
-          );
-          if (idx < 0) continue;
-          if (entry.isIntersecting) {
-            visible.set(idx, entry.intersectionRatio);
-          } else {
-            visible.delete(idx);
-          }
-        }
-        if (visible.size === 0) return;
-        let bestIdx = -1;
-        let bestRatio = -1;
-        for (const [idx, ratio] of visible) {
-          if (ratio > bestRatio || (ratio === bestRatio && idx < bestIdx)) {
-            bestRatio = ratio;
-            bestIdx = idx;
-          }
-        }
-        if (bestIdx >= 0) onChange(bestIdx);
-      },
-      {
-        root,
-        // Trip on small overlaps so quickly-scrolled-past hunks still register
-        threshold: [0, 0.25, 0.5, 0.75, 1],
-      },
-    );
-
-    for (const el of hunkRefs.current) if (el) observer.observe(el);
-    return () => observer.disconnect();
-    // We re-bind when the hunk count changes (refs swap underneath).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count]);
+/** Folded-run state that resets whenever the diff itself changes. */
+function useFolding<T>(source: readonly T[], isEqual: (t: T) => boolean) {
+  const [state, setState] = useState<{ source: readonly T[]; open: Set<number> }>({ source, open: new Set() });
+  const open = state.source === source ? state.open : null;
+  const items = useMemo(
+    () => foldEqualRuns(source.map(isEqual), open ?? undefined),
+    [source, open, isEqual],
+  );
+  const expand = (start: number) =>
+    setState((s) => ({ source, open: new Set(s.source === source ? s.open : []).add(start) }));
+  return { items, expand };
 }
 
-// ── Side-by-side view ──────────────────────────────────────────────────
+function useChangeIndex(changeStarts: number[]) {
+  return useMemo(() => new Map(changeStarts.map((start, i) => [start, i])), [changeStarts]);
+}
 
-export function SideBySideView({
-  rows,
-  hunks,
-  activeHunk,
-  onActiveHunkChange,
-  hunkRefs,
-}: DiffViewProps & { rows: SideRow[] }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  useHunkObserver(rootRef, hunkRefs, hunks.length, onActiveHunkChange);
+function GapRow({ item, onExpand }: { item: Extract<ListingItem, { type: "gap" }>; onExpand: (start: number) => void }) {
+  const n = item.end - item.start;
+  return (
+    <button
+      type="button"
+      onClick={() => onExpand(item.start)}
+      className="flex w-full cursor-pointer items-center gap-2 bg-text/2 py-0.5 pl-[86px] text-left text-xs text-text-faint transition-colors hover:bg-text/4 hover:text-text max-sm:pl-[52px]"
+    >
+      <span aria-hidden>⋯</span>
+      Show {n.toLocaleString()} unchanged line{n === 1 ? "" : "s"}
+    </button>
+  );
+}
 
-  // Map: which side-row index does each hunk start at?
-  const hunkStartByIdx = useMemo(() => {
-    const m = new Map<number, number>();
-    for (let h = 0; h < hunks.length; h++) {
-      const hunk = hunks[h];
-      const startRow = rows.findIndex((r) => {
-        if (r.kind === "equal" || r.kind === "changed")
-          return r.leftLine === hunk.leftStart || r.rightLine === hunk.rightStart;
-        if (r.kind === "delete") return r.leftLine === hunk.leftStart;
-        return r.rightLine === hunk.rightStart;
-      });
-      if (startRow >= 0) m.set(h, startRow);
-    }
-    return m;
-  }, [rows, hunks]);
+// ── Unified ────────────────────────────────────────────────────────────
 
-  // Group consecutive rows into hunk-blocks (each gets a sticky header).
-  // Rows outside any hunk are wrapped in a "gap" group with no header.
-  const blocks = useMemo(() => {
-    const result: Array<{ hunkIdx: number | null; rows: SideRow[] }> = [];
-    let cursor = 0;
-    for (let h = 0; h < hunks.length; h++) {
-      const start = hunkStartByIdx.get(h) ?? cursor;
-      if (start > cursor) {
-        result.push({ hunkIdx: null, rows: rows.slice(cursor, start) });
-      }
-      const next = hunkStartByIdx.get(h + 1) ?? rows.length;
-      result.push({ hunkIdx: h, rows: rows.slice(start, next) });
-      cursor = next;
-    }
-    if (cursor < rows.length) {
-      result.push({ hunkIdx: null, rows: rows.slice(cursor) });
-    }
-    return result;
-  }, [rows, hunks, hunkStartByIdx]);
+const isEqualOp = (o: LineOp) => o.kind === "equal";
+
+const UNI = {
+  equal: { bg: "", sign: " ", signTone: "text-text-ghost", text: "text-text-muted" },
+  insert: { bg: "bg-success/13", sign: "+", signTone: "text-success", text: "text-code-sage" },
+  delete: { bg: "bg-error/13", sign: "−", signTone: "text-error", text: "text-code-rose" },
+} as const;
+
+export function UnifiedView({ ops, changeStarts, activeChange, changeRefs }: ListingProps & { ops: LineOp[] }) {
+  const { items, expand } = useFolding(ops, isEqualOp);
+  const changeAt = useChangeIndex(changeStarts);
 
   return (
-    <div
-      ref={rootRef}
-      className="max-h-[70vh] overflow-y-auto overflow-x-auto font-mono text-[12.5px] leading-[1.65]"
-    >
-      {blocks.map((block, bi) => {
-        if (block.hunkIdx === null) {
-          return (
-            <table key={`gap-${bi}`} className="w-full table-fixed border-collapse">
-              <ColGroups />
-              <tbody>
-                {block.rows.map((row, i) => (
-                  <SideRowView key={i} row={row} />
-                ))}
-              </tbody>
-            </table>
-          );
-        }
-        const h = hunks[block.hunkIdx];
-        const isActive = block.hunkIdx === activeHunk;
+    <div className={CODE}>
+      {items.map((item) => {
+        if (item.type === "gap") return <GapRow key={`g${item.start}`} item={item} onExpand={expand} />;
+        const op = ops[item.index];
+        const look = UNI[op.kind];
+        const ci = changeAt.get(item.index);
         return (
           <div
-            key={`h-${block.hunkIdx}`}
-            ref={(el) => {
-              hunkRefs.current[block.hunkIdx!] = el;
-            }}
-            data-hunk-idx={block.hunkIdx}
+            key={item.index}
+            ref={ci === undefined ? undefined : (el) => void (changeRefs.current[ci] = el)}
+            className={cn("flex scroll-mt-24", look.bg, ci !== undefined && ci === activeChange && ACTIVE_EDGE)}
           >
-            <HunkHeader
-              left={`−${h.leftStart},${h.leftLength}`}
-              right={`+${h.rightStart},${h.rightLength}`}
-              isActive={isActive}
-            />
-            <table className="w-full table-fixed border-collapse">
-              <ColGroups />
-              <tbody>
-                {block.rows.map((row, i) => (
-                  <SideRowView key={i} row={row} />
-                ))}
-              </tbody>
-            </table>
+            <span className="w-[34px] shrink-0 pr-1.5 text-right text-text-ghost select-none">{op.kind === "insert" ? "" : op.left}</span>
+            <span className="w-[34px] shrink-0 pr-2 text-right text-text-ghost select-none">{op.kind === "delete" ? "" : op.right}</span>
+            <span aria-hidden className={cn("w-[18px] shrink-0 font-bold select-none", look.signTone)}>
+              {look.sign}
+            </span>
+            {op.kind !== "equal" && <span className="sr-only">{op.kind === "insert" ? "added: " : "removed: "}</span>}
+            <span className={cn("min-w-0 grow pr-3.5 break-words whitespace-pre-wrap", look.text)}>{op.text}</span>
           </div>
         );
       })}
@@ -178,227 +95,111 @@ export function SideBySideView({
   );
 }
 
-function ColGroups() {
-  // With `table-fixed`, columns without explicit widths share the
-  // remaining space equally — so the two content columns (`<col>` with
-  // no width) split 50/50 of (100% minus the two 3rem gutters), no matter
-  // how long a single line is. Without table-fixed, a long unbroken
-  // sentence on one side would push that column to ~90% of the width.
+// ── Split ──────────────────────────────────────────────────────────────
+
+const isEqualRow = (r: SideRow) => r.kind === "equal";
+
+type HalfTone = "equal" | "delete" | "insert" | "empty";
+
+const HALF_BG: Record<HalfTone, string> = {
+  equal: "",
+  delete: "bg-error/13",
+  insert: "bg-success/13",
+  empty: "bg-text/2",
+};
+const HALF_TEXT: Record<HalfTone, string> = {
+  equal: "text-text-muted",
+  delete: "text-code-rose",
+  insert: "text-code-sage",
+  empty: "",
+};
+
+export function SplitView({ rows, changeStarts, activeChange, changeRefs }: ListingProps & { rows: SideRow[] }) {
+  const { items, expand } = useFolding(rows, isEqualRow);
+  const changeAt = useChangeIndex(changeStarts);
+
   return (
-    <colgroup>
-      <col className="w-12" />
-      <col />
-      <col className="w-12" />
-      <col />
-    </colgroup>
+    <div className={CODE}>
+      {items.map((item) => {
+        if (item.type === "gap") return <GapRow key={`g${item.start}`} item={item} onExpand={expand} />;
+        const row = rows[item.index];
+        const ci = changeAt.get(item.index);
+        return (
+          <div
+            key={item.index}
+            ref={ci === undefined ? undefined : (el) => void (changeRefs.current[ci] = el)}
+            className={cn("grid scroll-mt-24 grid-cols-2", ci !== undefined && ci === activeChange && ACTIVE_EDGE)}
+          >
+            <SplitRowHalves row={row} />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
-function HunkHeader({
-  left,
-  right,
-  isActive,
+function SplitRowHalves({ row }: { row: SideRow }) {
+  switch (row.kind) {
+    case "equal":
+      return (
+        <>
+          <Half tone="equal" num={row.leftLine} text={row.text} divider />
+          <Half tone="equal" num={row.rightLine} text={row.text} />
+        </>
+      );
+    case "delete":
+      return (
+        <>
+          <Half tone="delete" num={row.leftLine} text={row.text} divider />
+          <Half tone="empty" />
+        </>
+      );
+    case "insert":
+      return (
+        <>
+          <Half tone="empty" divider />
+          <Half tone="insert" num={row.rightLine} text={row.text} />
+        </>
+      );
+    case "changed":
+      return (
+        <>
+          <Half tone="delete" num={row.leftLine} words={row.leftWords} divider />
+          <Half tone="insert" num={row.rightLine} words={row.rightWords} />
+        </>
+      );
+  }
+}
+
+function Half({
+  tone,
+  num,
+  text,
+  words,
+  divider,
 }: {
-  left: string;
-  right: string;
-  isActive: boolean;
+  tone: HalfTone;
+  num?: number;
+  text?: string;
+  words?: WordOp[];
+  divider?: boolean;
 }) {
   return (
-    <div
-      className={`sticky top-0 z-10 flex items-center gap-3 border-y border-border-subtle bg-bg/95 px-3 py-1 text-sm backdrop-blur transition-colors ${
-        isActive ? "text-text" : "text-text-faint"
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`inline-block h-1 w-1 rounded-full transition-colors ${
-          isActive ? "bg-brand" : "bg-border-strong"
-        }`}
-      />
-      <span className="font-mono">
-        @@ {left} {right} @@
+    <div className={cn("flex min-w-0", HALF_BG[tone], divider && "border-r border-border-subtle")}>
+      <span className="w-[38px] shrink-0 pr-2.5 text-right text-text-ghost select-none">{num ?? ""}</span>
+      <span className={cn("min-w-0 grow pr-3 break-words whitespace-pre-wrap", HALF_TEXT[tone])}>
+        {words ? words.map((w, i) => <Word key={`${i}-${w.kind}`} word={w} />) : text}
       </span>
     </div>
   );
 }
 
-function SideRowView({ row }: { row: SideRow }) {
-  if (row.kind === "equal") {
-    return (
-      <tr>
-        <Gutter num={row.leftLine} />
-        <Cell text={row.text} />
-        <Gutter num={row.rightLine} />
-        <Cell text={row.text} />
-      </tr>
-    );
-  }
-  if (row.kind === "delete") {
-    return (
-      <tr>
-        <Gutter num={row.leftLine} tone="danger" />
-        <Cell text={row.text} tone="danger" />
-        <Gutter />
-        <Cell tone="empty" />
-      </tr>
-    );
-  }
-  if (row.kind === "insert") {
-    return (
-      <tr>
-        <Gutter />
-        <Cell tone="empty" />
-        <Gutter num={row.rightLine} tone="success" />
-        <Cell text={row.text} tone="success" />
-      </tr>
-    );
-  }
-  // changed
+/** Word-level highlight inside a changed line — shows WHICH word moved. */
+function Word({ word }: { word: WordOp }) {
+  if (word.kind === "equal") return <>{word.text}</>;
   return (
-    <tr>
-      <Gutter num={row.leftLine} tone="danger" />
-      <Cell tone="danger" words={row.leftWords} />
-      <Gutter num={row.rightLine} tone="success" />
-      <Cell tone="success" words={row.rightWords} />
-    </tr>
-  );
-}
-
-function Gutter({ num, tone }: { num?: number; tone?: "success" | "danger" }) {
-  const toneClass =
-    tone === "success"
-      ? "text-success bg-success/5"
-      : tone === "danger"
-        ? "text-danger bg-danger/5"
-        : "text-text-faint";
-  return (
-    <td
-      className={`select-none border-r border-border-subtle px-2 text-right align-top tabular-nums ${toneClass}`}
-    >
-      {num ?? ""}
-    </td>
-  );
-}
-
-function Cell({
-  text,
-  tone,
-  words,
-}: {
-  text?: string;
-  tone?: "success" | "danger" | "empty";
-  words?: WordOp[];
-}) {
-  const bg =
-    tone === "success"
-      ? "bg-success/5"
-      : tone === "danger"
-        ? "bg-danger/5"
-        : tone === "empty"
-          ? "bg-border-subtle/30"
-          : "";
-
-  if (words) {
-    return (
-      <td className={`whitespace-pre-wrap break-all px-3 py-0.5 align-top ${bg}`}>
-        {words.map((w, i) => {
-          if (w.kind === "equal") return <span key={i}>{w.text}</span>;
-          const isInsert = w.kind === "insert";
-          const cls = isInsert
-            ? "bg-success/25 text-success"
-            : "bg-danger/25 text-danger";
-          return (
-            <span key={i} className={`rounded-sm ${cls}`}>
-              {w.text}
-            </span>
-          );
-        })}
-      </td>
-    );
-  }
-
-  return (
-    <td className={`whitespace-pre-wrap break-all px-3 py-0.5 align-top ${bg}`}>
-      {text}
-    </td>
-  );
-}
-
-// ── Unified view ───────────────────────────────────────────────────────
-
-export function UnifiedView({
-  hunks,
-  activeHunk,
-  onActiveHunkChange,
-  hunkRefs,
-}: DiffViewProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  useHunkObserver(rootRef, hunkRefs, hunks.length, onActiveHunkChange);
-
-  return (
-    <div
-      ref={rootRef}
-      className="max-h-[70vh] overflow-y-auto overflow-x-auto font-mono text-[12.5px] leading-[1.65]"
-    >
-      {hunks.map((h, hi) => {
-        const isActive = hi === activeHunk;
-        return (
-          <div
-            key={hi}
-            ref={(el) => {
-              hunkRefs.current[hi] = el;
-            }}
-            data-hunk-idx={hi}
-          >
-            <HunkHeader
-              left={`−${h.leftStart},${h.leftLength}`}
-              right={`+${h.rightStart},${h.rightLength}`}
-              isActive={isActive}
-            />
-            <table className="w-full table-fixed border-collapse">
-              <colgroup>
-                <col className="w-12" />
-                <col className="w-12" />
-                <col className="w-6" />
-                <col />
-              </colgroup>
-              <tbody>
-                {h.ops.map((op, i) => (
-                  <UnifiedRow key={i} op={op} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function UnifiedRow({ op }: { op: LineOp }) {
-  const tone =
-    op.kind === "insert" ? "success" : op.kind === "delete" ? "danger" : undefined;
-  const sym = op.kind === "insert" ? "+" : op.kind === "delete" ? "−" : " ";
-  const bg =
-    tone === "success" ? "bg-success/5" : tone === "danger" ? "bg-danger/5" : "";
-  const tx =
-    tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-text";
-  return (
-    <tr className={bg}>
-      <td className="select-none border-r border-border-subtle px-2 text-right align-top text-text-faint tabular-nums">
-        {op.kind === "insert" ? "" : op.left}
-      </td>
-      <td className="select-none border-r border-border-subtle px-2 text-right align-top text-text-faint tabular-nums">
-        {op.kind === "delete" ? "" : op.right}
-      </td>
-      <td
-        className={`select-none border-r border-border-subtle px-1 text-center align-top ${tx}`}
-      >
-        {sym}
-      </td>
-      <td className={`whitespace-pre-wrap break-all px-3 align-top ${tx}`}>
-        {op.text}
-      </td>
-    </tr>
+    <span className={cn("rounded-sm", word.kind === "insert" ? "bg-success/30 text-success-text" : "bg-error/30 text-error-text")}>
+      {word.text}
+    </span>
   );
 }

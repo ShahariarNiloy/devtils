@@ -117,6 +117,7 @@ export function useImageCompressor() {
         : Math.round(((processedOrig - comp) / processedOrig) * 100);
     return {
       totalOriginalBytes: orig,
+      processedOriginalBytes: processedOrig,
       totalCompressedBytes: comp,
       totalSavedPct,
       doneCount: done,
@@ -536,6 +537,8 @@ export function useImageCompressor() {
     sortMode,
     // derived
     totalOriginalBytes: stats.totalOriginalBytes,
+    /** Original bytes of the files that have a result (pairs with totalCompressedBytes). */
+    processedOriginalBytes: stats.processedOriginalBytes,
     totalCompressedBytes: stats.totalCompressedBytes,
     totalSavedPct: stats.totalSavedPct,
     doneCount: stats.doneCount,

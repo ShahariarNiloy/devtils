@@ -5,10 +5,8 @@ import { toast } from "sonner";
 import type { SortOrder } from "../json-formatter.types";
 import {
   validateJson,
-  formatJson,
+  formatJsonText,
   minifyJson,
-  parseJson,
-  sortJsonKeys,
 } from "../json-formatter.lib";
 import { repairJson, RepairError } from "../json-repair";
 import type { JsonState } from "./use-json-state";
@@ -26,7 +24,7 @@ export function useJsonFormatActions(state: JsonState) {
     setViewMode,
   } = state;
 
-  const runFormat = useCallback((raw: string) => {
+  const runFormat = useCallback((raw: string, order: SortOrder = sortOrder) => {
     const vState = validateJson(raw);
     if (vState.status === "invalid") {
       setValidation(vState);
@@ -34,9 +32,7 @@ export function useJsonFormatActions(state: JsonState) {
       return;
     }
     try {
-      const value = parseJson(raw);
-      const sorted = sortOrder !== "none" ? sortJsonKeys(value, sortOrder) : value;
-      const formatted = formatJson(sorted, indent);
+      const formatted = formatJsonText(raw, indent, order);
       // Batch setters into a non-urgent transition so the heavy re-render
       // of CodeView / TreeView interleaves with any UI clicks the user just
       // made (button highlight, toast appearance). Stats are derived lazily
@@ -50,6 +46,16 @@ export function useJsonFormatActions(state: JsonState) {
       toast.error(err instanceof Error ? err.message : "Format failed");
     }
   }, [indent, sortOrder, setValidation, setOutput, setMinifyStats, setConversionResult]);
+
+  /**
+   * Format the input into the output with an explicit key order. Drives the
+   * toolbar's Format / Sort keys segments — the input is never rewritten.
+   */
+  const formatWith = useCallback((order: SortOrder) => {
+    if (!input.trim()) return;
+    setSortOrder(order);
+    runFormat(input, order);
+  }, [input, setSortOrder, runFormat]);
 
   const format = useCallback(() => {
     if (!input.trim()) return;
@@ -91,9 +97,7 @@ export function useJsonFormatActions(state: JsonState) {
       setSortOrder(order);
       if (!input.trim() || order === "none") return;
       try {
-        const value = parseJson(input);
-        const sorted = sortJsonKeys(value, order);
-        setInput(formatJson(sorted, indent));
+        setInput(formatJsonText(input, indent, order));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Sort failed");
       }
@@ -178,14 +182,13 @@ export function useJsonFormatActions(state: JsonState) {
   const restoreFromMinify = useCallback(() => {
     if (!output) return;
     try {
-      const value = parseJson(output);
-      setOutput(formatJson(value, indent));
+      setOutput(formatJsonText(output, indent, "none"));
       setMinifyStats(null);
     } catch { /* ignore */ }
   }, [output, indent, setOutput, setMinifyStats]);
 
   return {
-    format, formatFrom, minify, validate, sortKeys,
+    format, formatWith, formatFrom, minify, validate, sortKeys,
     repair, applyRepair, cancelRepair,
     restoreFromMinify, runFormat,
   };

@@ -1,6 +1,7 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
+  usesNote: "Clean up snippets before you share them.",
   intro:
     "Format JavaScript, TypeScript, JSON, CSS, HTML, Markdown, YAML, and GraphQL with Prettier — the same rules your editor runs locally. Pick a language, paste, and the output matches what `prettier --write` would produce. Configurable indent, line width, quotes, and trailing commas. Everything runs in your browser; nothing is uploaded.",
   useCases: [
@@ -49,12 +50,12 @@ export const seoData = {
     {
       question: "What happens if my code has a syntax error?",
       answer:
-        "The parse error is shown verbatim in the output pane with the line number Prettier reported. The previous successful output is replaced by the error so you don't misread it as the formatted version.",
+        "The parse error is shown verbatim in the output pane with the line number Prettier reported, and the output is cleared so you don't mistake an old result for the formatted version.",
     },
     {
       question: "Can I configure trailing commas, single quotes, etc.?",
       answer:
-        "Yes — the toolbar exposes indent width (2/4/8), print width (80/100/120), and trailing comma (all/es5/none) as quick chips. The 'Options' dropdown holds the rest: use tabs, semicolons, single quotes, bracket spacing.",
+        "Yes. The toolbar has the language and a 2- or 4-space indent. The ⋯ menu holds the rest: 8-space or tab indent, print width (80/100/120), semicolons, single quotes, bracket spacing and trailing commas (all/es5/none).",
     },
     {
       question: "Why is Prettier the default, not Biome?",
@@ -62,7 +63,7 @@ export const seoData = {
         "Prettier is what ~95% of JS devs already run locally, so its output is what users expect to see. Biome is faster but produces slightly different output — for a paste-and-format tool, matching the user's editor is more valuable than format speed.",
     },
   ],
-  relatedSlugs: ["json-formatter", "diff-checker", "css-minifier", "case-converter"],
+  relatedSlugs: ["sql-formatter", "xml-formatter", "json-formatter", "css-unit-converter"],
 } as const;
 
 export function CodeFormatterContent() {

@@ -42,17 +42,27 @@ export interface ColorConverterState {
   wcag: WcagResult;
   history: HistoryEntry[];
   setFromRgb: (rgb: RGB) => void;
-  addToHistory: () => void;
+  addToHistory: (hex?: string) => void;
   restoreFromHistory: (hex: string) => void;
   clearHistory: () => void;
   primaryFormat: Format;
   setPrimaryFormat: (f: Format) => void;
+  /** What the colour field shows: the user's text while typing, else HEX. */
+  inputValue: string;
+  /** Field has text that doesn't parse as a colour. */
+  inputInvalid: boolean;
+  /** Typing in the field — applies the colour as soon as it parses. */
+  setInputText: (text: string) => void;
+  /** Leave the field: drop the draft so it shows the canonical HEX. */
+  commitInput: () => void;
 }
 
 // Read the URL hash once on first client render. SSR returns the
 // neutral default. Lazy initializer guarantees a single run.
 function readInitialHsb(): { h: number; s: number; b: number; a: number } {
-  const fallback = { h: 210, s: 65, b: 90, a: 1 };
+  // Mockup sample colour #C58E5E (warm clay).
+  const sample = rgbToHsb({ r: 197, g: 142, b: 94, a: 1 });
+  const fallback = { h: sample.h, s: sample.s, b: sample.b, a: 1 };
   if (typeof window === "undefined") return fallback;
   const hash = window.location.hash.slice(1);
   if (!hash) return fallback;
@@ -77,13 +87,34 @@ export function useColorConverter(): ColorConverterState {
     } catch { return []; }
   });
 
-  const setFromRgb = useCallback((newRgb: RGB) => {
+  // Raw text in the colour field while the user is typing; null shows HEX.
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const applyRgb = useCallback((newRgb: RGB) => {
     const hsb = rgbToHsb(newRgb);
-    setHue(hsb.h);
+    // Greys have no hue — keep the last one so the picker doesn't jump.
+    if (hsb.s > 0 && hsb.b > 0) setHue(hsb.h);
     setSat(hsb.s);
     setBri(hsb.b);
     setAlpha(newRgb.a);
   }, []);
+
+  /** Any non-typing colour change (picker, scale, history) drops the draft. */
+  const setFromRgb = useCallback((newRgb: RGB) => {
+    setDraft(null);
+    applyRgb(newRgb);
+  }, [applyRgb]);
+
+  const setHueV = useCallback((v: number) => { setDraft(null); setHue(v); }, []);
+  const setSatV = useCallback((v: number) => { setDraft(null); setSat(v); }, []);
+  const setBriV = useCallback((v: number) => { setDraft(null); setBri(v); }, []);
+  const setAlphaV = useCallback((v: number) => { setDraft(null); setAlpha(v); }, []);
+
+  const setInputText = useCallback((text: string) => {
+    setDraft(text);
+    const parsed = parseAnyColor(text);
+    if (parsed) applyRgb(parsed);
+  }, [applyRgb]);
 
   const rgb = useMemo(() => hsbToRgb(hue, sat, bri, alpha), [hue, sat, bri, alpha]);
   const pureHex = useMemo(() => rgbToHex(hsbToRgb(hue, 100, 100, 1)), [hue]);
@@ -109,8 +140,8 @@ export function useColorConverter(): ColorConverterState {
     }
   }, [rgb]);
 
-  const addToHistory = useCallback(() => {
-    const hex = rgbToHex(hsbToRgb(hue, sat, bri, 1));
+  const addToHistory = useCallback((explicitHex?: string) => {
+    const hex = explicitHex ?? rgbToHex(hsbToRgb(hue, sat, bri, 1));
     setHistory((prev) => {
       const next = [
         { hex, ts: Date.now() },
@@ -131,9 +162,18 @@ export function useColorConverter(): ColorConverterState {
     try { localStorage.removeItem(HISTORY_KEY); } catch { /* ignore */ }
   }, []);
 
+  const inputInvalid = draft !== null && draft.trim() !== "" && parseAnyColor(draft) === null;
+  const inputValue = draft ?? formatted.hex.toUpperCase();
+  const commitInput = useCallback(() => {
+    if (draft === null) return;
+    setDraft(null);
+    if (parseAnyColor(draft)) addToHistory();
+  }, [draft, addToHistory]);
+
   return {
     hue, sat, bri, alpha,
-    setHue, setSat, setBri, setAlpha,
+    setHue: setHueV, setSat: setSatV, setBri: setBriV, setAlpha: setAlphaV,
+    inputValue, inputInvalid, setInputText, commitInput,
     rgb, pureHex, formatted, tailwind, named, shades,
     bgRgb, setBgRgb, wcag,
     history,

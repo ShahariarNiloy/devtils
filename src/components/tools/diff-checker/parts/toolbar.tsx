@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowDown, ArrowUp, ClipboardCopy, Download, Eraser, FileText, Link2, PanelTopClose, PanelTopOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -9,35 +10,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
-import {
-  ArrowDown,
-  ArrowLeftRight,
-  ArrowUp,
-  ClipboardCopy,
-  Download,
-  Link2,
-  MoreHorizontal,
-} from "lucide-react";
 import type { DiffOptions } from "@/lib/diff";
 import type { ViewMode } from "../use-diff-checker";
+import { CountPill, MoreButton, Segmented, SwapButton, ToggleButton } from "./chrome";
 
 export interface ToolbarProps {
   added: number;
   removed: number;
   unchanged: number;
-  hunkCount: number;
-  activeHunk: number;
-  onPrevHunk: () => void;
-  onNextHunk: () => void;
   view: ViewMode;
   onChangeView: (v: ViewMode) => void;
-  /** Hide the side-by-side / unified toggle (mobile locks to unified). */
-  showViewToggle?: boolean;
+  /** Split is hidden below 640px — unified is the phone layout. */
+  canSplit: boolean;
   options: DiffOptions;
-  onChangeOption: <K extends keyof DiffOptions>(
-    key: K,
-    value: DiffOptions[K]
-  ) => void;
+  onChangeOption: <K extends keyof DiffOptions>(key: K, value: DiffOptions[K]) => void;
+  changeCount: number;
+  activeChange: number | null;
+  onPrevChange: () => void;
+  onNextChange: () => void;
   editing: boolean;
   onToggleEdit: () => void;
   onShare: () => void;
@@ -46,209 +36,96 @@ export interface ToolbarProps {
   onSwap: () => void;
   onClear: () => void;
   onLoadSample: () => void;
-  /** Disables Copy / Download when there are no hunks to emit. */
-  hasDiff: boolean;
 }
+
+const VIEWS = [
+  ["unified", "Unified"],
+  ["side-by-side", "Split"],
+] as const;
 
 /**
- * Single-row toolbar. Primary signals on the left (stats), navigation
- * and view-mode in the middle, secondary actions tucked into a `⋯` menu
- * on the right.
- *
- * Sticky inside the workspace so it stays anchored while the diff scrolls.
+ * v2 diff toolbar: count pills · Ignore whitespace · Unified/Split · Swap,
+ * then ⋯ for change navigation, finer ignore options, patch export,
+ * sharing and input management.
  */
-export function Toolbar(props: ToolbarProps) {
+export function Toolbar(p: ToolbarProps) {
+  const hasDiff = p.changeCount > 0;
+  const position = p.activeChange === null ? "" : ` · ${p.activeChange + 1}/${p.changeCount}`;
   return (
-    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface/95 px-3 py-2 shadow-card backdrop-blur">
-      <Stat label="added" value={props.added} tone="success" />
-      <Stat label="removed" value={props.removed} tone="danger" />
-      <Stat label="unchanged" value={props.unchanged} tone="muted" />
-
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <HunkNav
-          count={props.hunkCount}
-          active={props.activeHunk}
-          onPrev={props.onPrevHunk}
-          onNext={props.onNextHunk}
-        />
-        {(props.showViewToggle ?? true) && (
-          <ViewToggle view={props.view} onChange={props.onChangeView} />
-        )}
-
-        <button
-          type="button"
-          onClick={props.onCopyPatch}
-          disabled={!props.hasDiff}
-          aria-label="Copy as patch"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-bg text-text-faint transition-colors hover:bg-surface-soft hover:text-text disabled:opacity-40 disabled:hover:bg-bg disabled:hover:text-text-faint cursor-pointer"
-        >
-          <ClipboardCopy size={13} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={props.onShare}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-bg px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-        >
-          <Link2 size={13} aria-hidden />
-          Share
-        </button>
-        <MoreMenu {...props} />
+    <div className="flex flex-wrap items-center gap-2.5 border-b border-border-subtle bg-toolbar p-3">
+      <div className="flex flex-wrap gap-1.5">
+        <CountPill tone="added">{p.added.toLocaleString()} added</CountPill>
+        <CountPill tone="removed">{p.removed.toLocaleString()} removed</CountPill>
+        <CountPill tone="neutral">{p.unchanged.toLocaleString()} unchanged</CountPill>
       </div>
+      <span className="grow" />
+      <ToggleButton on={!!p.options.ignoreWhitespace} onClick={() => p.onChangeOption("ignoreWhitespace", !p.options.ignoreWhitespace)}>
+        Ignore whitespace
+      </ToggleButton>
+      {p.canSplit && <Segmented label="Diff view" value={p.view} options={VIEWS} onChange={p.onChangeView} />}
+      <SwapButton onClick={p.onSwap} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <MoreButton />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>
+            Changes{hasDiff ? ` · ${p.changeCount}${position}` : ""}
+          </DropdownMenuLabel>
+          <DropdownMenuItem onSelect={p.onNextChange} disabled={!hasDiff}>
+            <ArrowDown size={13} aria-hidden />
+            Next change
+            <Shortcut>n</Shortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onPrevChange} disabled={!hasDiff}>
+            <ArrowUp size={13} aria-hidden />
+            Previous change
+            <Shortcut>p</Shortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Also ignore</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={!!p.options.ignoreTrailingWhitespace}
+            onCheckedChange={(v) => p.onChangeOption("ignoreTrailingWhitespace", v === true)}
+          >
+            Trailing whitespace
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={!!p.options.ignoreCase} onCheckedChange={(v) => p.onChangeOption("ignoreCase", v === true)}>
+            Letter case
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={p.onCopyPatch} disabled={!hasDiff}>
+            <ClipboardCopy size={13} aria-hidden />
+            Copy as patch
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onDownloadPatch} disabled={!hasDiff}>
+            <Download size={13} aria-hidden />
+            Download .patch
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onShare}>
+            <Link2 size={13} aria-hidden />
+            Copy share link
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={p.onToggleEdit}>
+            {p.editing ? <PanelTopClose size={13} aria-hidden /> : <PanelTopOpen size={13} aria-hidden />}
+            {p.editing ? "Hide inputs" : "Show inputs"}
+            <Shortcut>e</Shortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onLoadSample}>
+            <FileText size={13} aria-hidden />
+            Load sample
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={p.onClear}>
+            <Eraser size={13} aria-hidden />
+            Clear both
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "success" | "danger" | "muted";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "text-success"
-      : tone === "danger"
-        ? "text-danger"
-        : "text-text-faint";
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <span
-        className={`font-mono text-base font-semibold tabular-nums ${toneClass}`}
-      >
-        {tone === "success" ? "+" : tone === "danger" ? "−" : ""}
-        {value}
-      </span>
-      <span className="text-sm uppercase tracking-wider text-text-faint">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: ViewMode;
-  onChange: (v: ViewMode) => void;
-}) {
-  return (
-    <div className="inline-flex h-8 items-center rounded-md border border-border-subtle bg-bg p-0.5">
-      {(["side-by-side", "unified"] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => onChange(mode)}
-          className={`inline-flex h-7 items-center rounded px-2.5 text-sm transition-colors cursor-pointer ${
-            view === mode
-              ? "bg-surface text-text shadow-sm"
-              : "text-text-faint hover:text-text"
-          }`}
-        >
-          {mode === "side-by-side" ? "Side-by-side" : "Unified"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function HunkNav({
-  count,
-  active,
-  onPrev,
-  onNext,
-}: {
-  count: number;
-  active: number;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <div className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border-subtle bg-bg p-0.5">
-      <button
-        type="button"
-        onClick={onPrev}
-        disabled={count === 0}
-        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-faint transition-colors hover:bg-surface hover:text-text disabled:opacity-40 cursor-pointer"
-        aria-label="Previous hunk"
-      >
-        <ArrowUp size={14} />
-      </button>
-      <span className="px-1.5 font-mono text-sm text-text-faint tabular-nums">
-        {count === 0 ? "0/0" : `${active + 1}/${count}`}
-      </span>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={count === 0}
-        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-faint transition-colors hover:bg-surface hover:text-text disabled:opacity-40 cursor-pointer"
-        aria-label="Next hunk"
-      >
-        <ArrowDown size={14} />
-      </button>
-    </div>
-  );
-}
-
-function MoreMenu({
-  options,
-  onChangeOption,
-  onDownloadPatch,
-  onSwap,
-  onClear,
-  onLoadSample,
-  hasDiff,
-}: ToolbarProps) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="More options"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-bg text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-        >
-          <MoreHorizontal size={14} aria-hidden />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Ignore</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem
-          checked={!!options.ignoreTrailingWhitespace}
-          onCheckedChange={(v) =>
-            onChangeOption("ignoreTrailingWhitespace", v === true)
-          }
-        >
-          Trailing whitespace
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          checked={!!options.ignoreWhitespace}
-          onCheckedChange={(v) =>
-            onChangeOption("ignoreWhitespace", v === true)
-          }
-        >
-          All whitespace
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          checked={!!options.ignoreCase}
-          onCheckedChange={(v) => onChangeOption("ignoreCase", v === true)}
-        >
-          Case
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onDownloadPatch} disabled={!hasDiff}>
-          <Download size={13} aria-hidden />
-          Download .patch
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onSwap}>
-          <ArrowLeftRight size={13} aria-hidden />
-          Swap sides
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onLoadSample}>Load sample</DropdownMenuItem>
-        <DropdownMenuItem onSelect={onClear}>Clear both</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+function Shortcut({ children }: { children: string }) {
+  return <kbd className="ml-auto rounded border border-border px-1.5 font-mono text-[11px] text-text-faint">{children}</kbd>;
 }

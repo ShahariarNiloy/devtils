@@ -28,7 +28,8 @@ export type ToolCategory =
   | 'Security'
   | 'Data'
   | 'Next.js'
-  | 'React';
+  | 'React'
+  | 'SEO';
 
 export type ToolTier = 'free' | 'pro' | 'ai';
 

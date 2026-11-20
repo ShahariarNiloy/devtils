@@ -1,203 +1,139 @@
 "use client";
 
 import { useRef } from "react";
-import { AlertCircle, CheckCircle2, Copy, Trash2, Upload } from "lucide-react";
+import { Copy, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/cn";
-import { Tooltip } from "@/components/primitives/tooltip";
+import { SideAction, SideHeader } from "@/components/tools/diff-checker/parts/chrome";
 import type { ParseState } from "../use-json-diff";
 
 /**
- * One side of the diff workspace. Self-contained: textarea + validation
- * banner + per-side action buttons. The parent owns input state and parse
- * status; the panel only renders + dispatches changes.
+ * One side of the v2 JSON diff inputs: coloured side label, per-side
+ * upload / copy / clear, and a resizable mono textarea that also accepts a
+ * dropped file. Parse errors render in `ParseErrorBanner` below the pair.
  */
-/** Map parse state → status-dot colour. Empty is the only neutral state;
- *  valid takes success, invalid takes danger. */
-function dotClass(parse: ParseState): string {
-  if (parse.isEmpty) return "bg-text-faint/60";
-  if (parse.error) return "bg-danger";
-  return "bg-success";
-}
-
 export function InputPanel({
+  id,
+  side,
   label,
   value,
   onChange,
-  parse,
+  textareaRef,
 }: {
+  id: string;
+  side: "left" | "right";
   label: string;
   value: string;
   onChange: (s: string) => void;
-  parse: ParseState;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
 
   const copy = () => {
     if (!value) return;
-    void navigator.clipboard.writeText(value);
-    toast.success(`Copied ${label.toLowerCase()}`);
+    navigator.clipboard.writeText(value).then(
+      () => toast.success(`Copied ${label}`),
+      () => toast.error("Couldn't access the clipboard"),
+    );
   };
-
-  const clear = () => onChange("");
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const text = String(reader.result ?? "");
-      onChange(text);
+      onChange(String(reader.result ?? ""));
       toast.success(`Loaded ${file.name}`);
     };
     reader.readAsText(file);
   };
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  };
-
-  // Jump caret to the parse error line so the user lands where the issue
-  // is. Defensive against very long inputs / off-by-one parse positions.
-  const jumpToError = () => {
-    if (!parse.error || parse.line === null) return;
-    const ta = taRef.current;
-    if (!ta) return;
-    const lines = value.split("\n");
-    let offset = 0;
-    for (let i = 0; i < Math.max(0, parse.line - 1) && i < lines.length; i++) {
-      offset += lines[i].length + 1;
-    }
-    const col = parse.col ? parse.col - 1 : 0;
-    const pos = Math.min(offset + col, value.length);
-    ta.focus();
-    ta.setSelectionRange(pos, pos);
-  };
-
-  let statusDot: React.ReactNode;
-  if (parse.isEmpty) {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-xs text-text-faint">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-text-faint/60" />
-        Empty
-      </span>
-    );
-  } else if (parse.error) {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-xs text-danger">
-        <AlertCircle size={11} />
-        Invalid
-      </span>
-    );
-  } else {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-xs text-success">
-        <CheckCircle2 size={11} />
-        Valid
-      </span>
-    );
-  }
-
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface"
+      className={`flex min-w-0 flex-[1_1_340px] flex-col ${side === "left" ? "border-r border-border-subtle" : ""}`}
       onDragOver={(e) => e.preventDefault()}
-      onDrop={onDrop}
+      onDrop={(e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+      }}
     >
-      {/* Header — subtle tint, status-driven dot. Side coloring on the dot
-          was redundant with the label; using parse status instead is more
-          honest and matches the validation banner below. */}
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface-2/50 px-3">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,.txt"
-          className="sr-only"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              handleFile(f);
-              e.target.value = "";
-            }
-          }}
-        />
-
-        <span
-          className={cn("inline-flex h-1.5 w-1.5 rounded-full", dotClass(parse))}
-          aria-hidden
-        />
-        <span className="text-sm font-semibold uppercase tracking-[0.14em] text-text-muted">
-          {label}
-        </span>
-        <span className="ml-2">{statusDot}</span>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip content="Upload file" side="bottom">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
-              aria-label="Upload file"
-            >
-              <Upload size={12} />
-            </button>
-          </Tooltip>
-          <Tooltip content="Copy" side="bottom">
-            <button
-              type="button"
-              onClick={copy}
-              disabled={!value}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-40"
-              aria-label="Copy"
-            >
-              <Copy size={12} />
-            </button>
-          </Tooltip>
-          <Tooltip content="Clear" side="bottom">
-            <button
-              type="button"
-              onClick={clear}
-              disabled={!value}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-danger disabled:opacity-40"
-              aria-label="Clear"
-            >
-              <Trash2 size={12} />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Error banner — click to jump caret to the offending position */}
-      {parse.error && (
-        <button
-          type="button"
-          onClick={jumpToError}
-          className="group flex w-full shrink-0 items-center gap-2 border-b border-error-border bg-error-bg px-3 py-1.5 text-left text-xs text-error-text transition-colors hover:bg-error/10"
-          title="Jump to error"
-        >
-          <AlertCircle size={11} className="shrink-0" />
-          <span className="truncate">
-            {parse.line !== null && `Line ${parse.line}, col ${parse.col}: `}
-            {parse.error}
-          </span>
-          {parse.line !== null && (
-            <span className="ml-auto shrink-0 text-[10px] font-medium opacity-60 transition-opacity group-hover:opacity-100">
-              Jump →
-            </span>
-          )}
-        </button>
-      )}
-
-      {/* Editor */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json,.txt"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            handleFile(f);
+            e.target.value = "";
+          }
+        }}
+      />
+      <SideHeader htmlFor={id} side={side} label={label}>
+        <SideAction label={`Open a file as ${label}`} onClick={() => fileRef.current?.click()}>
+          <Upload size={14} aria-hidden />
+        </SideAction>
+        <SideAction label={`Copy ${label}`} onClick={copy} disabled={!value}>
+          <Copy size={14} aria-hidden />
+        </SideAction>
+        <SideAction label={`Clear ${label}`} onClick={() => onChange("")} disabled={!value}>
+          <Trash2 size={14} aria-hidden />
+        </SideAction>
+      </SideHeader>
       <textarea
-        ref={taRef}
+        id={id}
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
-        placeholder={`Paste ${label.toLowerCase()} JSON here…`}
-        className="block min-h-0 w-full flex-1 resize-none bg-transparent p-4 font-mono text-base leading-[1.6] text-text outline-none placeholder:text-text-faint"
+        placeholder={`Paste or drop the ${label.replace(" JSON", "").toLowerCase()} JSON…`}
+        className="m-0 box-border h-[220px] resize-y border-0 bg-transparent px-4 py-3.5 font-mono text-[12.5px] leading-[1.7] text-syntax-plain outline-none placeholder:text-placeholder sm:text-[13px]"
       />
     </div>
   );
+}
+
+/**
+ * Mockup error strip under the inputs, one line per invalid side, with a
+ * "Jump to error" action that puts the caret at the parse position.
+ */
+export function ParseErrorBanner({
+  sides,
+}: {
+  sides: Array<{ label: string; parse: ParseState; value: string; textareaRef: React.RefObject<HTMLTextAreaElement | null> }>;
+}) {
+  const bad = sides.filter((s) => s.parse.error);
+  if (bad.length === 0) return null;
+  return (
+    <div role="alert" className="flex flex-col gap-1 bg-error-bg px-4 py-3 text-[13px] text-error-text">
+      {bad.map((s) => (
+        <div key={s.label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>
+            <span className="font-semibold">{s.label} isn&rsquo;t valid JSON</span>
+            {s.parse.line !== null && ` · line ${s.parse.line}, col ${s.parse.col}`}
+            <span className="text-error-text/80"> — {s.parse.error}</span>
+          </span>
+          {s.parse.line !== null && (
+            <button
+              type="button"
+              onClick={() => jumpTo(s.textareaRef.current, s.value, s.parse)}
+              className="cursor-pointer rounded-md px-1.5 py-0.5 font-semibold underline decoration-error-text/40 underline-offset-2 hover:decoration-error-text"
+            >
+              Jump to error
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function jumpTo(ta: HTMLTextAreaElement | null, value: string, parse: ParseState) {
+  if (!ta || parse.line === null) return;
+  const lines = value.split("\n");
+  let offset = 0;
+  for (let i = 0; i < Math.max(0, parse.line - 1) && i < lines.length; i++) offset += lines[i].length + 1;
+  const pos = Math.min(offset + (parse.col ? parse.col - 1 : 0), value.length);
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
 }

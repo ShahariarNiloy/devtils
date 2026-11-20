@@ -345,3 +345,94 @@ export function nearestTailwindColor(rgb: RGB): TailwindMatch {
   }
   return { name: best.name, swatch: { r: best.r, g: best.g, b: best.b, a: 1 } };
 }
+
+// ── v2 workspace helpers ───────────────────────────────────────────
+
+export interface FormatRow {
+  key: "HEX" | "RGB" | "HSL" | "OKLCH" | "CSS var";
+  value: string;
+}
+
+const round = (n: number, d = 0) => {
+  const f = 10 ** d;
+  return Math.round(n * f) / f;
+};
+
+/** Alpha suffix for space-separated CSS colour syntax ("" when opaque). */
+function alphaSuffix(a: number): string {
+  return a >= 1 ? "" : ` / ${round(a, 2)}`;
+}
+
+/**
+ * The five rows the v2 workspace lists, in modern CSS syntax
+ * (space-separated, `/ alpha` only when translucent).
+ */
+export function formatRowsV2(rgb: RGB): FormatRow[] {
+  const hex = rgbToHex(rgb).toUpperCase();
+  const r = Math.round(rgb.r), g = Math.round(rgb.g), b = Math.round(rgb.b);
+  const hsl = rgbToHsl(rgb);
+  const ok = rgbToOklch(rgb);
+  const a = alphaSuffix(rgb.a);
+  return [
+    { key: "HEX", value: hex },
+    { key: "RGB", value: `rgb(${r} ${g} ${b}${a})` },
+    { key: "HSL", value: `hsl(${Math.round(hsl.h) % 360} ${Math.round(hsl.s)}% ${Math.round(hsl.l)}%${a})` },
+    { key: "OKLCH", value: `oklch(${(ok.l * 100).toFixed(1)}% ${ok.c.toFixed(3)} ${ok.c < 0.0005 ? "0.0" : ok.h.toFixed(1)}${a})` },
+    { key: "CSS var", value: `--color-brand: ${hex};` },
+  ];
+}
+
+export type ContrastGrade = "AAA" | "AA" | "AA large" | "fails";
+
+/** WCAG 2 grade for normal text, with the large-text tier called out. */
+export function contrastGrade(ratio: number): ContrastGrade {
+  if (ratio >= 7) return "AAA";
+  if (ratio >= 4.5) return "AA";
+  if (ratio >= 3) return "AA large";
+  return "fails";
+}
+
+const WHITE: RGB = { r: 255, g: 255, b: 255, a: 1 };
+const BLACK: RGB = { r: 0, g: 0, b: 0, a: 1 };
+
+export interface ContrastSummary {
+  onWhite: number;
+  onBlack: number;
+  /** Which text colour reads better on this swatch. */
+  bestText: "dark" | "light";
+}
+
+/** Contrast of the (opaque) colour against white and black. */
+export function contrastSummary(rgb: RGB): ContrastSummary {
+  const solid = { ...rgb, a: 1 };
+  const onWhite = contrastRatio(solid, WHITE);
+  const onBlack = contrastRatio(solid, BLACK);
+  return { onWhite, onBlack, bestText: onBlack >= onWhite ? "dark" : "light" };
+}
+
+export interface ScaleStep {
+  /** Stable position id: "t80"…"t20", "base", "s20"…"s80". */
+  id: string;
+  hex: string;
+  /** True for the input colour itself (the middle step). */
+  base: boolean;
+}
+
+/**
+ * Nine-step tint/shade scale: 80/60/40/20 % towards white, the colour,
+ * then 20/40/60/80 % towards black (linear sRGB mix, like `color-mix`
+ * in srgb).
+ */
+export function tintShadeScale(rgb: RGB): ScaleStep[] {
+  const mix = (t: number, w: number): string =>
+    rgbToHex({
+      r: rgb.r + (t - rgb.r) * w,
+      g: rgb.g + (t - rgb.g) * w,
+      b: rgb.b + (t - rgb.b) * w,
+      a: 1,
+    }).toUpperCase();
+  const steps: ScaleStep[] = [0.8, 0.6, 0.4, 0.2].map((w) => ({ id: `t${Math.round(w * 100)}`, hex: mix(255, w), base: false }));
+  steps.push({ id: "base", hex: rgbToHex({ ...rgb, a: 1 }).toUpperCase(), base: true });
+  for (const w of [0.2, 0.4, 0.6, 0.8]) steps.push({ id: `s${Math.round(w * 100)}`, hex: mix(0, w), base: false });
+  return steps;
+}

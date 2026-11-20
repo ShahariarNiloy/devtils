@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Convert text between every common case format: camelCase, PascalCase, snake_case, kebab-case, SCREAMING_SNAKE, Title Case, sentence case, and more. Handles multi-word identifiers, acronyms, mixed-case inputs, and preserves numbers correctly. Useful for renaming variables, normalising config keys, or generating CSS classnames from copy.",
+  usesNote: "Rename things without retyping them.",
   useCases: [
         {
           title: "Renaming variables across languages",
@@ -28,17 +29,17 @@ export const seoData = {
         {
           question: "How are acronyms handled?",
           answer:
-            "Configurably. By default, multi-letter acronyms (URL, HTTP, ID) are treated as a single token — `userID` → `user_id`, not `user_i_d`. Toggle the acronym handling option to get the alternative.",
+            "A run of capitals stays one word, so `userID` becomes `user_id` (not `user_i_d`) and `APIResponse` becomes `api_response`. Words are split on spaces, punctuation, underscores, dashes and camelCase boundaries.",
         },
         {
           question: "What about numbers?",
           answer:
-            "Numbers are treated as part of the adjacent token: `version2Beta` → `version_2_beta`, `userID42` → `user_id_42`. The exact behaviour depends on the target case.",
+            "Digits stay attached to the word they touch: `version2Beta` becomes `version2_beta` and `userID42` becomes `user_id42`. A digit never starts a new word on its own.",
         },
         {
           question: "Can I batch-convert a list?",
           answer:
-            "Yes — paste a multi-line list and each line is converted independently. Useful for renaming a column list or a set of identifiers in bulk.",
+            "Yes. Paste a multi-line list and each line is converted separately, so the output keeps one result per line — handy for renaming a column list or a set of identifiers in bulk.",
         },
         {
           question: "What's the difference between PascalCase and camelCase?",
@@ -46,9 +47,9 @@ export const seoData = {
             "PascalCase capitalises the first letter (`UserName`), camelCase keeps it lowercase (`userName`). Both join words by capitalisation. PascalCase is conventional for types / classes; camelCase for variables / functions.",
         },
         {
-          question: "Why is `SCREAMING_SNAKE_CASE` an option?",
+          question: "What is CONSTANT_CASE for?",
           answer:
-            "It's the conventional case for constants in many languages (C, Python, JavaScript). Converting a config key list to SCREAMING_SNAKE makes them obviously immutable.",
+            "CONSTANT_CASE (also called SCREAMING_SNAKE_CASE) is the conventional case for constants and environment variables in C, Python, JavaScript and most shells. Converting a config key list to it makes the keys obviously immutable.",
         },
         {
           question: "Does my text leave the page?",

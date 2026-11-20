@@ -1,19 +1,20 @@
 /**
  * Pure case-conversion helpers. The strategy is to first split arbitrary
- * input into "words" — tokenizing on word breaks, camelHumps, and existing
- * separators — then re-emit those words in the requested casing.
+ * input into "words" — tokenizing on punctuation, whitespace, existing
+ * separators and camelCase humps — then re-emit those words in the
+ * requested casing. Multi-line input is converted one line at a time.
  */
 
 export type CaseId =
-  | "upper"
-  | "lower"
-  | "title"
-  | "sentence"
   | "camel"
   | "pascal"
   | "snake"
-  | "kebab"
   | "screamingSnake"
+  | "kebab"
+  | "title"
+  | "sentence"
+  | "lower"
+  | "upper"
   | "dot"
   | "train"
   | "cobol"
@@ -25,132 +26,125 @@ export interface CaseDef {
   id: CaseId;
   label: string;
   example: string;
-  convert: (input: string) => string;
+  /** Shown by default; the rest sit behind "Show more formats". */
+  primary: boolean;
+  /** Converts a single line. */
+  convert: (line: string) => string;
 }
 
-/** Split arbitrary text into a list of lower-cased word tokens. */
+/**
+ * Split one line into lower-cased word tokens. Splits on anything that
+ * isn't a letter or digit, plus camelCase boundaries — so `APIResponse`
+ * becomes `api` + `response` and `isVisibleOnMobile` four words. Digits
+ * stay attached to the word they touch (`version2Beta` → `version2`, `beta`).
+ */
 export function tokenize(input: string): string[] {
-  return (
-    input
-      .replace(/[_\-.\s/]+/g, " ")
-      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w.toLowerCase()) || []
-  );
+  return input
+    .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
+    .replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, "$1 $2")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((w) => w.toLowerCase());
 }
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-const join = (sep: string) => (input: string) => tokenize(input).join(sep);
-const camelLike = (firstLower: boolean) => (input: string) =>
-  tokenize(input)
+const join = (sep: string) => (line: string) => tokenize(line).join(sep);
+const camelLike = (firstLower: boolean) => (line: string) =>
+  tokenize(line)
     .map((w, i) => (i === 0 && firstLower ? w : cap(w)))
     .join("");
 
 export const cases: CaseDef[] = [
+  { id: "camel", label: "camelCase", example: "userProfileSettings", primary: true, convert: camelLike(true) },
+  { id: "pascal", label: "PascalCase", example: "UserProfileSettings", primary: true, convert: camelLike(false) },
+  { id: "snake", label: "snake_case", example: "user_profile_settings", primary: true, convert: join("_") },
   {
-    id: "upper",
-    label: "UPPER",
-    example: "HELLO WORLD",
-    convert: (s) => s.toUpperCase(),
+    id: "screamingSnake",
+    label: "CONSTANT_CASE",
+    example: "USER_PROFILE_SETTINGS",
+    primary: true,
+    convert: (s) => tokenize(s).join("_").toUpperCase(),
   },
-  {
-    id: "lower",
-    label: "lower",
-    example: "hello world",
-    convert: (s) => s.toLowerCase(),
-  },
+  { id: "kebab", label: "kebab-case", example: "user-profile-settings", primary: true, convert: join("-") },
   {
     id: "title",
     label: "Title Case",
-    example: "Hello World",
+    example: "User Profile Settings",
+    primary: true,
     convert: (s) => tokenize(s).map(cap).join(" "),
   },
   {
     id: "sentence",
     label: "Sentence case",
-    example: "Hello world",
-    convert: (s) => {
-      const words = tokenize(s);
-      if (!words.length) return "";
-      return cap(words.join(" "));
-    },
+    example: "User profile settings",
+    primary: true,
+    convert: (s) => cap(tokenize(s).join(" ")),
   },
-  {
-    id: "camel",
-    label: "camelCase",
-    example: "helloWorld",
-    convert: camelLike(true),
-  },
-  {
-    id: "pascal",
-    label: "PascalCase",
-    example: "HelloWorld",
-    convert: camelLike(false),
-  },
-  {
-    id: "snake",
-    label: "snake_case",
-    example: "hello_world",
-    convert: join("_"),
-  },
-  {
-    id: "kebab",
-    label: "kebab-case",
-    example: "hello-world",
-    convert: join("-"),
-  },
-  {
-    id: "screamingSnake",
-    label: "SCREAMING_SNAKE_CASE",
-    example: "HELLO_WORLD",
-    convert: (s) => tokenize(s).join("_").toUpperCase(),
-  },
-  {
-    id: "dot",
-    label: "dot.case",
-    example: "hello.world",
-    convert: join("."),
-  },
+  // lower / UPPER keep the line's punctuation — they only change letters.
+  { id: "lower", label: "lower case", example: "user profile settings", primary: true, convert: (s) => s.toLowerCase() },
+  { id: "upper", label: "UPPER CASE", example: "USER PROFILE SETTINGS", primary: true, convert: (s) => s.toUpperCase() },
+  { id: "dot", label: "dot.case", example: "user.profile.settings", primary: true, convert: join(".") },
   {
     id: "train",
     label: "Train-Case",
-    example: "Hello-World",
+    example: "User-Profile-Settings",
+    primary: false,
     convert: (s) => tokenize(s).map(cap).join("-"),
   },
   {
     id: "cobol",
     label: "COBOL-CASE",
-    example: "HELLO-WORLD",
+    example: "USER-PROFILE-SETTINGS",
+    primary: false,
     convert: (s) => tokenize(s).join("-").toUpperCase(),
   },
-  {
-    id: "path",
-    label: "path/case",
-    example: "hello/world",
-    convert: join("/"),
-  },
+  { id: "path", label: "path/case", example: "user/profile/settings", primary: false, convert: join("/") },
   {
     id: "toggle",
     label: "tOGGLE cASE",
-    example: "hELLO WORLD",
-    convert: (s) =>
-      s.replace(/[a-z]/gi, (ch) =>
-        ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase(),
-      ),
+    example: "uSER pROFILE sETTINGS",
+    primary: false,
+    convert: (s) => s.replace(/\p{L}/gu, (ch) => (ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase())),
   },
   {
     id: "alternating",
     label: "aLtErNaTiNg",
-    example: "hElLo WoRlD",
+    example: "uSeR PrOfIlE SeTtInGs",
+    primary: false,
     convert: (s) => {
       let i = 0;
-      return s.replace(/[a-z]/gi, (ch) =>
-        i++ % 2 === 0 ? ch.toLowerCase() : ch.toUpperCase(),
-      );
+      return s.replace(/\p{L}/gu, (ch) => (i++ % 2 === 0 ? ch.toLowerCase() : ch.toUpperCase()));
     },
   },
 ];
+
+export function splitLines(input: string): string[] {
+  return input.split(/\r\n|\r|\n/);
+}
+
+/** Convert every line of `input` with `def`, keeping line breaks. */
+export function convertLines(def: CaseDef, input: string): string {
+  return splitLines(input).map(def.convert).join("\n");
+}
+
+export interface TextStats {
+  /** Non-blank lines. */
+  lines: number;
+  /** Total lines, blank included. */
+  totalLines: number;
+  words: number;
+}
+
+export function textStats(input: string): TextStats {
+  const all = splitLines(input);
+  let words = 0;
+  let lines = 0;
+  for (const l of all) {
+    if (l.trim()) lines++;
+    words += tokenize(l).length;
+  }
+  return { lines, totalLines: input ? all.length : 0, words };
+}
+
+export const SAMPLE_INPUT = "user profile settings\nAPI response handler\nlast_login_at\nisVisibleOnMobile";

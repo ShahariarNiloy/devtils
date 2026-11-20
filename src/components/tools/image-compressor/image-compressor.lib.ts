@@ -979,7 +979,10 @@ export async function compressImageData(
     // the bound explicit and uses the same helper as the rest of the file.
     targetW = clamp(targetW, 1, CANVAS_MAX_DIMENSION);
     targetH = clamp(targetH, 1, CANVAS_MAX_DIMENSION);
-    if (targetW !== srcW || targetH !== srcH) {
+    // A cap never enlarges: an image already within it keeps its size.
+    const withinCap =
+      settings.resize.downscaleOnly === true && targetW >= srcW && targetH >= srcH;
+    if (!withinCap && (targetW !== srcW || targetH !== srcH)) {
       working = ENCODER_OPTIONS.linearResize
         ? await resizeImageLinear(working, targetW, targetH)
         : await resizeImage(working, targetW, targetH);

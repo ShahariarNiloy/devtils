@@ -4,69 +4,65 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
 import { useShortcut } from "@/lib/keyboard";
-import { useIsMobile } from "@/lib/use-is-mobile";
 import type { Tool } from "@/lib/tools-registry";
-import { DiffCheckerContent } from "./content";
-import { SideBySideView, UnifiedView } from "./parts/diff-view";
+import { DiffCheckerContent, seoData } from "./content";
+import { differenceLabel } from "./diff-checker.lib";
+import { DiffStatusBar, useBelowSm, type StatusTone } from "./parts/chrome";
+import { SplitView, UnifiedView } from "./parts/diff-view";
 import { DropOverlay } from "./parts/drop-overlay";
 import { InputsPanel, InputsStrip } from "./parts/inputs";
 import { Toolbar } from "./parts/toolbar";
 import { useDiffChecker } from "./use-diff-checker";
 
 /**
- * Orchestrator. Owns:
- *   - The drag-and-drop counter (enter / leave bracket so quickly-moved
- *     children don't flicker the overlay).
- *   - Keyboard shortcuts (n / p / /, e to toggle edit).
- *   - The hunk refs array shared between the toolbar and the diff view.
- *   - Toast feedback for clipboard / share / drop outcomes.
- *
- * All other concerns live in `parts/*` or the `useDiffChecker` hook.
+ * Diff checker — v2 workspace window: toolbar (pills · Ignore whitespace ·
+ * Unified/Split · Swap · ⋯), the two inputs, the live diff listing and the
+ * status bar. Owns drag-and-drop, keyboard shortcuts (n / p / e / /) and
+ * toast feedback; state lives in `useDiffChecker`.
  */
 export function DiffChecker({ tool }: { tool: Tool }) {
   const s = useDiffChecker();
-  const isMobile = useIsMobile();
-  // Side-by-side at <768px gives each content column ~140px — about a
-  // dozen monospace characters before wrap. Force unified there so the
-  // diff stays legible; the toggle hides too so users don't try to fight
-  // the lock. On tablet rotation / wider viewports, their preferred view
-  // returns immediately because `s.view` itself is untouched.
-  const effectiveView = isMobile ? "unified" : s.view;
+  const isPhone = useBelowSm();
+  // Phones get unified only (mockup): split would leave ~150px per side.
+  // The stored preference is untouched, so it returns on wider screens.
+  const view = isPhone ? "unified" : s.view;
   const leftRef = useRef<HTMLTextAreaElement>(null);
   const rightRef = useRef<HTMLTextAreaElement>(null);
-  const hunkRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const changeRefs = useRef<Array<HTMLDivElement | null>>([]);
   const dragDepth = useRef(0);
   const [dragOver, setDragOver] = useState(false);
 
-  // ── Hunk navigation ─────────────────────────────────────────────────
-  const gotoHunk = useCallback(
-    (idx: number) => {
-      if (s.hunks.length === 0) return;
-      const wrapped = ((idx % s.hunks.length) + s.hunks.length) % s.hunks.length;
-      s.setActiveHunk(wrapped);
-      hunkRefs.current[wrapped]?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    },
-    [s],
-  );
+  const changeCount = s.opChangeStarts.length;
 
-  useShortcut({ key: "n" }, (e) => {
-    if (s.hunks.length === 0) return;
+  // ── Change navigation ───────────────────────────────────────────────
+  const gotoChange = useCallback(
+    (idx: number) => {
+      if (changeCount === 0) return;
+      const wrapped = ((idx % changeCount) + changeCount) % changeCount;
+      s.setActiveChange(wrapped);
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      changeRefs.current[wrapped]?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    },
+    [s, changeCount],
+  );
+  const next = () => gotoChange(s.activeChange === null ? 0 : s.activeChange + 1);
+  const prev = () => gotoChange(s.activeChange === null ? changeCount - 1 : s.activeChange - 1);
+
+  useShortcut({ key: "n", label: "Next change" }, (e) => {
+    if (changeCount === 0) return;
     e.preventDefault();
-    gotoHunk(s.activeHunk + 1);
+    next();
   });
-  useShortcut({ key: "p" }, (e) => {
-    if (s.hunks.length === 0) return;
+  useShortcut({ key: "p", label: "Previous change" }, (e) => {
+    if (changeCount === 0) return;
     e.preventDefault();
-    gotoHunk(s.activeHunk - 1);
+    prev();
   });
-  useShortcut({ key: "e", ignoreInEditable: true }, (e) => {
+  useShortcut({ key: "e", ignoreInEditable: true, label: "Toggle edit mode" }, (e) => {
     e.preventDefault();
     s.setEditing(!s.editing);
   });
-  useShortcut({ key: "/", ignoreInEditable: true }, (e) => {
+  useShortcut({ key: "/", ignoreInEditable: true, label: "Edit inputs" }, (e) => {
     e.preventDefault();
     s.setEditing(true);
     // Defer focus to the next tick so the textarea is mounted.
@@ -76,14 +72,8 @@ export function DiffChecker({ tool }: { tool: Tool }) {
   // ── Actions ─────────────────────────────────────────────────────────
   const onShare = useCallback(async () => {
     const url = await s.share();
-    if (url) {
-      toast.success("Share link copied", {
-        description: "Anyone with the link will see the same diff.",
-        duration: 2400,
-      });
-    } else {
-      toast.error("Couldn't generate share link");
-    }
+    if (url) toast.success("Share link copied", { description: "Anyone with the link will see the same diff." });
+    else toast.error("Couldn't generate share link");
   }, [s]);
 
   const onCopyPatch = useCallback(async () => {
@@ -91,32 +81,22 @@ export function DiffChecker({ tool }: { tool: Tool }) {
     if (ok) {
       toast.success("Patch copied", {
         description: `${s.hunks.length} hunk${s.hunks.length === 1 ? "" : "s"} · ready for \`git apply\``,
-        duration: 2000,
       });
-    } else {
-      toast.error("Couldn't copy patch");
-    }
+    } else toast.error("Couldn't copy patch");
   }, [s]);
 
   const onDownloadPatch = useCallback(() => {
-    const ok = s.downloadPatch();
-    if (ok) toast.success("diff.patch downloaded", { duration: 1600 });
-  }, [s]);
-
-  const onSwap = useCallback(() => {
-    s.swap();
-    toast("Swapped Original ↔ Changed", { duration: 1200 });
+    if (s.downloadPatch()) toast.success("diff.patch downloaded");
   }, [s]);
 
   const onClear = useCallback(() => {
     s.clearBoth();
-    toast("Cleared both sides", { duration: 1200 });
+    toast("Cleared both sides");
   }, [s]);
 
   // ── Drag-and-drop ───────────────────────────────────────────────────
-  // We bracket enter/leave with a depth counter rather than a boolean so
-  // that dragging over child elements doesn't flicker the overlay (each
-  // child fires its own leave before its parent fires enter).
+  // Enter/leave bracket with a depth counter so dragging over children
+  // doesn't flicker the overlay.
   const onDragEnter = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
@@ -139,139 +119,90 @@ export function DiffChecker({ tool }: { tool: Tool }) {
       setDragOver(false);
       const files = Array.from(e.dataTransfer.files);
       if (files.length === 0) return;
+      const tooBig = files.slice(0, 2).filter((f) => f.size > 5 * 1024 * 1024).length;
       await s.acceptDroppedFiles(files);
-      const used = Math.min(files.length, 2);
+      const used = Math.min(files.length, 2) - tooBig;
+      if (used <= 0) {
+        toast.error("File too large", { description: "The diff checker reads files up to 5 MB." });
+        return;
+      }
       toast.success(`Loaded ${used} file${used === 1 ? "" : "s"}`, {
-        description: files.length > 2 ? `${files.length - 2} ignored.` : undefined,
-        duration: 1800,
+        description: files.length > 2 ? `${files.length - 2} ignored — only two can be compared.` : undefined,
       });
     },
     [s],
   );
 
-  // ── Render ──────────────────────────────────────────────────────────
+  // ── Status ──────────────────────────────────────────────────────────
+  const bothEmpty = s.left === "" && s.right === "";
+  const total = s.stats.added + s.stats.removed;
+  let statusTone: StatusTone = "ok";
+  if (bothEmpty) statusTone = "idle";
+  else if (total) statusTone = "diff";
+  const detail = `${s.options.ignoreWhitespace ? "ignoring whitespace · " : ""}${view === "unified" ? "unified" : "split"}`;
+
   return (
-    <ToolShell tool={tool}>
-      <div
-        className="relative flex flex-col gap-3"
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
+    <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
+      <div className="relative" onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop}>
         <DropOverlay visible={dragOver} />
 
-        <Toolbar
-          added={s.stats.added}
-          removed={s.stats.removed}
-          unchanged={s.stats.unchanged}
-          hunkCount={s.hunks.length}
-          activeHunk={s.activeHunk}
-          onPrevHunk={() => gotoHunk(s.activeHunk - 1)}
-          onNextHunk={() => gotoHunk(s.activeHunk + 1)}
-          view={effectiveView}
-          onChangeView={s.setView}
-          showViewToggle={!isMobile}
-          options={s.options}
-          onChangeOption={s.setOption}
-          editing={s.editing}
-          onToggleEdit={() => s.setEditing(!s.editing)}
-          onShare={onShare}
-          onCopyPatch={onCopyPatch}
-          onDownloadPatch={onDownloadPatch}
-          hasDiff={s.hunks.length > 0}
-          onSwap={onSwap}
-          onClear={onClear}
-          onLoadSample={s.loadSample}
-        />
-
-        {s.editing ? (
-          <InputsPanel
-            left={s.left}
-            right={s.right}
-            onChangeLeft={s.setLeft}
-            onChangeRight={s.setRight}
-            onCollapse={() => s.setEditing(false)}
-            leftRef={leftRef}
-            rightRef={rightRef}
+        <div className="overflow-hidden rounded-[14px] bg-canvas shadow-window-tool sm:rounded-[18px]">
+          <Toolbar
+            added={s.stats.added}
+            removed={s.stats.removed}
+            unchanged={s.stats.unchanged}
+            view={view}
+            onChangeView={s.setView}
+            canSplit={!isPhone}
+            options={s.options}
+            onChangeOption={s.setOption}
+            changeCount={changeCount}
+            activeChange={s.activeChange}
+            onPrevChange={prev}
+            onNextChange={next}
+            editing={s.editing}
+            onToggleEdit={() => s.setEditing(!s.editing)}
+            onShare={() => void onShare()}
+            onCopyPatch={() => void onCopyPatch()}
+            onDownloadPatch={onDownloadPatch}
+            onSwap={s.swap}
+            onClear={onClear}
+            onLoadSample={s.loadSample}
           />
-        ) : (
-          <InputsStrip
-            leftLines={s.stats.leftLines}
-            rightLines={s.stats.rightLines}
-            onEdit={() => s.setEditing(true)}
-          />
-        )}
 
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-          {s.hunks.length === 0 ? (
-            <EmptyDiff
-              leftEmpty={s.left === ""}
-              rightEmpty={s.right === ""}
-              unchanged={s.stats.unchanged}
-            />
-          ) : effectiveView === "side-by-side" ? (
-            <SideBySideView
-              rows={s.sideRows}
-              hunks={s.hunks}
-              activeHunk={s.activeHunk}
-              onActiveHunkChange={s.setActiveHunk}
-              hunkRefs={hunkRefs}
+          {s.editing ? (
+            <InputsPanel
+              left={s.left}
+              right={s.right}
+              onChangeLeft={s.setLeft}
+              onChangeRight={s.setRight}
+              onPasteError={() => toast.error("Clipboard access was blocked", { description: "Paste into the box with ⌘V / Ctrl+V." })}
+              leftRef={leftRef}
+              rightRef={rightRef}
             />
           ) : (
-            <UnifiedView
-              hunks={s.hunks}
-              activeHunk={s.activeHunk}
-              onActiveHunkChange={s.setActiveHunk}
-              hunkRefs={hunkRefs}
-            />
+            <InputsStrip leftLines={s.stats.leftLines} rightLines={s.stats.rightLines} onEdit={() => s.setEditing(true)} />
           )}
+
+          {bothEmpty && (
+            <p className="m-0 px-4 py-10 text-center text-[13px] text-text-faint">Paste text on both sides — or drop two files — to compare.</p>
+          )}
+          {!bothEmpty && view === "unified" && (
+            <UnifiedView ops={s.ops} changeStarts={s.opChangeStarts} activeChange={s.activeChange} changeRefs={changeRefs} />
+          )}
+          {!bothEmpty && view === "side-by-side" && (
+            <SplitView rows={s.sideRows} changeStarts={s.rowChangeStarts} activeChange={s.activeChange} changeRefs={changeRefs} />
+          )}
+
+          <DiffStatusBar
+            tone={statusTone}
+            text={bothEmpty ? "Waiting for input" : differenceLabel(total)}
+            detail={detail}
+          />
         </div>
-
-        {!isMobile && <Hints />}
-        <DiffCheckerContent />
       </div>
+
+      <DiffCheckerContent />
     </ToolShell>
-  );
-}
-
-function EmptyDiff({
-  leftEmpty,
-  rightEmpty,
-  unchanged,
-}: {
-  leftEmpty: boolean;
-  rightEmpty: boolean;
-  unchanged: number;
-}) {
-  const bothEmpty = leftEmpty && rightEmpty;
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <p className="font-serif italic text-text">
-        {bothEmpty ? "Drop files or paste both sides to begin." : "No differences detected."}
-      </p>
-      <p className="text-sm text-text-faint">
-        {bothEmpty
-          ? "First file becomes the Original, second becomes the Changed."
-          : `Both sides have ${unchanged.toLocaleString()} unchanged line${unchanged === 1 ? "" : "s"}. Toggle the whitespace / case options to surface subtler changes.`}
-      </p>
-    </div>
-  );
-}
-
-function Hints() {
-  return (
-    <p className="px-1 font-mono text-sm text-text-faint">
-      <Kbd>n</Kbd> / <Kbd>p</Kbd> jump hunks · <Kbd>e</Kbd> edit inputs ·{" "}
-      <Kbd>/</Kbd> focus Original
-    </p>
-  );
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded border border-border-subtle bg-bg px-1 font-mono text-[11px] text-text-faint">
-      {children}
-    </kbd>
   );
 }

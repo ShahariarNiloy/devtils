@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: 'Generate Go struct definitions from any JSON sample. The converter handles the small but important Go idioms: PascalCase field names with `json:"..."` tags, pointer-with-omitempty for optional fields, `*T` for nullable values, and consistent type naming across the whole document tree. Pick your package name, tag style (original / snake_case / camelCase), and whether optional fields get `,omitempty`.',
+  usesNote: "Skip writing struct tags by hand.",
   useCases: [
         {
           title: "Modelling REST API responses",

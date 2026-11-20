@@ -7,9 +7,10 @@ import { FILE_INPUT_ACCEPT } from "../image-compressor.constants";
 
 interface Props {
   onFiles: (files: FileList | File[]) => void;
-  /** "full" = empty-state hero dropzone; "compact" = slim banner shown
-   *  above the file list once files exist. Shares all drag/paste logic. */
-  variant?: "full" | "compact";
+  /** "full" = empty-state hero dropzone; "compact" = slim banner;
+   *  "panel" = the v2 workspace's dashed drop target under the preview.
+   *  All share the drag / folder / paste logic. */
+  variant?: "full" | "compact" | "panel";
 }
 
 const FORMATS = ["JPG", "PNG", "WebP", "AVIF", "GIF", "HEIC"];
@@ -158,6 +159,58 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
     setDragCount(0);
   }, []);
 
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept={FILE_INPUT_ACCEPT}
+      multiple
+      className="hidden"
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        handleFiles(e.target.files);
+        e.target.value = "";
+      }}
+    />
+  );
+
+  if (variant === "panel") {
+    return (
+      <div
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        aria-label="Add images: drop, paste, or choose files"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={cn(
+          "flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed p-3.5 text-center outline-none transition-[border-color,background-color] duration-200 ease-out-strong focus-visible:ring-2 focus-visible:ring-brand",
+          hover ? "border-clay-light/60 bg-white/4" : "border-white/16 hover:border-white/24 hover:bg-white/2",
+        )}
+      >
+        <span className="text-sm font-bold text-text">
+          {hover && dragCount > 0
+            ? `Drop ${dragCount} file${dragCount === 1 ? "" : "s"}`
+            : "Drop images here"}
+        </span>
+        <span className="text-xs text-text-faint">
+          PNG, JPEG, WebP, AVIF, GIF, HEIC · processed on your device
+        </span>
+        <span className="text-xs text-text-tertiary underline decoration-white/20 underline-offset-2">
+          or choose files · paste works too
+        </span>
+        {fileInput}
+      </div>
+    );
+  }
+
   // Compact banner — sits above the file list once files exist, so
   // "add more / paste" stays reachable without the big empty-state hero.
   if (variant === "compact") {
@@ -205,14 +258,7 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
         >
           Browse
         </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={FILE_INPUT_ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
+        {fileInput}
       </div>
     );
   }
@@ -232,10 +278,10 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
         }
       }}
       className={cn(
-        "group relative flex w-full flex-col items-center justify-center gap-7 overflow-hidden rounded-2xl border border-dashed bg-surface px-8 py-28 text-center transition-[border-color,background-color,transform] duration-300 ease-drawer cursor-pointer",
+        "group relative flex w-full flex-col items-center justify-center gap-6 overflow-hidden rounded-xl border-[1.5px] border-dashed px-6 py-16 text-center outline-none transition-[border-color,background-color] duration-300 ease-drawer cursor-pointer focus-visible:ring-2 focus-visible:ring-brand sm:py-20",
         hover
-          ? "border-border-strong bg-surface-soft scale-[1.005]"
-          : "border-border hover:border-border-strong/70 hover:bg-surface-soft/40",
+          ? "border-clay-light/60 bg-white/4"
+          : "border-white/16 hover:border-white/24 hover:bg-white/2",
       )}
     >
       {/* Ambient radial light — gives the empty state physical depth
@@ -246,29 +292,27 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
         className="pointer-events-none absolute inset-0 opacity-[0.5]"
         style={{
           backgroundImage:
-            "radial-gradient(ellipse 60% 50% at 50% 30%, color-mix(in oklab, var(--color-mist-sage) 35%, transparent), transparent 70%)",
+            "radial-gradient(ellipse 60% 50% at 50% 30%, rgb(111 166 175 / 0.10), transparent 70%)",
         }}
       />
 
       {/* Double-bezel icon: outer shell + inner core (per high-end-visual-design). */}
       <div
         className={cn(
-          "relative inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-soft ring-1 ring-border-subtle p-1.5 transition-transform duration-300 ease-drawer",
+          "surface-key relative inline-flex h-14 w-14 items-center justify-center rounded-xl text-cat-teal transition-transform duration-300 ease-drawer",
           hover && "scale-110",
         )}
       >
-        <span className="flex h-full w-full items-center justify-center rounded-xl bg-surface text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-          <Upload size={22} strokeWidth={1.6} />
-        </span>
+        <Upload size={22} strokeWidth={1.6} aria-hidden />
       </div>
 
       <div className="relative flex flex-col items-center gap-3">
-        <h2 className="text-xl font-medium tracking-tight text-text">
+        <h2 className="text-lg font-bold tracking-tight text-text">
           {hover && dragCount > 0
             ? `Drop ${dragCount} file${dragCount === 1 ? "" : "s"}`
             : "Drop images to compress"}
         </h2>
-        <p className="max-w-[34ch] text-sm leading-relaxed text-text-muted">
+        <p className="max-w-[38ch] text-[13px] leading-relaxed text-text-faint">
           Drag a folder, paste from clipboard, or pick files. Everything stays on
           your device — no uploads, no signups.
         </p>
@@ -282,18 +326,18 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
             e.stopPropagation();
             inputRef.current?.click();
           }}
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-olive-ink pl-5 pr-1.5 text-sm font-semibold text-bone-cream transition-[opacity,transform] duration-150 ease-out-strong hover:opacity-95 active:scale-[0.97] cursor-pointer"
+          className="btn-action inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl pr-1.5 pl-5 text-sm font-bold active:scale-[0.97]"
         >
           Choose files
           <span
             aria-hidden
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-bone-cream/15 transition-transform duration-200 ease-out-strong group-hover:translate-x-px"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-on-brand/10 transition-transform duration-200 ease-out-strong group-hover:translate-x-px"
           >
             <ArrowUpRight size={14} strokeWidth={2} />
           </span>
         </button>
 
-        <p className="flex flex-wrap items-center justify-center gap-1.5 font-mono text-sm uppercase tracking-eyebrow text-text-faint tabular-nums">
+        <p className="flex flex-wrap items-center justify-center gap-1.5 font-mono text-xs text-text-faint tabular-nums">
           {FORMATS.map((f, i) => (
             <span key={f} className="flex items-center gap-1.5">
               {i > 0 ? (
@@ -307,14 +351,7 @@ export function DropZone({ onFiles, variant = "full" }: Props) {
         </p>
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept={FILE_INPUT_ACCEPT}
-        multiple
-        className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
+      {fileInput}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { Braces, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { Braces, Copy } from "lucide-react";
 import { memo } from "react";
 import { toast } from "sonner";
 import type { FlatRow } from "./tree-flatten";
@@ -17,38 +17,21 @@ async function writeClipboard(text: string, label: string): Promise<void> {
 }
 
 export const INDENT = 18; // px per depth level
-const BASE_PAD = 12; // px gutter before depth indentation
+const BASE_PAD = 8; // px gutter before depth indentation
 
 // ── Type badge ────────────────────────────────────────────────────────────────
 
+/** Type pill on the right of every row (v2): "string", "array", … */
 const TypeBadge = memo(function TypeBadge({ value }: { value: unknown }) {
-  if (value === null)
-    return (
-      <span className="text-text-faint text-sm font-mono opacity-50">null</span>
-    );
-  if (typeof value === "boolean")
-    return (
-      <span
-        className="text-sm font-mono opacity-50"
-        style={{ color: "var(--color-clay)" }}
-      >
-        bool
-      </span>
-    );
-  if (typeof value === "number")
-    return (
-      <span
-        className="text-sm font-mono opacity-50"
-        style={{ color: "var(--color-clay)" }}
-      >
-        num
-      </span>
-    );
-  if (typeof value === "string")
-    return (
-      <span className="text-text-faint text-sm font-mono opacity-50">str</span>
-    );
-  return null;
+  let type: string;
+  if (value === null) type = "null";
+  else if (Array.isArray(value)) type = "array";
+  else type = typeof value;
+  return (
+    <span className="shrink-0 rounded-[5px] bg-white/5 px-[7px] py-px font-sans text-[11px] leading-[1.55] text-text-faint">
+      {type}
+    </span>
+  );
 });
 
 // ── Search highlight ──────────────────────────────────────────────────────────
@@ -98,21 +81,25 @@ function TreeRowImpl({
     expanded,
   } = row;
   const isContainer = kind !== "leaf";
-  const countLabel = kind === "array" ? `[${childCount}]` : `{${childCount}}`;
+  const countLabel =
+    kind === "array"
+      ? `[${childCount} item${childCount === 1 ? "" : "s"}]`
+      : `{${childCount} key${childCount === 1 ? "" : "s"}}`;
 
   const renderKey = (): React.ReactNode => {
     if (keyLabel === null) return null;
     if (search)
       return highlightMatch(isIndex ? `[${keyLabel}]` : keyLabel, search);
     if (isIndex)
-      return <span className="text-text-faint font-normal">[{keyLabel}]</span>;
+      return <>{keyLabel}</>;
     return keyLabel;
   };
 
-  const keySpan =
-    keyLabel !== null ? (
-      <span className="text-text font-semibold shrink-0">{renderKey()}</span>
-    ) : null;
+  const keySpan = (
+    <span className="shrink-0 text-syntax-key">
+      {keyLabel === null ? "root" : <>{renderKey()}:</>}
+    </span>
+  );
 
   const copyValue = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,8 +122,8 @@ function TreeRowImpl({
   return (
     <div
       className={cn(
-        "group/row relative flex gap-2 cursor-pointer select-none",
-        "hover:bg-surface-soft",
+        "group/row relative flex gap-2 cursor-pointer select-none rounded-md",
+        "hover:bg-white/[.04]",
         wrap ? "items-start py-1" : "items-center"
       )}
       style={{
@@ -152,30 +139,22 @@ function TreeRowImpl({
         // h-6 matches the text-base line-height (24px) so the icon centers on
         // the key's first line in both wrap (items-start) and non-wrap
         // (items-center) rows — without it the arrow floats above the key.
-        <span className="h-6 w-4 shrink-0 flex items-center justify-center text-text-faint">
-          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <span aria-hidden="true" className="flex h-6 w-3 shrink-0 items-center justify-center text-[10px] text-text-faint">
+          {expanded ? "▾" : "▸"}
         </span>
       ) : (
-        <span className="h-6 w-4 shrink-0" />
+        <span className="h-6 w-3 shrink-0" />
       )}
 
-      {keySpan && (
-        <>
-          {keySpan}
-          <span className="text-text-faint select-none shrink-0">:</span>
-        </>
-      )}
+      {keySpan}
 
       {isContainer ? (
         <>
-          <span className="text-sm font-mono text-text-faint shrink-0 leading-6">
+          <span className="min-w-0 grow truncate text-text-faint">
             {countLabel}
+            {!expanded && preview && <span className="ml-2 opacity-60">{preview}</span>}
           </span>
-          {!expanded && preview && (
-            <span className="text-sm text-text-faint opacity-50 truncate">
-              {preview}
-            </span>
-          )}
+          <TypeBadge value={row.raw} />
         </>
       ) : (
         <span
@@ -187,8 +166,13 @@ function TreeRowImpl({
           )}
         >
           <PrimitiveValue value={value} />
-          <TypeBadge value={value} />
         </span>
+      )}
+      {!isContainer && (
+        <>
+          <span className="grow" />
+          <TypeBadge value={value} />
+        </>
       )}
 
       <span className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md bg-surface-soft/95 px-1 shadow-card group-hover/row:flex">

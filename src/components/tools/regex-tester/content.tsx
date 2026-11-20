@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Build and test regular expressions with live match highlighting, capture group inspection, and replacement preview. Supports JavaScript regex syntax with all standard flags (g, i, m, s, u, y), shows you exactly which characters matched which group, and warns about common gotchas like catastrophic backtracking patterns.",
+  usesNote: "Faster than guessing in your editor.",
   useCases: [
         {
           title: "Extracting structured data from logs",
@@ -48,7 +49,7 @@ export const seoData = {
         {
           question: "Can I copy the pattern as a string literal?",
           answer:
-            "Yes — alongside the live `/pattern/flags` literal there's a copy-as-string option that produces the right escaping for `new RegExp(\"...\")` constructors.",
+            "Yes — the ⋯ menu copies the pattern as a `/pattern/flags` literal (with `/` escaped) or as a `new RegExp(\"...\")` call with the backslashes string-escaped for you.",
         },
         {
           question: "Does it handle Unicode?",

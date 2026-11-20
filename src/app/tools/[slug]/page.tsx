@@ -88,13 +88,13 @@ export default async function ToolPage({
   const isLive = Boolean(Comp);
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col overflow-x-clip text-base leading-[1.55]">
       <ToolJsonLd tool={tool} isLive={isLive} />
-      <Header />
-      <main id="main" className="flex-1 bg-bg">
+      <Header variant="tool" />
+      <main id="main" className="flex-1">
         {Comp ? <Comp tool={tool} /> : <ComingSoon tool={tool} />}
       </main>
-      <HomeFooter />
+      <HomeFooter variant="compact" wide />
     </div>
   );
 }

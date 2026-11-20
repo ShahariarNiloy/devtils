@@ -164,3 +164,84 @@ export function formatAbsoluteTime(unixSeconds: number): string {
     minute: "2-digit",
   });
 }
+
+// ─── v2 claim notes ──────────────────────────────────────────────────────────
+
+/** "2026-11-26 17:00 UTC" — unambiguous, sortable, timezone-explicit. */
+export function formatUtc(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  if (Number.isNaN(d.getTime())) return "invalid date";
+  return `${d.toISOString().replace("T", " ").slice(0, 16)} UTC`;
+}
+
+/** Short relative time: "in 6 days", "12 min ago", "in 3 h". */
+export function formatRelativeShort(unixSeconds: number, nowSeconds: number): string {
+  const delta = unixSeconds - nowSeconds;
+  const a = Math.abs(delta);
+  let unit: string;
+  if (a < 3600) unit = `${Math.max(1, Math.round(a / 60))} min`;
+  else if (a < 86400) unit = `${Math.round(a / 3600)} h`;
+  else {
+    const d = Math.round(a / 86400);
+    unit = `${d} ${d === 1 ? "day" : "days"}`;
+  }
+  return delta >= 0 ? `in ${unit}` : `${unit} ago`;
+}
+
+export type ExpiryState =
+  | { kind: "none" }
+  | { kind: "early"; nbf: number }
+  | { kind: "valid"; exp: number }
+  | { kind: "expired"; exp: number };
+
+/** Lifetime state of a payload at `nowSeconds` (nbf wins over exp). */
+export function expiryState(payload: Record<string, unknown>, nowSeconds: number): ExpiryState {
+  const exp = typeof payload.exp === "number" ? payload.exp : undefined;
+  const nbf = typeof payload.nbf === "number" ? payload.nbf : undefined;
+  if (nbf !== undefined && nowSeconds < nbf) return { kind: "early", nbf };
+  if (exp === undefined) return { kind: "none" };
+  return nowSeconds >= exp ? { kind: "expired", exp } : { kind: "valid", exp };
+}
+
+/** Pill label for an expiry state ("Expires in 6 days", "Expired 2 h ago"). */
+export function expiryLabel(state: ExpiryState, nowSeconds: number): string {
+  switch (state.kind) {
+    case "none":
+      return "No expiry";
+    case "early":
+      return `Not active yet · starts ${formatRelativeShort(state.nbf, nowSeconds)}`;
+    case "valid":
+      return `Expires ${formatRelativeShort(state.exp, nowSeconds)}`;
+    case "expired":
+      return `Expired ${formatRelativeShort(state.exp, nowSeconds)}`;
+  }
+}
+
+/**
+ * The faint explanatory line under a claim row. Time claims get relative +
+ * absolute UTC; registered claims get their name. Unknown claims: "".
+ */
+export function claimNote(
+  key: string,
+  value: unknown,
+  nowSeconds: number,
+  labels: Readonly<Record<string, { label: string }>>,
+): string {
+  if (typeof value === "number" && (key === "exp" || key === "iat" || key === "nbf")) {
+    const rel = formatRelativeShort(value, nowSeconds);
+    const abs = formatUtc(value);
+    if (key === "exp") return `${value <= nowSeconds ? "Expired" : "Expires"} ${rel} · ${abs}`;
+    if (key === "iat") return `Issued ${rel} · ${abs}`;
+    return `${value <= nowSeconds ? "Active since" : "Not before"} ${abs}`;
+  }
+  return labels[key]?.label ?? "";
+}
+
+/** Colour family for a claim value, matching the JSON syntax palette. */
+export function claimTone(value: unknown): "string" | "number" | "boolean" | "null" | "object" {
+  if (value === null) return "null";
+  if (typeof value === "string") return "string";
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  return "object";
+}

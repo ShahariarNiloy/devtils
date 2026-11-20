@@ -1,86 +1,57 @@
 "use client";
 
-import { Link2 } from "lucide-react";
+import { useRef } from "react";
 import { ToolShell } from "@/components/layout/tool-shell";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/primitives/tabs";
+import { DiffStatusBar, type StatusTone } from "@/components/tools/diff-checker/parts/chrome";
 import type { Tool } from "@/lib/tools-registry";
-import { JsonDiffContent } from "./content";
-import { ControlsBar } from "./panels/controls-bar";
-import { InputPanel } from "./panels/input-panel";
+import { JsonDiffContent, seoData } from "./content";
+import { ControlsBar, strategyLabel } from "./panels/controls-bar";
+import { InputPanel, ParseErrorBanner } from "./panels/input-panel";
 import { PatchView } from "./panels/patch-view";
 import { ResultTree } from "./panels/result-tree";
 import { SideBySideView } from "./panels/side-by-side-view";
-import { useJsonDiff, type ResultView } from "./use-json-diff";
+import { useJsonDiff } from "./use-json-diff";
 
 /**
- * JSON diff — top-level shell. Two-pane input + controls bar + result
- * tabs (Tree / Patch / Side-by-side). All state lives in `useJsonDiff`;
- * panels are presentational.
+ * JSON diff — v2 workspace window: toolbar (count pills · Swap · ⋯), the
+ * Original / Changed inputs, a parse-error strip, the result (change list
+ * by default; JSON Patch or text side-by-side via ⋯) and the status bar.
+ * All state lives in `useJsonDiff`; panels are presentational.
  */
 export function JsonDiff({ tool }: { tool: Tool }) {
   const s = useJsonDiff();
+  const leftRef = useRef<HTMLTextAreaElement>(null);
+  const rightRef = useRef<HTMLTextAreaElement>(null);
+
+  const invalid = Boolean(s.leftParse.error || s.rightParse.error);
+  const waiting = !invalid && (s.leftParse.isEmpty || s.rightParse.isEmpty);
+
+  let status: { tone: StatusTone; text: string };
+  if (s.leftParse.error) status = { tone: "error", text: "Original JSON isn't valid" };
+  else if (s.rightParse.error) status = { tone: "error", text: "Changed JSON isn't valid" };
+  else if (waiting || !s.result) status = { tone: "idle", text: "Waiting for input" };
+  else if (s.result.stats.total === 0) status = { tone: "ok", text: "Identical" };
+  else {
+    const n = s.result.stats.total;
+    status = { tone: "diff", text: `${n} ${n === 1 ? "difference" : "differences"}` };
+  }
+  const detail = invalid
+    ? ""
+    : [
+        "structural compare",
+        s.arrayStrategy !== "ordered" && `arrays: ${strategyLabel(s.arrayStrategy).toLowerCase()}`,
+        s.sortKeys && "sorted keys",
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
   return (
-    <ToolShell tool={tool}>
-      <div className="flex flex-col gap-4 px-4 sm:px-0">
-        {/* Header: load-sample + share */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={s.loadSample}
-              className="inline-flex h-8 items-center rounded-md border border-border bg-surface px-3 text-xs-plus font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-            >
-              Load sample
-            </button>
-            <button
-              type="button"
-              onClick={s.clear}
-              disabled={!s.left && !s.right}
-              className="inline-flex h-8 items-center rounded-md px-2.5 text-xs-plus text-text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:opacity-40"
-            >
-              Clear both
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={s.copyShareLink}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs-plus text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-            aria-label="Copy share link"
-          >
-            <Link2 size={12} />
-            Share
-          </button>
-        </div>
-
-        {/* Two-pane input */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="h-[420px]">
-            <InputPanel
-              label="Left"
-              value={s.left}
-              onChange={s.setLeft}
-              parse={s.leftParse}
-            />
-          </div>
-          <div className="h-[420px]">
-            <InputPanel
-              label="Right"
-              value={s.right}
-              onChange={s.setRight}
-              parse={s.rightParse}
-            />
-          </div>
-        </div>
-
-        {/* Controls */}
+    <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
+      <div className="overflow-hidden rounded-[14px] bg-canvas shadow-window-tool sm:rounded-[18px]">
         <ControlsBar
           result={s.result}
+          view={s.view}
+          onView={s.setView}
           arrayStrategy={s.arrayStrategy}
           onArrayStrategy={s.setArrayStrategy}
           identityKey={s.identityKey}
@@ -92,40 +63,56 @@ export function JsonDiff({ tool }: { tool: Tool }) {
           pointerStyle={s.pointerStyle}
           onPointerStyle={s.setPointerStyle}
           onSwap={s.swap}
+          onCopyPatch={s.copyPatch}
+          onShare={s.copyShareLink}
+          onLoadSample={s.loadSample}
+          onClear={s.clear}
+          canClear={Boolean(s.left || s.right)}
         />
 
-        {/* Result view tabs */}
-        <Tabs
-          value={s.view}
-          onValueChange={(v) => s.setView(v as ResultView)}
-          className="flex flex-col gap-3"
-        >
-          <TabsList>
-            <TabsTrigger value="tree">Tree</TabsTrigger>
-            <TabsTrigger value="patch">JSON Patch</TabsTrigger>
-            <TabsTrigger value="side-by-side">Side-by-side</TabsTrigger>
-          </TabsList>
+        <div className="flex flex-wrap border-b border-border-subtle">
+          <InputPanel id="df-l" side="left" label="Original JSON" value={s.left} onChange={s.setLeft} textareaRef={leftRef} />
+          <InputPanel id="df-r" side="right" label="Changed JSON" value={s.right} onChange={s.setRight} textareaRef={rightRef} />
+        </div>
 
-          <TabsContent value="tree" className="mt-0">
-            <ResultTree result={s.result} pointerStyle={s.pointerStyle} />
-          </TabsContent>
+        <ParseErrorBanner
+          sides={[
+            { label: "Original JSON", parse: s.leftParse, value: s.left, textareaRef: leftRef },
+            { label: "Changed JSON", parse: s.rightParse, value: s.right, textareaRef: rightRef },
+          ]}
+        />
 
-          <TabsContent value="patch" className="mt-0">
+        {s.view === "changes" && <ResultTree result={invalid ? null : s.result} pointerStyle={s.pointerStyle} waiting={waiting} />}
+        {s.view === "patch" &&
+          (s.result && !invalid ? (
             <PatchView patch={s.patch} />
-          </TabsContent>
+          ) : (
+            <ResultTree result={null} pointerStyle={s.pointerStyle} waiting={waiting} />
+          ))}
+        {s.view === "side-by-side" && (
+          <SideBySideView
+            leftValue={s.leftParse.value}
+            rightValue={s.rightParse.value}
+            sortKeys={s.sortKeys}
+            hideUnchanged={s.hideUnchanged}
+          />
+        )}
+        {s.view !== "changes" && (
+          <div className="flex justify-end border-t border-border-subtle px-3 py-2">
+            <button
+              type="button"
+              onClick={() => s.setView("changes")}
+              className="inline-flex min-h-9 cursor-pointer items-center rounded-lg px-2.5 text-[13px] font-semibold text-text-key transition-colors hover:bg-surface-soft"
+            >
+              Back to change list
+            </button>
+          </div>
+        )}
 
-          <TabsContent value="side-by-side" className="mt-0">
-            <SideBySideView
-              leftValue={s.leftParse.value}
-              rightValue={s.rightParse.value}
-              sortKeys={s.sortKeys}
-              hideUnchanged={s.hideUnchanged}
-            />
-          </TabsContent>
-        </Tabs>
-
-        <JsonDiffContent />
+        <DiffStatusBar tone={status.tone} text={status.text} detail={detail} />
       </div>
+
+      <JsonDiffContent />
     </ToolShell>
   );
 }

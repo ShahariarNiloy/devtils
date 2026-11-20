@@ -1,77 +1,109 @@
 "use client";
 
+import { BookOpen, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
-import { ToolIcon } from "@/components/shared/tool-icon";
-import type { Tool, ToolTier } from "@/lib/tools-registry";
+import { Tooltip } from "@/components/primitives/tooltip";
 import { cn } from "@/lib/cn";
+import type { Tool } from "@/lib/tools-registry";
+import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
+import { KeyIcon, toolIcon } from "@/components/shared/key-icon";
+
+const TINT_TEXT: Record<Tint, string> = {
+  clay: "text-cat-clay",
+  teal: "text-cat-teal",
+  sage: "text-cat-sage",
+  rose: "text-cat-rose",
+};
+
+export const categoryAnchor = (category: string) =>
+  `/tools#cat-${category.toLowerCase().replace(/\./g, "-")}`;
+
 
 interface ToolShellHeaderProps {
   tool: Tool;
-  classNames?: { header?: string };
+  /**
+   * `inline` puts the tagline on the h1's line (JSON formatter mockup);
+   * `stacked` (default) puts it underneath (shared tool template).
+   */
+  titleStyle?: "stacked" | "inline";
+  onOpenGuide: () => void;
+  /** Whether the tool currently fills the window. */
+  fullWindow: boolean;
+  onToggleFullWindow: () => void;
 }
 
-const TIER_PILL: Record<ToolTier, string> = {
-  free: "bg-tier-free-bg text-tier-free-text",
-  pro: "bg-tier-pro-bg text-tier-pro-text",
-  ai: "bg-tier-ai-bg text-tier-ai-text",
-};
-
 /**
- * Compact horizontal tool header shared by every tool page.
- *
- * Layout: icon chip · title · tier pill · em-dash · description (truncates)
- *         · breadcrumb (Tools / Category) right-aligned.
- * One thin row, hairline divider below — keeps the workspace dominant.
+ * v2 tool header: keycap glyph · breadcrumb + title + tagline · "How to use"
+ * and "Fit to window". The privacy guarantee lives in the nav-level copy and
+ * each tool's status line rather than as a static pill here.
  */
-export function ToolShellHeader({ tool, classNames }: ToolShellHeaderProps) {
+export function ToolShellHeader({ tool, titleStyle = "stacked", onOpenGuide, fullWindow, onToggleFullWindow }: ToolShellHeaderProps) {
+  const tagline = TOOL_PRESENTATION[tool.slug]?.tagline ?? tool.description;
+  const tint = TINT_TEXT[CATEGORY_TINT[tool.category]];
+  const inline = titleStyle === "inline";
+
   return (
     <header
       className={cn(
-        "border-b border-border-subtle bg-bg",
-        classNames?.header,
+        "flex flex-wrap items-center gap-x-4 gap-y-3 sm:mb-[18px]",
+        inline ? "mb-4 sm:mb-5 sm:gap-x-[18px] sm:gap-y-3.5" : "mb-4",
       )}
     >
-      <div className="mx-auto flex max-w-8xl flex-wrap items-center gap-x-3 gap-y-1 px-5 py-4 sm:px-8">
-        <span
-          aria-hidden
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-soft text-text-muted"
-        >
-          <ToolIcon name={tool.icon} size={16} />
-        </span>
-        <h1 className="text-base font-semibold tracking-tight text-text">
-          {tool.name}
-        </h1>
-        <span
-          className={cn(
-            "rounded-sm px-1 py-px font-mono text-[9px] font-semibold uppercase tracking-wider",
-            TIER_PILL[tool.tier],
-          )}
-        >
-          {tool.tier}
-        </span>
-        <span aria-hidden className="text-text-muted/50">
-          —
-        </span>
-        <p className="min-w-0 flex-1 truncate text-sm text-text-muted">
-          {tool.description}
-        </p>
-        <nav
-          aria-label="Breadcrumb"
-          className="ml-auto flex shrink-0 items-center gap-1.5 text-sm text-text-muted"
-        >
-          <Link href="/tools" className="transition-colors hover:text-text">
-            Tools
-          </Link>
-          <span aria-hidden className="text-text-muted/60">
-            /
-          </span>
-          <Link
-            href={`/tools?cat=${encodeURIComponent(tool.category)}`}
-            className="transition-colors hover:text-text"
-          >
-            {tool.category}
-          </Link>
+      <Link href="/tools" className="basis-full text-[13px] text-text-tertiary hover:text-text sm:hidden">
+        ← All tools
+      </Link>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "surface-key flex size-10 shrink-0 items-center justify-center rounded-[11px] font-mono text-sm sm:size-11 sm:rounded-xl",
+          inline && "sm:text-[15px]",
+          tint,
+        )}
+      >
+        <KeyIcon icon={toolIcon(tool.slug)} box={40} />
+      </span>
+      <div className={cn("flex min-w-0 flex-1 basis-0 flex-col", inline ? "sm:flex-[1_1_320px]" : "sm:flex-[1_1_260px]")}>
+        <nav aria-label="Breadcrumb" className="hidden text-xs text-text-faint sm:block">
+          <Link href="/tools" className="text-text-faint hover:text-text">Tools</Link>{" "}
+          <span aria-hidden="true">/</span>{" "}
+          <Link href={categoryAnchor(tool.category)} className="text-text-faint hover:text-text">{tool.category}</Link>
         </nav>
+        {inline ? (
+          <>
+            <h1 className="m-0 font-sans text-[22px] leading-[1.2] font-bold tracking-[-0.03em] sm:text-[26px]">
+              {tool.name}{" "}
+              <span className="hidden text-[17px] font-medium tracking-[-0.01em] text-text-faint sm:inline">{tagline}</span>
+            </h1>
+            <span className="text-[13px] text-text-faint sm:hidden">{tagline}</span>
+          </>
+        ) : (
+          <>
+            <h1 className="m-0 font-sans text-[22px] leading-[1.2] font-bold tracking-[-0.03em] sm:text-[26px]">{tool.name}</h1>
+            <span className="text-sm text-text-faint">{tagline}</span>
+          </>
+        )}
+      </div>
+      {/* Own row on mobile, at the end of the title row on wider screens. */}
+      <div className="flex basis-full items-center gap-2 sm:basis-auto">
+        <button
+          type="button"
+          onClick={onOpenGuide}
+          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border px-3 text-[13px] font-medium text-text-tertiary transition-colors hover:border-border-strong hover:text-text"
+        >
+          <BookOpen size={14} aria-hidden />
+          How to use
+        </button>
+        <Tooltip content={fullWindow ? "Exit full window (Esc)" : "Fit the tool to the window"} side="bottom">
+          <button
+            type="button"
+            onClick={onToggleFullWindow}
+            aria-pressed={fullWindow}
+            aria-label={fullWindow ? "Exit full window" : "Fit tool to window"}
+            className="hidden size-9 items-center justify-center rounded-full border border-border text-text-tertiary transition-colors hover:border-border-strong hover:text-text sm:inline-flex"
+          >
+            {fullWindow ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />}
+          </button>
+        </Tooltip>
       </div>
     </header>
   );

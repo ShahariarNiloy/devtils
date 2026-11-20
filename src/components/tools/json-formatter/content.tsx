@@ -2,31 +2,43 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "A full JSON workspace: format, minify, validate, sort, repair, and explore. The editor supports overlay-style syntax highlighting that stays sub-frame for inputs up to ~100KB, then degrades gracefully for multi-MB pastes. Four view modes — Code, Tree, Table, Graph — let you pick the right lens for the document at hand. JSONPath queries, fuzzy search, structural diff, and ten output formats round out the tool.",
+  usesTitle: "What people use it for",
+  usesNote: "Five jobs it does better than a text editor.",
   useCases: [
         {
+          tag: "API",
+          tint: "clay",
           title: "Debugging an API response",
           description:
             "Paste the raw response, validate it, and use Tree view to drill into the shape. JSONPath quickly extracts specific values without manual navigation.",
         },
         {
+          tag: "{…}",
+          tint: "teal",
           title: "Cleaning up minified JSON from network tools",
           description:
             "Copy a long single-line JSON blob from DevTools / Postman / curl output, paste it here for instant pretty-printing with line numbers.",
         },
         {
+          tag: "fix",
+          tint: "rose",
           title: "Repairing broken JSON from LLM output",
           description:
             "Use the Repair feature to fix trailing commas, single quotes, unquoted keys, and other near-miss invalidities that JSON.parse would reject.",
         },
         {
+          tag: "±",
+          tint: "sage",
           title: "Comparing two API responses",
           description:
-            "Drop both into the Diff view to see exactly what changed — added, removed, and changed keys, with structural awareness rather than line-by-line text diff.",
+            "Open JSON diff (under More JSON tools) to see exactly what changed — added, removed, and changed keys, with structural awareness rather than line-by-line text diff.",
         },
         {
+          tag: "→",
+          tint: "clay",
           title: "Converting between formats",
           description:
-            "One-click conversion to YAML, CSV, XML, JSON Schema, or directly to TypeScript / Go / Python / Rust / Zod types from the Convert dropdown.",
+            "One-click conversion to YAML, CSV, XML, JSON Schema, or directly to TypeScript / Go / Python / Rust / Zod types from the Convert to… menu or the chips under the editor.",
         },
       ],
   faqs: [
@@ -63,14 +75,15 @@ export const seoData = {
         {
           question: "Can I sort keys?",
           answer:
-            "Yes — use the Sort dropdown for ascending / descending key sort. Useful for diff-friendly check-ins and canonical JSON.",
+            "Yes — use Sort keys in the toolbar (click it again to flip between A → Z and Z → A). Useful for diff-friendly check-ins and canonical JSON.",
         },
       ],
   relatedSlugs: [
+        "json-diff",
+        "json-schema",
         "json-to-typescript",
         "json-to-zod",
         "json-to-yaml",
-        "json-schema",
         "json-to-csv",
       ],
 } as const;

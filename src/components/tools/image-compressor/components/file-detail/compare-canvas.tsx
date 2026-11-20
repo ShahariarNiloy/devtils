@@ -22,9 +22,16 @@ interface CompareCanvasProps {
   compressedUrl: string;
   originalSize: number;
   compressedSize: number;
-  /** "inline" = compact + Expand button; "modal" = large + zoom toggle. */
-  variant: "inline" | "modal";
+  /** "inline" = compact + Expand button; "panel" = fixed 260px workspace
+   *  preview + Expand button; "modal" = large + zoom toggle. */
+  variant: "inline" | "panel" | "modal";
   onExpand?: () => void;
+  /** Controlled divider position (0–100). Uncontrolled when omitted. */
+  position?: number;
+  onPositionChange?: (pct: number) => void;
+  /** Corner labels; default to "Original · size" / "Compressed · size". */
+  originalLabel?: string;
+  compressedLabel?: string;
 }
 
 export function CompareCanvas({
@@ -34,8 +41,21 @@ export function CompareCanvas({
   compressedSize,
   variant,
   onExpand,
+  position,
+  onPositionChange,
+  originalLabel,
+  compressedLabel,
 }: CompareCanvasProps) {
-  const [dividerPos, setDividerPos] = useState(50);
+  const [ownPos, setOwnPos] = useState(50);
+  const dividerPos = position ?? ownPos;
+  const setDividerPos = useCallback(
+    (next: number | ((p: number) => number)) => {
+      const value = typeof next === "function" ? next(position ?? ownPos) : next;
+      if (onPositionChange) onPositionChange(value);
+      else setOwnPos(value);
+    },
+    [onPositionChange, position, ownPos],
+  );
   const [zoomed, setZoomed] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,7 +104,7 @@ export function CompareCanvas({
       el.addEventListener("pointermove", onMove);
       el.addEventListener("pointerup", onUp);
     },
-    []
+    [setDividerPos]
   );
 
   // ── Pan drag (modal + zoomed only) ──
@@ -124,13 +144,15 @@ export function CompareCanvas({
   const sizeClass =
     variant === "modal"
       ? "h-[min(75vh,720px)] w-full"
-      : "aspect-[16/9] max-h-[440px] w-full";
+      : variant === "panel"
+        ? "h-[260px] w-full"
+        : "aspect-[16/9] max-h-[440px] w-full";
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border-subtle bg-canvas",
+        "relative overflow-hidden rounded-xl border border-border bg-[#0d0d0c]",
         sizeClass
       )}
       onPointerDown={onPanPointerDown}
@@ -179,33 +201,33 @@ export function CompareCanvas({
             if (e.key === "ArrowRight")
               setDividerPos((p) => Math.min(100, p + 2));
           }}
-          className="group/divider absolute top-0 bottom-0 w-px cursor-ew-resize bg-bone-cream/90 shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
+          className="group/divider absolute top-0 bottom-0 w-0.5 cursor-ew-resize bg-text shadow-[0_0_0_1px_rgba(0,0,0,0.3)] outline-none focus-visible:ring-2 focus-visible:ring-brand"
           style={{ left: `${dividerPos}%`, transform: "translateX(-50%)" }}
         >
           <span
             aria-hidden
-            className="absolute top-1/2 left-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-text-muted shadow-[0_2px_10px_-3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.6)] transition-transform duration-150 ease-out-strong group-hover/divider:scale-105 group-active/divider:scale-110"
+            className="surface-key absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-text-key transition-transform duration-150 ease-out-strong group-hover/divider:scale-105 group-active/divider:scale-110"
           >
             <MoveHorizontal size={16} strokeWidth={1.8} />
           </span>
         </div>
       ) : null}
 
-      <span className="pointer-events-none absolute top-3 left-3 rounded-md bg-charcoal/75 px-2.5 py-1 font-mono text-sm font-medium tabular-nums text-bone-cream backdrop-blur-sm">
-        Original · {formatBytes(originalSize)}
+      <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 left-2.5">
+        {originalLabel ?? `Original · ${formatBytes(originalSize)}`}
       </span>
       {!zoomed ? (
-        <span className="pointer-events-none absolute top-3 right-3 rounded-md bg-charcoal/75 px-2.5 py-1 font-mono text-sm font-medium tabular-nums text-bone-cream backdrop-blur-sm">
-          Compressed · {formatBytes(compressedSize)}
+        <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 right-2.5">
+          {compressedLabel ?? `Compressed · ${formatBytes(compressedSize)}`}
         </span>
       ) : (
-        <span className="pointer-events-none absolute top-3 right-3 rounded-md bg-charcoal/75 px-2.5 py-1 font-mono text-sm font-medium tabular-nums text-bone-cream backdrop-blur-sm">
+        <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 right-2.5">
           1:1 · drag to pan
         </span>
       )}
 
       {/* Bottom-right control: Expand (inline) or Zoom toggle (modal). */}
-      {variant === "inline" ? (
+      {variant !== "modal" ? (
         <button
           type="button"
           aria-label="Expand comparison for closer inspection"
@@ -214,10 +236,10 @@ export function CompareCanvas({
             e.stopPropagation();
             onExpand?.();
           }}
-          className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-charcoal/75 px-2.5 font-mono text-sm font-medium text-bone-cream backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:opacity-90 active:scale-[0.96] cursor-pointer"
+          className="absolute right-2.5 bottom-2.5 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-black/50 px-2.5 text-xs font-semibold text-text backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:bg-black/70 active:scale-[0.96]"
         >
           <Maximize2 size={12} strokeWidth={2} aria-hidden />
-          Expand
+          Inspect
         </button>
       ) : (
         <button
@@ -228,7 +250,7 @@ export function CompareCanvas({
             e.stopPropagation();
             toggleZoom();
           }}
-          className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-charcoal/75 px-2.5 font-mono text-sm font-medium text-bone-cream backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:opacity-90 active:scale-[0.96] cursor-pointer"
+          className="absolute right-2.5 bottom-2.5 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-black/50 px-2.5 text-xs font-semibold text-text backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:bg-black/70 active:scale-[0.96]"
         >
           {zoomed ? (
             <>

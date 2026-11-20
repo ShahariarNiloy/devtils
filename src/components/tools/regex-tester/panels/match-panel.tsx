@@ -1,110 +1,75 @@
 "use client";
 
 import { memo } from "react";
-import { ClipboardCopy } from "lucide-react";
 import { cn } from "@/lib/cn";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/primitives/dropdown-menu";
-import type { matchAll} from "../regex.lib";
-import type { CopyFormat } from "../regex.lib";
+import type { RegexMatch } from "../regex.lib";
+import { matchTint } from "../hooks/build-highlighted";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+const SHOW_MAX = 200;
 
 interface MatchPanelProps {
-  matches: ReturnType<typeof matchAll>;
+  matches: RegexMatch[];
   selectedMatch: number | null;
   onSelect: (i: number | null) => void;
-  onCopy: (f: CopyFormat) => void;
+  /** True while the pattern doesn't compile — the banner explains it. */
+  invalid: boolean;
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-
-export const MatchPanel = memo(function MatchPanel({
-  matches,
-  selectedMatch,
-  onSelect,
-  onCopy,
-}: MatchPanelProps) {
+/** Match cards (mockup): #n · value · index, then capture-group chips. */
+export const MatchPanel = memo(function MatchPanel({ matches, selectedMatch, onSelect, invalid }: MatchPanelProps) {
+  if (matches.length === 0) {
+    return (
+      <p className="mx-1.5 my-2 text-sm text-text-faint">
+        {invalid ? "Fix the pattern to see matches." : "No matches yet. Edit the pattern or the test string."}
+      </p>
+    );
+  }
   return (
     <>
-      <div className="flex items-center justify-between px-4 h-10 border-b border-border-subtle shrink-0">
-        <span className="text-sm font-semibold text-text">
-          Matches <span className="text-text-faint font-normal">· {matches.length}</span>
-        </span>
-        {matches.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-[0.08em] text-text-muted hover:text-text transition-colors cursor-pointer">
-                <ClipboardCopy size={15} /> Copy all
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onSelect={() => onCopy("lines")}>Newline-separated</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onCopy("json")}>JSON array</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onCopy("csv")}>CSV</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-      <div className="flex-1 overflow-y-auto py-2 px-3 space-y-2">
-        {matches.length === 0 ? (
-          <div className="py-10 text-center text-sm text-text-faint">
-            No matches. Adjust the pattern or test string.
-          </div>
-        ) : (
-          <>
-            {matches.slice(0, 200).map((m, i) => {
-              const isSelected = selectedMatch === i;
-              return (
-                <button
-                  key={`m-${i}`}
-                  type="button"
-                  onClick={() => onSelect(isSelected ? null : i)}
-                  className={cn(
-                    "w-full text-left rounded-lg border px-3 py-2.5 transition-all duration-150 cursor-pointer",
-                    isSelected
-                      ? "border-[color:var(--color-clay)] bg-[color:color-mix(in_oklab,var(--color-accent-soft),transparent_40%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--color-clay),transparent_40%)]"
-                      : "border-border bg-surface hover:border-border-strong/60 hover:bg-surface-soft/40",
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-sm font-semibold text-text-muted">#{i + 1}</span>
-                    <span className="text-sm text-text-faint font-mono">
-                      L{m.line} · {m.index}–{m.end}
-                    </span>
-                  </div>
-                  <code className="font-mono text-sm text-text break-all block">{m.match || "(empty)"}</code>
-                  {(m.groups.length > 0 || Object.keys(m.named).length > 0) && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {m.groups.map((g, j) => (
-                        <span key={j} className="inline-flex items-center gap-1 font-mono text-sm bg-surface-soft rounded px-1.5 py-0.5">
-                          <span className="text-text-faint">${j + 1}</span>
-                          <span className="text-text">{g || "∅"}</span>
-                        </span>
-                      ))}
-                      {Object.entries(m.named).map(([k, v]) => (
-                        <span key={k} className="inline-flex items-center gap-1 font-mono text-sm bg-accent-soft rounded px-1.5 py-0.5">
-                          <span className="text-accent">{k}</span>
-                          <span className="text-text">{v || "∅"}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-            {matches.length > 200 && (
-              <div className="py-2 text-sm text-text-faint text-center">
-                Showing 200 of {matches.length}
-              </div>
+      {matches.slice(0, SHOW_MAX).map((m, i) => {
+        const selected = selectedMatch === i;
+        const named = Object.entries(m.named);
+        return (
+          <button
+            key={m.index}
+            type="button"
+            aria-pressed={selected}
+            title={selected ? "Click to un-highlight" : "Click to highlight in the test string"}
+            onClick={() => onSelect(selected ? null : i)}
+            className={cn(
+              "surface-panel flex w-full flex-col gap-1.5 rounded-[10px] px-3 py-2.5 text-left transition-colors",
+              selected ? "border-clay-light/55" : "hover:border-white/14",
             )}
-          </>
-        )}
-      </div>
+          >
+            <span className="flex w-full items-center gap-2.5 text-xs text-text-faint">
+              <span className={cn("font-mono", matchTint(i))}>#{i + 1}</span>
+              <span className="grow break-all font-mono text-[13px] text-text">
+                {m.match === "" ? <span className="text-text-faint italic">(empty match)</span> : m.match}
+              </span>
+              <span className="shrink-0">index {m.index}</span>
+            </span>
+            {(m.groups.length > 0 || named.length > 0) && (
+              <span className="flex flex-wrap gap-1.5">
+                {m.groups.map((g, j) => (
+                  <span key={`g${j + 1}`} className="break-all rounded-md bg-white/5 px-2 py-0.5 text-xs text-text-muted">
+                    <span className="text-text-faint">group {j + 1}</span> {g === "" ? "—" : g}
+                  </span>
+                ))}
+                {named.map(([k, v]) => (
+                  <span key={k} className="break-all rounded-md bg-clay-light/10 px-2 py-0.5 text-xs text-text-muted">
+                    <span className="text-clay-light">{k}</span> {v === "" ? "—" : v}
+                  </span>
+                ))}
+              </span>
+            )}
+          </button>
+        );
+      })}
+      {matches.length > SHOW_MAX && (
+        <p className="m-0 py-1 text-center text-xs text-text-faint">
+          Showing {SHOW_MAX} of {matches.length.toLocaleString()} — copy them all from the ⋯ menu.
+        </p>
+      )}
     </>
   );
 });

@@ -14,7 +14,6 @@ import {
   detectReDoS,
   explainPattern,
   formatMatches,
-  PATTERN_LIBRARY,
   type CopyFormat,
 } from "../regex.lib";
 import type { RegexMatch } from "../regex.lib";
@@ -27,39 +26,30 @@ const EMPTY_MATCHES: RegexMatch[] = [];
 // work; only the highlight backgrounds drop. Keeps big inputs responsive.
 const HIGHLIGHT_TEXT_LIMIT = 200_000;
 import { useShortcut } from "@/lib/keyboard";
-import type { MobileView } from "../mobile/types";
-import { SAMPLE_TEXT, saveHistory, type HistoryEntry } from "./use-regex-state";
+import type { RegexMode } from "../regex.lib";
+import { SAMPLE_FLAGS, SAMPLE_PATTERN, SAMPLE_TEXT, saveHistory, type HistoryEntry } from "./use-regex-state";
 import { buildHighlighted } from "./build-highlighted";
 import {
   useHydration,
   useTextPersistence,
-  useSplitDirection,
-  useKeyboardDetection,
   useHistorySave,
 } from "./use-regex-side-effects";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRegexTester() {
-  const [pattern, setPattern]             = useState("\\b[\\w.-]+@[\\w.-]+\\.[a-z]{2,}\\b");
-  const [flags, setFlags]                 = useState<string[]>(["g", "i"]);
-  const [mode, setMode]                   = useState("match");
+  const [pattern, setPattern]             = useState(SAMPLE_PATTERN);
+  const [flags, setFlags]                 = useState<string[]>(SAMPLE_FLAGS);
+  const [mode, setMode]                   = useState<RegexMode>("match");
   const [text, setText]                   = useState(SAMPLE_TEXT);
   const [replacement, setReplacement]     = useState("[$&]");
-  const [patternSearch, setPatternSearch] = useState("");
   const [patternsOpen, setPatternsOpen]   = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<number | null>(null);
   const [showExamples, setShowExamples]   = useState(false);
   const [history, setHistory]             = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen]     = useState(false);
-  const [copyOpen, setCopyOpen]           = useState(false);
-  const [splitDirection, setSplitDirection] = useState<"horizontal" | "vertical">("horizontal");
-  const [mobileActiveView, setMobileActiveView] = useState<MobileView>("editor");
-  const [isKeyboardOpen, setIsKeyboardOpen]     = useState(false);
 
   const patternRef   = useRef<HTMLInputElement>(null);
-  const lineNumRef   = useRef<HTMLDivElement>(null);
-  const marksPreRef  = useRef<HTMLPreElement>(null);
 
   const deferredPattern     = useDeferredValue(pattern);
   const deferredText        = useDeferredValue(text);
@@ -146,25 +136,14 @@ export function useRegexTester() {
     [matches, deferredText, compiledOk, validSelected],
   );
 
-  const filteredLibrary = useMemo(() => {
-    const q = patternSearch.trim().toLowerCase();
-    if (!q) return PATTERN_LIBRARY;
-    return PATTERN_LIBRARY.map((c) => ({
-      ...c,
-      patterns: c.patterns.filter(
-        (p) => p.label.toLowerCase().includes(q) || p.hint.toLowerCase().includes(q),
-      ),
-    })).filter((c) => c.patterns.length > 0);
-  }, [patternSearch]);
-
   const lineCount = deferredText.split("\n").length;
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
-  useShortcut({ key: "/", ignoreInEditable: true }, (e) => {
+  useShortcut({ key: "/", ignoreInEditable: true, label: "Focus pattern" }, (e) => {
     e.preventDefault();
     patternRef.current?.focus();
   });
-  useShortcut({ key: "k", meta: true }, (e) => {
+  useShortcut({ key: "l", meta: true, shift: true, label: "Open pattern library" }, (e) => {
     e.preventDefault();
     setPatternsOpen(true);
   });
@@ -172,8 +151,6 @@ export function useRegexTester() {
   // ── Side effects ───────────────────────────────────────────────────────────
   useHydration({ setPattern, setFlags, setText, setHistory });
   useTextPersistence(text);
-  useSplitDirection(setSplitDirection);
-  useKeyboardDetection(setIsKeyboardOpen);
   useHistorySave({ compiledOk: compiled.ok, pattern, flagsKey, setHistory });
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
@@ -200,6 +177,26 @@ export function useRegexTester() {
     [matches],
   );
 
+  /**
+   * Insert a token at the pattern caret (replacing any selection); "(…)"
+   * becomes "()" with the caret inside, ready to type the group body.
+   */
+  const insertToken = useCallback((token: string) => {
+    const el = patternRef.current;
+    const insert = token === "(…)" ? "()" : token;
+    const start = el?.selectionStart ?? pattern.length;
+    const end = el?.selectionEnd ?? pattern.length;
+    const next = pattern.slice(0, start) + insert + pattern.slice(end);
+    const caret = start + (token === "(…)" ? 1 : insert.length);
+    setPattern(next);
+    setSelectedMatch(null);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    });
+  }, [pattern]);
+
   const handleShare = useCallback(() => {
     const params = new URLSearchParams({ p: pattern, f: flagsKey });
     if (text !== SAMPLE_TEXT) params.set("t", text);
@@ -209,15 +206,16 @@ export function useRegexTester() {
 
   return {
     pattern, setPattern, flags, setFlags, mode, setMode, text, setText,
-    replacement, setReplacement, patternSearch, setPatternSearch,
+    replacement, setReplacement,
     patternsOpen, setPatternsOpen,
     selectedMatch, setSelectedMatch, showExamples, setShowExamples,
-    history, setHistory, historyOpen, setHistoryOpen, copyOpen, setCopyOpen,
-    splitDirection, mobileActiveView, setMobileActiveView, isKeyboardOpen,
-    patternRef, lineNumRef, marksPreRef,
+    history, setHistory, historyOpen, setHistoryOpen,
+    patternRef,
     flagsKey, compiled, matches, execMs, replaced, parts, redos, tokens,
-    regexTimedOut,
-    execMsDisplay, validSelected, highlighted, filteredLibrary, lineCount,
-    applyHistoryEntry, clearHistory, handleCopyMatches, handleShare,
+    regexTimedOut, textTooLargeToHighlight: deferredText.length > HIGHLIGHT_TEXT_LIMIT,
+    execMsDisplay, validSelected, highlighted, lineCount,
+    applyHistoryEntry, clearHistory, handleCopyMatches, handleShare, insertToken,
   };
 }
+
+export type RegexTesterState = ReturnType<typeof useRegexTester>;

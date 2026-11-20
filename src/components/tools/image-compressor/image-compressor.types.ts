@@ -42,6 +42,9 @@ export interface CompressionSettings {
     width: number | null;
     height: number | null;
     lockAspectRatio: boolean;
+    /** Treat width/height as a cap: images already within it are left at
+     *  their source size instead of being upscaled ("Max 1920px wide"). */
+    downscaleOnly?: boolean;
   };
 }
 

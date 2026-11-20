@@ -1,9 +1,22 @@
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const SAMPLE_TEXT = `Reach the team at hello@utilyx.dev or support@utilyx.dev.
-Visit https://utilyx.dev for the docs and https://example.com for tests.
-Server is at 192.168.1.42, branding accent #D4FF4F. Released 2026-05-04.
-// Add more text or paste your own…`;
+export const SAMPLE_PATTERN = "(\\w+)@([\\w.]+)\\.dev";
+export const SAMPLE_FLAGS = ["g", "i", "m"];
+export const SAMPLE_TEXT = `Contact ada@utilyx.dev or team@mail.utilyx.dev for help.
+Not an email: hello@utilyx
+Support: SUPPORT@utilyx.DEV`;
+
+/** Flag buttons in the toolbar (mockup order); `y` lives in the ⋯ menu. */
+export const TOOLBAR_FLAGS = ["g", "i", "m", "s", "u"] as const;
+
+export const FLAG_TITLES: Record<string, string> = {
+  g: "Global — all matches",
+  i: "Ignore case",
+  m: "Multiline ^ $",
+  s: "Dot matches newline",
+  u: "Unicode",
+  y: "Sticky — match at lastIndex",
+};
 
 export const FLAG_NAMES: Record<string, string> = {
   g: "global",

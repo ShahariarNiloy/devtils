@@ -193,7 +193,9 @@ export function useTimestampConverter(): UseTimestampConverter {
   // ── Permalink hydration (client-only, once) ───────────────────────────────
   const loadFromUrlState = useCallback(() => {
     const s = readUrlState();
-    if (s.raw !== undefined) setRawInput(s.raw);
+    // No permalink value: open on the current moment so the page is
+    // never blank (done here, client-only, to keep SSR deterministic).
+    setRawInput(s.raw ?? String(Math.floor(Date.now() / 1000)));
     if (s.pTz) setPrimaryTz(s.pTz);
     if (s.sTz) setSecondaryTz(s.sTz);
     if (s.fmt) setCustomFormat(s.fmt);
@@ -345,9 +347,15 @@ export function useTimestampConverter(): UseTimestampConverter {
     [],
   );
 
+  // New input invalidates a "Treat as …" override picked for the old one.
+  const setRaw = useCallback((v: string) => {
+    setRawInput(v);
+    setFormatOverride(null);
+  }, []);
+
   const useNow = useCallback(
-    () => setRawInput(String(Math.floor(Date.now() / 1000))),
-    [],
+    () => setRaw(String(Math.floor(Date.now() / 1000))),
+    [setRaw],
   );
 
   const clear = useCallback(() => {
@@ -377,7 +385,7 @@ export function useTimestampConverter(): UseTimestampConverter {
 
   return {
     rawInput,
-    setRawInput,
+    setRawInput: setRaw,
     parseResult,
     overrideFormat,
     primaryTz,

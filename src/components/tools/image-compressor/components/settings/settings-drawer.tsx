@@ -112,7 +112,7 @@ export function SettingsDrawer({
         <Dialog.Content
           aria-describedby={undefined}
           className={cn(
-            "fixed top-0 right-0 bottom-0 z-50 flex w-[min(440px,calc(100vw-32px))] flex-col border-l border-border-subtle bg-surface shadow-[-12px_0_40px_-20px_rgba(60,67,53,0.35)]",
+            "fixed top-0 right-0 bottom-0 z-50 flex w-[min(440px,calc(100vw-32px))] flex-col border-l border-border-subtle bg-surface shadow-[-12px_0_40px_-20px_rgba(0,0,0,0.6)]",
             "data-[state=open]:animate-[sheet-right-in_320ms_cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:animate-[sheet-right-out_240ms_cubic-bezier(0.32,0.72,0,1)]",
           )}
         >
@@ -187,7 +187,7 @@ export function SettingsDrawer({
                       type="button"
                       onClick={handleSaveConfirm}
                       disabled={draftName.trim().length === 0}
-                      className="inline-flex h-7 items-center rounded-md bg-brand px-2.5 text-sm font-semibold text-text-on-sage transition-[opacity] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                      className="btn-action inline-flex h-7 cursor-pointer items-center rounded-md px-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Save
                     </button>
@@ -236,8 +236,9 @@ export function SettingsDrawer({
               </section>
 
               <p className="border-t border-border-subtle pt-4 text-sm leading-relaxed text-text-faint">
-                Per-file overrides: click any row in the list to adjust
-                quality for that file specifically.
+                Per-image overrides: pick an image, then use{" "}
+                <em>Edit this image</em> under the preview. Images with their
+                own settings ignore changes made here.
               </p>
             </div>
           </div>
@@ -251,7 +252,7 @@ export function SettingsDrawer({
                   onRecompressDirty();
                   onOpenChange(false);
                 }}
-                className="group/cta inline-flex h-11 w-full items-center justify-between rounded-full bg-olive-ink pl-5 pr-1.5 text-sm font-semibold text-bone-cream transition-[opacity,transform] duration-150 ease-out-strong hover:opacity-95 active:scale-[0.99] cursor-pointer"
+                className="btn-action group/cta inline-flex h-11 w-full cursor-pointer items-center justify-between rounded-xl pr-1.5 pl-5 text-sm font-bold active:scale-[0.99]"
               >
                 <span className="flex items-center gap-2">
                   <RefreshCw size={15} strokeWidth={1.8} aria-hidden />
@@ -260,7 +261,7 @@ export function SettingsDrawer({
                 </span>
                 <span
                   aria-hidden
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-bone-cream/15 transition-transform duration-200 ease-out-strong group-hover/cta:translate-x-px"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-on-brand/10 transition-transform duration-200 ease-out-strong group-hover/cta:translate-x-px"
                 >
                   <ArrowUpRight size={14} strokeWidth={2} />
                 </span>
@@ -294,7 +295,7 @@ function QualityGrid({
             className={cn(
               "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-[color,background-color,border-color,transform] duration-150 ease-out-strong active:scale-[0.97] cursor-pointer",
               active
-                ? "border-olive-ink bg-olive-ink text-bone-cream"
+                ? "border-border-strong bg-selected text-text"
                 : "border-border-subtle bg-surface-soft text-text hover:border-border-strong/60",
             )}
           >
@@ -304,7 +305,7 @@ function QualityGrid({
             <span
               className={cn(
                 "text-sm",
-                active ? "text-bone-cream/70" : "text-text-faint",
+                active ? "text-text-muted" : "text-text-faint",
               )}
             >
               {QUALITY_MODE_DEFS[m].description}

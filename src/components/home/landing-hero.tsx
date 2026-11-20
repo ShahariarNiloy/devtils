@@ -1,0 +1,56 @@
+import Link from "next/link";
+import { heroGlyphs, LIVE_COUNT } from "./landing-data";
+
+const GLYPHS = heroGlyphs();
+
+export function LandingHero() {
+  return (
+    <section className="relative flex flex-col items-center px-6 pt-[110px] pb-10 text-center">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute top-10 left-1/2 h-[520px] w-[900px] max-w-[120%] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(197,142,94,.30),rgba(197,142,94,.08)_55%,rgba(197,142,94,0))] opacity-[.85]" />
+        <div className="absolute top-0 left-1/2 grid w-[1400px] -translate-x-1/2 grid-cols-[repeat(36,minmax(0,1fr))] text-center font-mono text-[15px] leading-9 select-none">
+          {GLYPHS.map((g, i) => (
+            // Static, positional decoration — index is the identity.
+            // eslint-disable-next-line react/no-array-index-key
+            <span key={i} style={{ color: g.color, textShadow: g.shadow }}>
+              {g.ch}
+            </span>
+          ))}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-[260px] bg-[linear-gradient(to_bottom,rgba(11,11,10,0),var(--color-bg))]" />
+      </div>
+
+      <Link
+        href="/#changelog"
+        className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-clay-light/40 bg-[rgba(26,20,14,.7)] px-3.5 py-1.5 text-[13px] text-clay-cream hover:text-clay-cream"
+      >
+        {LIVE_COUNT} tools live · 100% client-side
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+      </Link>
+      <h1 className="relative m-0 max-w-[900px] font-sans text-[clamp(44px,6.4vw,80px)] leading-[1.02] font-bold tracking-[-0.045em] text-text">
+        Every tool you need.
+        <br />
+        None you don&apos;t.
+      </h1>
+      <p className="relative mt-6 max-w-[540px] text-[19px] leading-[1.55] text-text-muted">
+        JSON, regex, JWTs, colors and encoding — fast, keyboard-first, and running entirely in your browser.
+      </p>
+      <div className="relative mt-9 flex flex-wrap justify-center gap-3">
+        <Link
+          href="/tools"
+          className="btn-action inline-flex min-h-[46px] items-center gap-2.5 rounded-[11px] px-5 text-[15px] font-semibold shadow-btn-primary"
+        >
+          Browse all tools
+          <kbd className="rounded-[5px] bg-[rgba(26,26,24,.1)] px-1.5 py-px font-mono text-xs text-[#3d4435]">↵</kbd>
+        </Link>
+        <Link
+          href="/tools/json-formatter"
+          className="inline-flex min-h-[46px] items-center rounded-[11px] border border-border-strong bg-white/[.03] px-5 text-[15px] font-medium text-text hover:text-white"
+        >
+          Try JSON Formatter
+        </Link>
+      </div>
+      <p className="relative mt-[18px] font-mono text-xs text-text-faint">No sign-up · No uploads · Works offline</p>
+    </section>
+  );
+}

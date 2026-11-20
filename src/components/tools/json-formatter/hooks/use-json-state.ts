@@ -17,6 +17,7 @@ import {
   isArrayOfObjects,
 } from "../json-formatter.lib";
 import { tryJsToJson, type Transform } from "../js-to-json.lib";
+import { scanJsonText } from "../json-lossless";
 import { useAsyncJsToJson } from "./use-async-js-to-json";
 import { useAsyncParsed, WORKER_THRESHOLD } from "./use-async-parsed";
 
@@ -55,6 +56,8 @@ export function useJsonState() {
   const [minifyStats, setMinifyStats] = useState<MinifyStats | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [showQuery, setShowQuery] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
+  const [schemaText, setSchemaText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [treeExpandAll, setTreeExpandAll] = useState<number>(0);
   const [treeCollapseAll, setTreeCollapseAll] = useState<number>(0);
@@ -87,6 +90,16 @@ export function useJsonState() {
     : validation;
 
   const isValid = effectiveValidation.status === "valid";
+
+  // Tree / Table / Graph / Path render JS values, so numbers beyond double
+  // precision show rounded there. Count them so the panel can say so
+  // honestly. Code view, Copy and Download keep the exact source digits, so
+  // the scan is skipped while Code view is active.
+  const precisionSource = conversionResult ? deferredInput : deferredOutput || deferredInput;
+  const impreciseNumbers = useMemo(
+    () => (viewMode === "code" || !precisionSource ? 0 : scanJsonText(precisionSource).impreciseNumbers),
+    [viewMode, precisionSource],
+  );
   const canUseTableView = isArrayOfObjects(parsedOutput ?? parsedValue);
 
   // Wrap is on by default for normal-size docs (readability) and off for
@@ -189,13 +202,18 @@ export function useJsonState() {
     setMinifyStats: setMinifyStatsExternal,
     showStats, setShowStats,
     showQuery, setShowQuery,
+    showSchema, setShowSchema,
+    schemaText, setSchemaText,
     fileName,
     setFileName: setFileNameExternal,
     treeExpandAll, setTreeExpandAll,
     treeCollapseAll, setTreeCollapseAll,
     wrapText, setWrapText,
     parsedValue,
+    /** The text `parsedValue` was parsed from (deferred input). */
+    parsedSource: deferredInput,
     parsedOutput,
+    impreciseNumbers,
     isValid,
     canUseTableView,
     jsConversion,

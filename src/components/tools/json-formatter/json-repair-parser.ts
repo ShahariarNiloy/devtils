@@ -119,20 +119,31 @@ class RepairParser {
     this.s = input;
   }
 
-  // Position → 1-based line/col, computed lazily (only when emitting an event).
+  /** Offsets of every `\n`, built once on first use. */
+  private newlines: number[] | null = null;
+
+  // Position → 1-based line/col via binary search over the newline index.
+  // (A linear rescan per event made large inputs with many repairs O(n²).)
   private lineCol(pos: number): { line: number; col: number } {
-    let line = 1;
-    let col = 1;
-    const max = Math.min(pos, this.s.length);
-    for (let k = 0; k < max; k++) {
-      if (this.s.charCodeAt(k) === 10) {
-        line++;
-        col = 1;
-      } else {
-        col++;
+    if (this.newlines === null) {
+      const nl: number[] = [];
+      for (let k = 0; k < this.s.length; k++) {
+        if (this.s.charCodeAt(k) === 10) nl.push(k);
       }
+      this.newlines = nl;
     }
-    return { line, col };
+    const nl = this.newlines;
+    const p = Math.min(pos, this.s.length);
+    // Count newlines strictly before p.
+    let lo = 0;
+    let hi = nl.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (nl[mid] < p) lo = mid + 1;
+      else hi = mid;
+    }
+    const lineStart = lo === 0 ? 0 : nl[lo - 1] + 1;
+    return { line: lo + 1, col: p - lineStart + 1 };
   }
 
   private emit(message: string, risk: RepairRisk, pos = this.i): void {
@@ -296,6 +307,12 @@ class RepairParser {
         this.emit("Removed extra comma", "safe");
         continue;
       }
+      // Mismatched closer (`{"a": 1]`): close the object and leave the `]`
+      // for the enclosing array (or the top-level garbage skip).
+      if (c === "]") {
+        this.emit("Closed unclosed object before ]", "structural");
+        break;
+      }
       // Key
       const key = this.parseKey();
       this.skipTrivia();
@@ -310,12 +327,13 @@ class RepairParser {
       this.skipTrivia();
       const sep = this.peek();
       if (sep === ",") {
+        const commaAt = this.i;
         this.i++;
         // Trailing comma → next non-trivia is '}'.
         this.skipTrivia();
         if (this.peek() === "}") {
           this.i++;
-          this.emit("Removed trailing comma", "safe");
+          this.emit("Removed trailing comma", "safe", commaAt);
           break;
         }
       } else if (sep === "}") {
@@ -324,7 +342,7 @@ class RepairParser {
       } else if (this.atEnd()) {
         this.emit("Closed unclosed object at end of input", "structural");
         break;
-      } else {
+      } else if (sep !== "]") {
         // Missing comma between members.
         this.emit("Inserted missing comma", "safe");
       }
@@ -365,16 +383,31 @@ class RepairParser {
         this.emit("Removed extra comma", "safe");
         continue;
       }
+      // Mismatched closer (`[1, 2}`): close the array here and leave the `}`
+      // for the enclosing object (or the top-level garbage skip) to consume.
+      if (c === "}") {
+        this.emit("Closed unclosed array before }", "structural");
+        break;
+      }
+      // Anything else that can't start a value (`:`, `@`, `)`, …) must be
+      // consumed here — parseValue() doesn't advance on it, so looping back
+      // without consuming would spin forever.
+      if (!isValueStart(c)) {
+        this.i++;
+        this.emit("Stripped unexpected character", "lossy", this.i - 1);
+        continue;
+      }
       const value = this.parseValue();
       items.push(value);
       this.skipTrivia();
       const sep = this.peek();
       if (sep === ",") {
+        const commaAt = this.i;
         this.i++;
         this.skipTrivia();
         if (this.peek() === "]") {
           this.i++;
-          this.emit("Removed trailing comma", "safe");
+          this.emit("Removed trailing comma", "safe", commaAt);
           break;
         }
       } else if (sep === "]") {
@@ -383,9 +416,10 @@ class RepairParser {
       } else if (this.atEnd()) {
         this.emit("Closed unclosed array at end of input", "structural");
         break;
-      } else {
+      } else if (isValueStart(sep)) {
         this.emit("Inserted missing comma", "safe");
       }
+      // Otherwise: junk / mismatched closer — handled at the top of the loop.
     }
     return { type: "array", items };
   }

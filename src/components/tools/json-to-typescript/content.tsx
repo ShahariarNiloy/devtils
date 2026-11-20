@@ -9,6 +9,7 @@ import { ToolContent } from "@/components/shared/tool-content";
  */
 export const seoData = {
   intro: "Paste any JSON sample and get clean, ready-to-import TypeScript types. The converter walks the document once, names every distinct shape as a top-level interface (no anonymous nested pyramids), and infers optional fields by intersecting keys across array items. Format hints from the JSON Schema layer — `date-time`, `uuid`, `email` — surface as `@format` JSDoc comments so downstream tooling can pick them up.",
+  usesNote: "Stop hand-typing API response types.",
   useCases: [
         {
           title: "Modelling an API response",
@@ -40,7 +41,7 @@ export const seoData = {
         {
           question: "Can I rename the root type?",
           answer:
-            "Yes — the Root field at the top of the options bar accepts any valid TypeScript identifier. It also propagates into the download filename so saved files match.",
+            "Yes — the Root field in the toolbar accepts any valid TypeScript identifier. It also propagates into the download filename so saved files match.",
         },
         {
           question: "Why is a field marked optional when my sample always has it?",
@@ -60,7 +61,7 @@ export const seoData = {
         {
           question: "Why are children declared before their parents?",
           answer:
-            "Default is children-first so each type is declared above its first reference — easier to read top-to-bottom. Flip the toggle if you prefer Root-first (the convention quicktype uses).",
+            "Default is children-first so each type is declared above its first reference — easier to read top-to-bottom. Turn off Children first in the ⋯ menu if you prefer Root-first (the convention quicktype uses).",
         },
         {
           question: "Does the URL save my options?",

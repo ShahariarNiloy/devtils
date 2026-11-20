@@ -35,7 +35,7 @@ function PrimitiveValueImpl({ value }: { value: unknown }) {
   if (value === null) {
     return (
       <span
-        className="text-text-faint italic cursor-pointer hover:opacity-70 transition-opacity"
+        className="text-syntax-punctuation cursor-pointer hover:opacity-70 transition-opacity"
         onClick={handleCopy}
         title="Click to copy"
       >
@@ -46,8 +46,7 @@ function PrimitiveValueImpl({ value }: { value: unknown }) {
   if (typeof value === "boolean") {
     return (
       <span
-        className="cursor-pointer hover:opacity-70 transition-opacity font-medium"
-        style={{ color: "var(--color-clay)" }}
+        className="text-syntax-boolean cursor-pointer hover:opacity-70 transition-opacity"
         onClick={handleCopy}
         title="Click to copy"
       >
@@ -58,8 +57,7 @@ function PrimitiveValueImpl({ value }: { value: unknown }) {
   if (typeof value === "number") {
     return (
       <span
-        className="cursor-pointer hover:opacity-70 transition-opacity"
-        style={{ color: "var(--color-clay)" }}
+        className="text-syntax-number cursor-pointer hover:opacity-70 transition-opacity"
         onClick={handleCopy}
         title="Click to copy"
       >
@@ -71,7 +69,7 @@ function PrimitiveValueImpl({ value }: { value: unknown }) {
     return (
       <span className="inline-flex items-baseline gap-1.5 min-w-0">
         <span
-          className="text-brand cursor-pointer hover:opacity-70 transition-opacity break-all"
+          className="text-syntax-string cursor-pointer hover:opacity-70 transition-opacity break-all"
           onClick={handleCopy}
           title="Click to copy"
         >

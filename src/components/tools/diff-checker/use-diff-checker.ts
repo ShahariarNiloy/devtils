@@ -9,23 +9,13 @@ import {
   formatUnifiedDiff,
   type DiffOptions,
 } from "@/lib/diff";
+import { changeStarts } from "./diff-checker.lib";
 import { decodeShare, encodeShare, readShareFromHash, shareHashFor } from "./diff-share";
 
 export type ViewMode = "side-by-side" | "unified";
 
-const SAMPLE_LEFT = `function greet(name) {
-  return "hello " + name;
-}
-
-const x = 1;
-`;
-const SAMPLE_RIGHT = `function greet(name, greeting = "hello") {
-  return greeting + " " + name;
-}
-
-const x = 1;
-const y = 2;
-`;
+const SAMPLE_LEFT = "# utilyx\n\nFast, private developer tools.\nEverything runs in your browser.\n\nInstall: none\nPrice: free\nTools: 23";
+const SAMPLE_RIGHT = "# utilyx\n\nFast, private, keyboard-first developer tools.\nEverything runs in your browser.\n\nInstall: none\nTools: 34\nOffline: yes";
 
 export interface DiffCheckerState {
   left: string;
@@ -42,13 +32,18 @@ export interface DiffCheckerState {
   editing: boolean;
   setEditing: (v: boolean) => void;
   hydrated: boolean;
-  activeHunk: number;
-  setActiveHunk: (idx: number) => void;
+  /** Change block the user last jumped to (n / p), or null. */
+  activeChange: number | null;
+  setActiveChange: (idx: number | null) => void;
   // Derived
   ops: ReturnType<typeof diffLines>;
   stats: ReturnType<typeof computeStats>;
   hunks: ReturnType<typeof buildHunks>;
   sideRows: ReturnType<typeof buildSideRows>;
+  /** Op index where each change block starts (unified listing). */
+  opChangeStarts: number[];
+  /** Side-row index where each change block starts (split listing). */
+  rowChangeStarts: number[];
   // Actions
   share: () => Promise<string | null>;
   copyAsPatch: () => Promise<boolean>;
@@ -71,18 +66,18 @@ const PATCH_LABELS = { left: "original", right: "changed" };
 export function useDiffChecker(): DiffCheckerState {
   const [left, setLeft] = useState(SAMPLE_LEFT);
   const [right, setRight] = useState(SAMPLE_RIGHT);
-  const [view, setView] = useState<ViewMode>("side-by-side");
+  // Unified is the v2 default: compact, and the only view on phones.
+  const [view, setView] = useState<ViewMode>("unified");
   const [options, setOptions] = useState<DiffOptions>({
     ignoreTrailingWhitespace: true,
   });
   // `editingExplicit` is the user's last toggle decision. The effective
   // `editing` flag is derived from it + the both-empty fallback so we
   // don't have a setState-in-effect for the auto-expand case.
-  // Defaults to open: a first-time visitor sees the editable inputs
-  // immediately. Share-link hydration explicitly collapses them so the
-  // visitor lands on the diff.
+  // Defaults to open (v2 always draws the inputs); "Hide inputs" in the ⋯
+  // menu / `e` collapses them to a one-line strip.
   const [editingExplicit, setEditing] = useState(true);
-  const [activeHunkRaw, setActiveHunk] = useState(0);
+  const [activeChangeRaw, setActiveChange] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
 
@@ -104,7 +99,6 @@ export function useDiffChecker(): DiffCheckerState {
       if (d) {
         setLeft(d.left);
         setRight(d.right);
-        setEditing(false);
       }
       setHydrated(true);
     });
@@ -115,15 +109,16 @@ export function useDiffChecker(): DiffCheckerState {
   const stats = useMemo(() => computeStats(ops), [ops]);
   const hunks = useMemo(() => buildHunks(ops), [ops]);
   const sideRows = useMemo(() => buildSideRows(ops), [ops]);
+  const opChangeStarts = useMemo(() => changeStarts(ops.map((o) => o.kind === "equal")), [ops]);
+  const rowChangeStarts = useMemo(() => changeStarts(sideRows.map((r) => r.kind === "equal")), [sideRows]);
 
   // Auto-expand inputs when both sides are empty — derived, not effect.
   const editing = editingExplicit || (left === "" && right === "");
 
-  // Clamp the active-hunk index if the diff shrinks beneath it — derived,
-  // not effect. Note: the raw state value still updates when the user
-  // navigates, so this is just a display safeguard.
-  const activeHunk =
-    hunks.length === 0 ? 0 : Math.min(activeHunkRaw, hunks.length - 1);
+  // Drop the active-change marker if the diff shrinks beneath it — derived,
+  // not effect.
+  const activeChange =
+    activeChangeRaw === null || activeChangeRaw >= opChangeStarts.length ? null : activeChangeRaw;
 
   // ── Actions ────────────────────────────────────────────────────────
   const setOption = useCallback(
@@ -146,7 +141,6 @@ export function useDiffChecker(): DiffCheckerState {
   const loadSample = useCallback(() => {
     setLeft(SAMPLE_LEFT);
     setRight(SAMPLE_RIGHT);
-    setEditing(false);
   }, []);
 
   const share = useCallback(async (): Promise<string | null> => {
@@ -212,7 +206,6 @@ export function useDiffChecker(): DiffCheckerState {
       else if (right === "" && left !== "") setRight(a);
       else setLeft(a);
     }
-    setEditing(false);
   }, [left, right]);
 
   return {
@@ -230,12 +223,14 @@ export function useDiffChecker(): DiffCheckerState {
     editing,
     setEditing,
     hydrated,
-    activeHunk,
-    setActiveHunk,
+    activeChange,
+    setActiveChange,
     ops,
     stats,
     hunks,
     sideRows,
+    opChangeStarts,
+    rowChangeStarts,
     share,
     copyAsPatch,
     downloadPatch,

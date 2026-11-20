@@ -1,7 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
-  intro: "Paste any JSON Web Token and instantly see its header, payload, and signature, with all standard claims (iss, sub, aud, exp, iat, nbf) decoded and interpreted in human-readable form. HMAC-SHA256 signatures can be verified against a shared secret directly in the browser — no token contents ever leave your device.",
+  intro: "Paste any JSON Web Token and instantly see its header, payload, and signature, with all standard claims (iss, sub, aud, exp, iat, nbf) decoded and interpreted in human-readable form. Signatures can be verified in the browser — HMAC (HS256/384/512) with a shared secret, RSA, RSA-PSS and ECDSA with a public key — and no token contents ever leave your device.",
+  usesNote: "Read a token without pasting it into a server.",
   useCases: [
         {
           title: "Debugging auth flows",
@@ -11,7 +12,7 @@ export const seoData = {
         {
           title: "Checking token expiry mid-incident",
           description:
-            "Paste a token from production logs to confirm whether `exp` has passed. The decoded view shows the absolute timestamp and relative time-to-expiry.",
+            "Paste a token from production logs to confirm whether `exp` has passed. The decoded view shows the UTC timestamp and the relative time-to-expiry, and keeps it current while the page is open.",
         },
         {
           title: "Verifying HS256 signatures",
@@ -21,7 +22,7 @@ export const seoData = {
         {
           title: "Learning JWT structure",
           description:
-            "Hover over each claim in the decoded view to see what it means. Useful for understanding what your auth provider is actually putting in the token.",
+            "Each registered claim is labelled in the decoded view, and time claims are shown as real dates. Useful for understanding what your auth provider is actually putting in the token.",
         },
       ],
   faqs: [
@@ -38,7 +39,7 @@ export const seoData = {
         {
           question: "Can I verify RS256 / ES256 tokens?",
           answer:
-            "Currently only HS256 (symmetric / shared secret) verification is supported. RS256 / ES256 use asymmetric key pairs and require fetching the issuer's public key from a JWKS endpoint — that's planned but not shipped yet.",
+            "Yes. HS256/384/512 take the shared secret; RS, PS and ES algorithms take the public key as PEM or JWK, or you can paste the issuer's whole JWKS document and the key is picked by the token's kid. The tool never fetches a JWKS URL — copy the JSON in yourself, so nothing leaves your browser.",
         },
         {
           question: "Why is the `iat` value a giant number?",
@@ -53,7 +54,7 @@ export const seoData = {
         {
           question: "Can I generate a new JWT?",
           answer:
-            "Yes — the Encode panel takes a header + payload + secret and produces a signed token. Useful for testing your verifier against known-good inputs.",
+            "Yes — choose Encode a token from the ⋯ menu. It takes a header, payload and secret (or private key) and produces a signed token. Useful for testing your verifier against known-good inputs.",
         },
       ],
   relatedSlugs: ["base64", "json-formatter", "json-to-typescript", "regex-tester"],

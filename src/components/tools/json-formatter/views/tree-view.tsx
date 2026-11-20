@@ -19,7 +19,7 @@ export interface TreeViewProps {
   wrap?: boolean;
 }
 
-const ROW_HEIGHT = 26;
+const ROW_HEIGHT = 30;
 const DEFAULT_DEPTH = 1; // auto-expand root + one level
 const DEFAULT_CAP = 4_000; // stop auto-expanding huge docs (collapsed by default)
 const EXPAND_ALL_CAP = 60_000; // hard ceiling for explicit "expand all"
@@ -89,10 +89,10 @@ export function TreeView({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <TreeBreadcrumb path={focusPath} />
+      {focusPath !== "$" && <TreeBreadcrumb path={focusPath} />}
       {wrap ? (
         // Wrap mode: variable-height rows ⇒ no fixed-height windowing.
-        <div className="flex-1 overflow-auto font-mono text-base tracking-tight">
+        <div className="flex-1 overflow-auto px-2 py-2.5 font-mono text-[13px]">
           {rows.map((row) => (
             <TreeRow
               key={row.path}
@@ -108,7 +108,7 @@ export function TreeView({
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex-1 overflow-auto font-mono text-base tracking-tight"
+          className="flex-1 overflow-auto px-2 py-2.5 font-mono text-[13px]"
         >
           <div style={{ height: totalHeight, position: "relative" }}>
             <div style={{ transform: `translateY(${offsetY}px)` }}>

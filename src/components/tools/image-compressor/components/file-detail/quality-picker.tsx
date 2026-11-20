@@ -15,7 +15,7 @@ export function QualityPicker({
   onChange: (m: QualityMode) => void;
 }) {
   return (
-    <div role="radiogroup" className="flex flex-wrap gap-1.5">
+    <div role="radiogroup" className="flex flex-wrap gap-0.5 rounded-[11px] border border-border-subtle bg-[#0d0d0c] p-[3px]">
       {SIMPLE_MODES.map((m) => {
         const active = value === m;
         return (
@@ -29,10 +29,10 @@ export function QualityPicker({
               onChange(m);
             }}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out-strong active:scale-[0.97] cursor-pointer",
+              "min-h-9 flex-1 rounded-lg px-3 text-[13px] font-semibold transition-[color,background-color,transform] duration-150 ease-out-strong active:scale-[0.97] cursor-pointer",
               active
-                ? "border-brand bg-brand/15 text-text"
-                : "border-border-subtle bg-surface text-text-muted hover:border-border-strong/60 hover:text-text"
+                ? "bg-selected text-text shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                : "text-text-tertiary hover:text-text"
             )}
           >
             {QUALITY_MODE_DEFS[m].label}

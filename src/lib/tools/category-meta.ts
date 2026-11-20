@@ -70,6 +70,13 @@ export const CATEGORY_META: Record<ToolCategory, CategoryMeta> = {
     doodleComponent: 'CalcDoodle',
     order: 8,
   },
+  SEO: {
+    iconBg: 'var(--color-cream)',
+    iconColor: 'var(--color-terracotta-deep)',
+    doodleColor: 'var(--color-terracotta-deep)',
+    doodleComponent: 'NetworkDoodle',
+    order: 14,
+  },
   Network: {
     iconBg: 'var(--color-cream)',
     iconColor: 'var(--color-terracotta-deep)',

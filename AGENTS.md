@@ -19,8 +19,9 @@ ship something that looks like every other Next.js + shadcn site.
 ## Hard rules
 
 1. **Tailwind v4, CSS-first config.** No `tailwind.config.js`. Tokens live in
-   `@theme` inside `src/app/globals.css`. Light mode flips them on
-   `[data-theme="light"]`.
+   `@theme` inside `src/app/globals.css`. The site is **dark-only** (v2
+   redesign): `<html data-theme="dark">` is fixed and there is no light theme
+   or theme toggle — don't add `[data-theme="light"]` rules.
 2. **Don't install shadcn/ui.** Primitives in `src/components/primitives/` wrap
    Radix directly with our own styling. Match that pattern; don't paste shadcn.
 3. **TypeScript strict, no `any`, minimal `as` casts.** If you need a cast, ask
@@ -30,9 +31,14 @@ ship something that looks like every other Next.js + shadcn site.
    `<Tool>.tsx` component is the only place state and effects live.
 5. **`'use client'` only when you must.** Pages, layouts, and the app shell are
    RSC. Tools and stateful UI are client components.
-6. **Brand chartreuse (`--color-brand`) is an accent.** Never use it as a fill
-   color on large surfaces — it goes on primary buttons, focus rings, active
-   indicators, hover accents.
+6. **Cream is the action colour, clay is the one warm accent.** `--color-brand`
+   (cream `#F6F2EA`, use the `.btn-action` class) is for primary buttons, focus
+   rings and active indicators. Clay (`--color-clay-light` / `--color-accent`)
+   is for small accents and glows — never a fill on large surfaces. Category
+   tints (`--color-cat-*`, `.tint-*` cards) mark tool families. The source of
+   truth for every value is the v2 "Colour palette" artboard of the redesign
+   mockup; reusable surfaces (`.surface-glass`, `.surface-key`,
+   `.surface-tint`) live in `globals.css`.
 7. **Respect `prefers-reduced-motion`.** A global override exists; don't fight
    it with `!important`.
 8. **Async params.** Next.js 16 page/layout `params` and `searchParams` are
@@ -77,9 +83,11 @@ needed. Icons resolve from `<ToolIcon name="kebab-case">` — no icon registry.
 - Card paddings tend to be `p-3` to `p-4`; section gutters `gap-4`. Don't drift
   to bigger radii than `rounded-xl` (`12px`) on cards or `rounded-lg` (`8px`)
   on inputs.
-- Body text is `text-[12.5px]` to `text-[13px]`. Headings on tool pages are
-  `text-[28px] font-medium tracking-tight`. Editorial sub-copy uses
-  `var(--font-serif)` italic.
+- Type: Fredoka for every h1/h2/h3 and the "utilyx" wordmark (`.wm`), Noto
+  Sans for everything else, JetBrains Mono for code. Heading weight (600) and
+  tracking (-0.01em) are enforced by an unlayered rule in `globals.css` —
+  don't fight it with `font-bold` / `tracking-*` on headings; set size and
+  colour only. Card titles that aren't headings stay Noto Sans.
 - Code panels use `font-mono text-[12.5px] leading-[1.65]`.
 - Toast: always go through `sonner` (`import { toast } from "sonner"`).
 

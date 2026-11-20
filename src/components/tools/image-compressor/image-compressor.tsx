@@ -3,98 +3,99 @@
 import { ToolShell } from "@/components/layout/tool-shell";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
-import { ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DropZone } from "./components/drop-zone";
+import { PreviewPanel } from "./components/file-detail/preview-panel";
 import { FileQueue } from "./components/file-queue/file-queue";
 import { SettingsDrawer } from "./components/settings/settings-drawer";
-import { ImageCompressorContent } from "./content";
 import { StatusBar } from "./components/status-bar";
+import { Toolbar } from "./components/toolbar";
+import { ImageCompressorContent, seoData } from "./content";
+import { pickFocusedFile } from "./image-compressor.view";
 import { useImageCompressor } from "./useImageCompressor";
 
 export function ImageCompressor({ tool }: { tool: Tool }) {
   const s = useImageCompressor();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useShortcut(
-    { key: "d", meta: true, shift: true, ignoreInEditable: true },
-    (e) => {
-      e.preventDefault();
-      void s.downloadAll();
-    }
-  );
+  useShortcut({ key: "d", meta: true, shift: true, ignoreInEditable: true, label: "Download all" }, (e) => {
+    e.preventDefault();
+    void s.downloadAll();
+  });
 
+  // Settings changes apply live, like the toolbar promises: any finished
+  // image whose settings no longer match its result is re-queued. Files
+  // still running are left alone — they're picked up here once they land
+  // (setResult marks a result stale when settings moved mid-flight).
+  const { files, recompressOne } = s;
+  useEffect(() => {
+    for (const f of files) {
+      if (f.settingsDirty && f.status === "done") recompressOne(f.id);
+    }
+  }, [files, recompressOne]);
+
+  const focused = useMemo(() => pickFocusedFile(s.files, s.expandedFileId), [s.files, s.expandedFileId]);
+  const errorCount = useMemo(() => s.files.filter((f) => f.status === "error").length, [s.files]);
   const hasFiles = s.files.length > 0;
 
   return (
-    <ToolShell tool={tool}>
-      <div className="mx-auto w-full max-w-8xl px-4 sm:px-6">
-        {/* ── Workspace hero band ──────────────────────────────── */}
-        <header className="mb-8 flex flex-col gap-4 pt-2 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-[28px] font-medium leading-none tracking-tight text-text">
-              Image compressor
-            </h2>
-            <p className="max-w-[52ch] text-sm text-text-muted">
-              Shrink JPG, PNG, WebP, AVIF and GIF without leaving the browser.
-              Files never reach a server.
-            </p>
-          </div>
-          {/* Promoted local-only signal — privacy is the headline feature
-              for this tool, so it gets visual weight on par with the title. */}
-          <div className="inline-flex h-9 w-fit shrink-0 items-center gap-2 rounded-full border border-success/30 bg-success/10 pl-2.5 pr-3.5 font-mono text-sm font-medium tracking-eyebrow text-success">
-            <ShieldCheck size={14} strokeWidth={2.2} aria-hidden />
-            <span className="uppercase">Stays on your device</span>
-          </div>
-        </header>
+    <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
+      <div className="overflow-hidden rounded-[14px] bg-canvas shadow-window-tool sm:rounded-[18px] md:flex md:h-[max(var(--ws-min,600px),calc(100dvh-var(--chrome-top,165px)-24px))] md:flex-col">
+        <Toolbar
+          settings={s.globalSettings}
+          onChange={s.updateGlobalSettings}
+          hasFiles={hasFiles}
+          sortMode={s.sortMode}
+          onSetSortMode={s.setSortMode}
+          onSetAllQuality={s.setAllQuality}
+          onAddFiles={s.addFiles}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onClearAll={s.clearAll}
+        />
 
-        {/* ── Workspace ────────────────────────────────────────── */}
         {hasFiles ? (
-          <div className="flex flex-col gap-4">
-            {/* Slim dropzone on top of the list — keeps add-more / paste
-                reachable without the big empty-state hero. */}
-            <DropZone variant="compact" onFiles={s.addFiles} />
+          <div className="flex min-h-[460px] md:min-h-0 md:flex-1 md:[&>*]:min-h-0 md:[&>*]:overflow-auto flex-col md:flex-row">
+            <PreviewPanel
+              file={focused}
+              onFiles={s.addFiles}
+              onUpdateSettings={s.updateFileSettings}
+              onResetToGlobal={s.resetFileSettings}
+              onDownload={s.downloadOne}
+            />
             <FileQueue
               files={s.files}
-              expandedFileId={s.expandedFileId}
-              totalOriginalBytes={s.totalOriginalBytes}
-              totalCompressedBytes={s.totalCompressedBytes}
-              totalSavedPct={s.totalSavedPct}
-              sortMode={s.sortMode}
-              onToggleExpanded={s.toggleExpanded}
-              onRemove={s.removeFile}
-              onCancelOne={s.cancelOne}
-              onDownload={s.downloadOne}
-              onAddFiles={s.addFiles}
-              onClearAll={s.clearAll}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onUpdateFileSettings={s.updateFileSettings}
-              onResetFileSettings={s.resetFileSettings}
-              onRecompressOne={s.recompressOne}
-              onSetAllQuality={s.setAllQuality}
-              onSetDisplayName={s.setDisplayName}
-              onSetSortMode={s.setSortMode}
-            />
-            <StatusBar
-              fileCount={s.files.length}
-              totalOriginalBytes={s.totalOriginalBytes}
+              selectedId={focused?.id ?? null}
+              processedOriginalBytes={s.processedOriginalBytes}
               totalCompressedBytes={s.totalCompressedBytes}
               totalSavedPct={s.totalSavedPct}
               doneCount={s.doneCount}
-              compressingCount={s.compressingCount}
-              queuedCount={s.queuedCount}
+              onSelect={s.setExpanded}
+              onRemove={s.removeFile}
+              onDownload={s.downloadOne}
+              onCancelOne={s.cancelOne}
+              onSetDisplayName={s.setDisplayName}
               onDownloadAll={s.downloadAll}
             />
           </div>
         ) : (
-          <DropZone onFiles={s.addFiles} />
+          <div className="flex min-h-[460px] p-3.5 md:min-h-0 md:flex-1">
+            <DropZone onFiles={s.addFiles} />
+          </div>
         )}
 
-        <ImageCompressorContent />
-
-        {/* Trailing breathing room so the status bar isn't kissing the page bottom. */}
-        <div className="h-12" />
+        <StatusBar
+          fileCount={s.files.length}
+          doneCount={s.doneCount}
+          compressingCount={s.compressingCount}
+          queuedCount={s.queuedCount}
+          errorCount={errorCount}
+          processedOriginalBytes={s.processedOriginalBytes}
+          totalCompressedBytes={s.totalCompressedBytes}
+          settings={s.globalSettings}
+        />
       </div>
+
+      <ImageCompressorContent />
 
       <SettingsDrawer
         open={settingsOpen}

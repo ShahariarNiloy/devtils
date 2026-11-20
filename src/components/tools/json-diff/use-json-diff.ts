@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   canonicalize,
+  decodeShareBody,
   diffJson,
+  encodeShareBody,
   toJsonPatch,
   type ArrayStrategy,
   type DiffResult,
@@ -13,7 +15,8 @@ import {
 } from "./json-diff.lib";
 
 export type PointerStyle = "json-pointer" | "dot";
-export type ResultView = "tree" | "patch" | "side-by-side";
+/** "changes" is the v2 change list (formerly the grouped "tree"). */
+export type ResultView = "changes" | "patch" | "side-by-side";
 
 export interface ParseState {
   /** Parsed value when valid; undefined when invalid or empty. */
@@ -64,33 +67,21 @@ function parse(src: string): ParseState {
 }
 
 const SAMPLE_LEFT = `{
-  "name": "alice",
-  "age": 30,
-  "email": "alice@example.com",
-  "tags": ["admin", "user"],
-  "address": {
-    "city": "Berlin",
-    "country": "DE"
-  },
-  "items": [
-    { "id": 1, "qty": 2 },
-    { "id": 2, "qty": 5 }
-  ]
+  "id": "usr_9f2a",
+  "name": "Ada Lovelace",
+  "verified": true,
+  "plan": null,
+  "stats": { "projects": 12, "stars": 248 },
+  "roles": ["admin", "editor"]
 }`;
 
 const SAMPLE_RIGHT = `{
-  "name": "alice",
-  "age": "31",
-  "email": "alice@new.com",
-  "tags": ["user", "admin", "premium"],
-  "address": {
-    "city": "Berlin",
-    "postcode": "10115"
-  },
-  "items": [
-    { "id": 1, "qty": 3 },
-    { "id": 3, "qty": 1 }
-  ]
+  "id": "usr_9f2a",
+  "name": "Ada King",
+  "plan": "pro",
+  "stats": { "projects": 12, "stars": 251 },
+  "roles": ["admin", "editor", "owner"],
+  "team": "engine"
 }`;
 
 function readShareParams(): {
@@ -98,21 +89,18 @@ function readShareParams(): {
   right?: string;
   view?: ResultView;
 } {
-  if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
   const out: { left?: string; right?: string; view?: ResultView } = {};
   // Share-link bodies are base64-encoded to survive URL escaping of braces /
   // brackets / quotes that JSON puts everywhere.
-  try {
-    const l = params.get("l");
-    const r = params.get("r");
-    if (l) out.left = atob(l);
-    if (r) out.right = atob(r);
-  } catch {
-    // Bad base64 — silently skip.
-  }
+  const l = params.get("l");
+  const r = params.get("r");
+  if (l) out.left = decodeShareBody(l) ?? undefined;
+  if (r) out.right = decodeShareBody(r) ?? undefined;
   const v = params.get("v");
-  if (v === "tree" || v === "patch" || v === "side-by-side") out.view = v;
+  // "tree" is the pre-v2 name of the change list.
+  if (v === "tree" || v === "changes") out.view = "changes";
+  else if (v === "patch" || v === "side-by-side") out.view = v;
   return out;
 }
 
@@ -157,20 +145,32 @@ export interface JsonDiffState {
 }
 
 export function useJsonDiff(): JsonDiffState {
-  const initial = useMemo(() => readShareParams(), []);
-
-  const [left, setLeft] = useState(initial.left ?? SAMPLE_LEFT);
-  const [right, setRight] = useState(initial.right ?? SAMPLE_RIGHT);
+  const [left, setLeft] = useState(SAMPLE_LEFT);
+  const [right, setRight] = useState(SAMPLE_RIGHT);
 
   const [arrayStrategy, setArrayStrategy] = useState<ArrayStrategy>("ordered");
   const [identityKey, setIdentityKey] = useState("id");
   const [sortKeys, setSortKeys] = useState(false);
   const [hideUnchanged, setHideUnchanged] = useState(true);
-  const [pointerStyle, setPointerStyle] = useState<PointerStyle>("json-pointer");
-  // Side-by-side is the default: a textual diff is what most reviewers
-  // expect on landing; the Tree view is for engineers who want JSON Patch
-  // ops and structural detail.
-  const [view, setView] = useState<ResultView>(initial.view ?? "side-by-side");
+  // `$.a.b` labels match the v2 change list; `/a/b` (RFC 6901) is in ⋯.
+  const [pointerStyle, setPointerStyle] = useState<PointerStyle>("dot");
+  // The structural change list is the v2 landing view; JSON Patch and the
+  // text side-by-side are one click away in the ⋯ menu.
+  const [view, setView] = useState<ResultView>("changes");
+
+  // Share link → state, once on mount. Reading `window` during render
+  // would make the first client render disagree with the server HTML.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    const shared = readShareParams();
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot bridge from the URL */
+    if (shared.left !== undefined) setLeft(shared.left);
+    if (shared.right !== undefined) setRight(shared.right);
+    if (shared.view) setView(shared.view);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
 
   // Defer the inputs so typing-fast doesn't pin the diff on every keystroke
   // for big JSON. The validation banner still updates synchronously
@@ -224,12 +224,20 @@ export function useJsonDiff(): JsonDiffState {
     const params = new URLSearchParams();
     // Cap share-link body to keep URLs reasonable. >2KB per side gets
     // dropped — copy the input manually instead.
-    if (left.length < 2048) params.set("l", btoa(left));
-    if (right.length < 2048) params.set("r", btoa(right));
+    if (left.length < 2048) params.set("l", encodeShareBody(left));
+    if (right.length < 2048) params.set("r", encodeShareBody(right));
     params.set("v", view);
     const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-    void navigator.clipboard.writeText(url);
-    toast.success("Share link copied");
+    const dropped = left.length >= 2048 || right.length >= 2048;
+    navigator.clipboard.writeText(url).then(
+      () =>
+        dropped
+          ? toast.warning("Share link copied — without the large side", {
+              description: "Sides over 2 KB don't fit in a link; the recipient sees the sample there.",
+            })
+          : toast.success("Share link copied"),
+      () => toast.error("Couldn't access the clipboard"),
+    );
   }, [left, right, view]);
 
   const copyPatch = useCallback(() => {

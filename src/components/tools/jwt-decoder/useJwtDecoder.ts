@@ -11,12 +11,17 @@ import type {
 } from "./jwt-decoder.types";
 import { isParseError } from "./jwt-decoder.types";
 import { encodeJwt } from "./jwt-encode";
-import { fetchJwks, parseJwks, selectJwksKey, verifyJwt } from "./jwt-verify";
+import { resolveVerificationMaterial, verifyJwt } from "./jwt-verify";
 
-const SAMPLE =
+/**
+ * A real HS256 token signed with the secret `utilyx-demo`, so the verify
+ * field's "try utilyx-demo" hint genuinely turns green.
+ */
+export const SAMPLE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-  "eyJpc3MiOiJkZXZ0b29sYm94LmFwcCIsInN1YiI6ImRldnRvb2xib3giLCJuYW1lIjoiRGV2VG9vbGJveCIsInRhZ2xpbmUiOiJQcml2YWN5LWZpcnN0IGRldmVsb3BlciB1dGlsaXRpZXMsIDEwMCUgY2xpZW50LXNpZGUiLCJ0b29scyI6WyJqc29uLWZvcm1hdHRlciIsImp3dC1kZWNvZGVyIiwiYmFzZTY0IiwicmVnZXgtdGVzdGVyIiwiY29sb3ItY29udmVydGVyIl0sInJvbGUiOiJkZXZlbG9wZXIiLCJpYXQiOjE3MzA4NjQwMDAsImV4cCI6MTczMDk1MDQwMH0." +
-  "kJ8YJsHvOmGqXr3vP2zZxK9wD4nF7mLcVbE6tQyR8uA";
+  "eyJzdWIiOiJ1c3JfOWYyYSIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJyb2xlIjoiYWRtaW4iLCJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJpYXQiOjE3OTUxODY4MDAsImV4cCI6MTc5NTcxMjQwMH0." +
+  "QgGdreiKTqWJos4j_d6gVkQIhcu9TflNnlHNOAJ4-V4";
+export const SAMPLE_SECRET = "utilyx-demo";
 
 const DEFAULT_ENCODE_HEADER = '{\n  "alg": "HS256",\n  "typ": "JWT"\n}';
 const DEFAULT_ENCODE_PAYLOAD =
@@ -41,49 +46,38 @@ export function useJwtDecoder() {
   const forceDecode = useCallback(() => setDebounced(rawInput), [rawInput]);
 
   // ── Verification ──────────────────────────────────────────────────────────
+  // One field: an HMAC secret, a PEM / JWK public key, or a pasted JWKS
+  // document. Verification runs as you type (debounced), entirely in
+  // WebCrypto — keys are never fetched.
   const [keyMaterial, setKeyMaterial] = useState("");
-  const [jwks, setJwksInput] = useState("");
   const [verification, setVerification] = useState<VerificationResult | null>(
     null
   );
   const [verifying, setVerifying] = useState(false);
   const [jwksNote, setJwksNote] = useState<string | null>(null);
 
-  const runVerify = useCallback(async () => {
-    if (!jwt) return;
-    setVerifying(true);
-    setVerification(null);
-    setJwksNote(null);
-    try {
-      let material = keyMaterial;
-      const j = jwks.trim();
-      if (j && !keyMaterial.trim()) {
-        const keys = /^https?:\/\//.test(j) ? await fetchJwks(j) : parseJwks(j);
-        const selected = selectJwksKey(keys, jwt.header.kid);
-        if (!selected) {
-          setVerification({
-            status: "invalid",
-            reason: jwt.header.kid
-              ? `No JWKS key matches kid "${jwt.header.kid}".`
-              : "JWKS has multiple keys but the token has no kid.",
-          });
-          setVerifying(false);
-          return;
-        }
-        setJwksNote(`Using key ${selected.kid ?? "(no kid)"} from JWKS.`);
-        material = JSON.stringify(selected);
+  const verifyNow = useCallback(
+    async (token: ParsedJwt, raw: string) => {
+      if (!raw.trim()) return { result: null, note: null };
+      const resolved = resolveVerificationMaterial(raw, token.header.kid);
+      if ("error" in resolved) {
+        return {
+          result: { status: "invalid", reason: resolved.error } satisfies VerificationResult,
+          note: null,
+        };
       }
-      const result = await verifyJwt(jwt, { material });
-      setVerification(result);
-    } catch (e) {
-      setVerification({
-        status: "invalid",
-        reason: e instanceof Error ? e.message : "Verification failed.",
-      });
-    } finally {
-      setVerifying(false);
-    }
-  }, [jwt, keyMaterial, jwks]);
+      try {
+        return {
+          result: await verifyJwt(token, { material: resolved.material }),
+          note: resolved.note,
+        };
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : "Verification failed.";
+        return { result: { status: "invalid", reason } satisfies VerificationResult, note: null };
+      }
+    },
+    []
+  );
 
   // Reset verification when the token changes — derived-state-from-props
   // (sync during render) instead of an effect, so it stays a single pass.
@@ -93,6 +87,44 @@ export function useJwtDecoder() {
     setVerification(null);
     setJwksNote(null);
   }
+
+  useEffect(() => {
+    if (!jwt || !keyMaterial.trim()) return;
+    let cancelled = false;
+    const id = setTimeout(() => {
+      setVerifying(true);
+      void verifyNow(jwt, keyMaterial).then(({ result, note }) => {
+        if (cancelled) return;
+        setVerification(result);
+        setJwksNote(note);
+        setVerifying(false);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [jwt, keyMaterial, verifyNow]);
+
+  // Clearing the field clears the verdict (no stale "valid").
+  const updateKeyMaterial = useCallback((v: string) => {
+    setKeyMaterial(v);
+    if (!v.trim()) {
+      setVerification(null);
+      setJwksNote(null);
+      setVerifying(false);
+    }
+  }, []);
+
+  /** Immediate verify (⌘⇧V) — skips the debounce. */
+  const runVerify = useCallback(async () => {
+    if (!jwt) return;
+    setVerifying(true);
+    const { result, note } = await verifyNow(jwt, keyMaterial);
+    setVerification(result);
+    setJwksNote(note);
+    setVerifying(false);
+  }, [jwt, keyMaterial, verifyNow]);
 
   // ── Encode ────────────────────────────────────────────────────────────────
   const [encHeader, setEncHeader] = useState(DEFAULT_ENCODE_HEADER);
@@ -165,9 +197,7 @@ export function useJwtDecoder() {
     warnings,
     forceDecode,
     keyMaterial,
-    setKeyMaterial,
-    jwks,
-    setJwksInput,
+    setKeyMaterial: updateKeyMaterial,
     verification,
     verifying,
     jwksNote,
@@ -190,6 +220,7 @@ export function useJwtDecoder() {
     loadSample,
     clear,
     shareLink,
+    isSample: debounced.trim() === SAMPLE,
   };
 }
 

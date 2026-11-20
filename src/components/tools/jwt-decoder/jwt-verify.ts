@@ -175,25 +175,6 @@ export async function verifyJwt(
   }
 }
 
-export async function fetchJwks(url: string): Promise<JwksKey[]> {
-  let res: Response;
-  try {
-    res = await fetch(url, { headers: { Accept: "application/json" } });
-  } catch {
-    throw new Error(
-      "Could not fetch JWKS (likely a CORS restriction). Paste the JWKS JSON instead.",
-    );
-  }
-  if (!res.ok) {
-    throw new Error(`JWKS endpoint returned HTTP ${res.status}.`);
-  }
-  const json = (await res.json()) as { keys?: JwksKey[] };
-  if (!json.keys || !Array.isArray(json.keys)) {
-    throw new Error("Response is not a JWKS document (missing `keys`).");
-  }
-  return json.keys;
-}
-
 export function parseJwks(raw: string): JwksKey[] {
   const json = JSON.parse(raw) as { keys?: JwksKey[] } | JwksKey;
   if (Array.isArray((json as { keys?: JwksKey[] }).keys)) {
@@ -213,4 +194,38 @@ export function selectJwksKey(
     if (match) return match;
   }
   return keys.length === 1 ? keys[0] : null;
+}
+
+/**
+ * A pasted JWKS document ({"keys": [...]}) becomes the one key the token's
+ * `kid` selects; anything else (secret, PEM, single JWK) passes through.
+ * Nothing is fetched — JWKS URLs aren't followed, so the token stays local.
+ */
+export function resolveVerificationMaterial(
+  raw: string,
+  kid: string | undefined,
+): { material: string; note: string | null } | { error: string } {
+  const t = raw.trim();
+  if (/^https?:\/\//i.test(t)) {
+    return {
+      error:
+        "That's a URL. Paste the JWKS JSON itself — keys are never fetched, so nothing leaves your browser.",
+    };
+  }
+  if (!t.startsWith("{") || !/"keys"\s*:/.test(t)) return { material: raw, note: null };
+  let keys: JwksKey[];
+  try {
+    keys = parseJwks(t);
+  } catch {
+    return { error: "That JWKS JSON doesn't parse." };
+  }
+  const selected = selectJwksKey(keys, kid);
+  if (!selected) {
+    return {
+      error: kid
+        ? `No JWKS key matches kid "${kid}".`
+        : "JWKS has several keys but the token has no kid.",
+    };
+  }
+  return { material: JSON.stringify(selected), note: `Using key ${selected.kid ?? "(no kid)"} from the JWKS.` };
 }

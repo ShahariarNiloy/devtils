@@ -664,3 +664,43 @@ export function inlineDisplay(value: JsonValue | undefined, maxLen = 64): string
   const s = JSON.stringify(value);
   return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
 }
+
+/**
+ * JSONPath-style label for a diff entry's friendly path: `$`, `$.name`,
+ * `$[0]`, `$.users[3].city`. Used by the v2 change list.
+ */
+export function dollarPath(path: string): string {
+  if (!path) return "$";
+  return path.startsWith("[") ? `$${path}` : `$.${path}`;
+}
+
+// ── Share-link body encoding ─────────────────────────────────────────────────
+
+/**
+ * UTF-8-safe base64 for share-link bodies. Plain `btoa` throws on any
+ * character outside Latin-1 (emoji, CJK…); ASCII output is identical to
+ * `btoa`, so links made before this change still decode.
+ */
+export function encodeShareBody(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** Inverse of `encodeShareBody`; null when the token isn't valid base64. */
+export function decodeShareBody(token: string): string | null {
+  let bin: string;
+  try {
+    bin = atob(token);
+  } catch {
+    return null;
+  }
+  try {
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    // Legacy links were plain `btoa` of Latin-1 text.
+    return bin;
+  }
+}

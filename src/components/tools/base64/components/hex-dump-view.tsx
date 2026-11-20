@@ -9,6 +9,7 @@ interface HexDumpViewProps {
 
 const ROW_LIMIT = 256;
 
+/** offset · hex · ASCII rows of the result bytes. */
 export function HexDumpView({ bytes }: HexDumpViewProps) {
   const [showAll, setShowAll] = useState(false);
   const rows = useMemo(() => hexDump(bytes), [bytes]);
@@ -16,34 +17,30 @@ export function HexDumpView({ bytes }: HexDumpViewProps) {
   const truncated = !showAll && rows.length > ROW_LIMIT;
 
   if (bytes.length === 0) {
-    return (
-      <p className="text-sm text-text-faint italic px-3 py-4">No bytes to display.</p>
-    );
+    return <p className="m-0 p-4 text-[13px] text-text-ghost">No bytes to show.</p>;
   }
 
   return (
-    <div className="font-mono text-sm">
-      <div className="flex gap-4 px-3 py-1.5 border-b border-border-subtle text-text-faint uppercase tracking-wide">
-        <span className="w-20 shrink-0">Offset</span>
-        <span className="flex-1">Hex</span>
-        <span className="w-24 shrink-0">ASCII</span>
+    <div className="min-w-max py-2 font-mono text-[12px] leading-[1.75]">
+      <div className="flex gap-4 px-4 pb-1 text-[11px] tracking-wide text-text-ghost uppercase">
+        <span className="w-[72px] shrink-0">Offset</span>
+        <span className="w-[23.5rem] shrink-0">Hex</span>
+        <span className="shrink-0">ASCII</span>
       </div>
-      <div className="divide-y divide-border-subtle/50">
-        {visible.map((r) => (
-          <div key={r.offset} className="flex gap-4 px-3 py-1 hover:bg-surface-soft/40 transition-colors">
-            <span className="w-20 shrink-0 text-text-faint">{r.offset}</span>
-            <span className="flex-1 text-text">{r.hex}</span>
-            <span className="w-24 shrink-0 text-text-muted">{r.ascii}</span>
-          </div>
-        ))}
-      </div>
+      {visible.map((r) => (
+        <div key={r.offset} className="flex gap-4 px-4 hover:bg-white/3">
+          <span className="w-[72px] shrink-0 text-text-ghost">{r.offset}</span>
+          <span className="w-[23.5rem] shrink-0 text-syntax-plain">{r.hex}</span>
+          <span className="shrink-0 whitespace-pre text-text-tertiary">{r.ascii}</span>
+        </div>
+      ))}
       {truncated && (
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="mt-2 inline-flex h-9 items-center justify-center rounded-button border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:border-border-strong hover:text-text transition-colors cursor-pointer"
+          className="mx-4 mt-2 inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-border px-2.5 font-sans text-xs font-semibold text-text-key transition-colors hover:bg-white/6"
         >
-          Show all {bytes.length.toLocaleString()} bytes →
+          Show all {bytes.length.toLocaleString()} bytes
         </button>
       )}
     </div>

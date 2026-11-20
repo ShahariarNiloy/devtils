@@ -57,6 +57,40 @@ export const UNIT_GROUPS: readonly { id: string; label: string; units: readonly 
   { id: "viewport", label: "Viewport", units: ["vw", "vh"] },
 ] as const;
 
+export function isLengthUnit(s: string): s is LengthUnit {
+  return (LENGTH_UNITS as readonly string[]).includes(s);
+}
+
+/** What each unit is relative to — the note under a result card. */
+export const UNIT_NOTES: Record<LengthUnit, string> = {
+  px: "Absolute pixels",
+  rem: "Relative to root font size",
+  em: "Relative to parent font",
+  "%": "Of parent font size",
+  vw: "Of viewport width",
+  vh: "Of viewport height",
+  pt: "Print points",
+  pc: "Print picas",
+  in: "Inches",
+  cm: "Centimetres",
+  mm: "Millimetres",
+};
+
+/** px values in the quick px → rem table (mockup). */
+export const REM_TABLE_PX: readonly number[] = [4, 8, 12, 14, 16, 18, 20, 24, 32, 48];
+
+/**
+ * Parse a context size field (root font, viewport). Returns null when the
+ * text isn't a positive number up to `max` — callers fall back to defaults
+ * and flag the field.
+ */
+export function parseContextNumber(text: string, max: number): number | null {
+  const t = text.trim();
+  if (!/^\d*\.?\d+$/.test(t)) return null;
+  const n = Number(t);
+  return n > 0 && n <= max ? n : null;
+}
+
 export interface ConversionContext {
   /** Document root font-size in px. Drives rem / em / % conversions. */
   baseFontSize: number;

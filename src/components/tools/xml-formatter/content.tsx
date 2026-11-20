@@ -1,13 +1,14 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
+  usesNote: "Readable XML, or the smallest version of it.",
   intro:
     "Format and validate XML for any flavor — SVG, SOAP, RSS / Atom, Maven POM, Android layouts, or generic XML. Auto-detects the document type from its root element. Three modes: format (pretty-print), minify (single-line), or convert to JSON. Runs entirely in your browser — pasted XML never leaves the tab.",
   useCases: [
     {
       title: "Reading SOAP responses from legacy APIs",
       description:
-        "Paste a one-line SOAP envelope, see properly indented Header / Body / fault hierarchy with namespaces preserved. Switch to JSON mode to drop the response into a modern client library.",
+        "Paste a one-line SOAP envelope, see properly indented Header / Body / fault hierarchy with namespaces preserved. Turn on Convert to JSON (⋯ menu) to drop the response into a modern client library.",
     },
     {
       title: "Inspecting an SVG export from a design tool",
@@ -22,7 +23,7 @@ export const seoData = {
     {
       title: "Converting an RSS or Atom feed to JSON",
       description:
-        "Paste any feed, switch to JSON mode. Attributes prefix with `@`, text nodes use `#text`. The resulting JSON works with `fetch` callers that expect a JSON Content-Type.",
+        "Paste any feed and turn on Convert to JSON in the ⋯ menu. Attributes prefix with `@`, text nodes use `#text`. The resulting JSON works with `fetch` callers that expect a JSON Content-Type.",
     },
   ],
   faqs: [
@@ -44,7 +45,7 @@ export const seoData = {
     {
       question: "Will it change my XML's meaning?",
       answer:
-        "No — only whitespace, indentation, and (optionally) attribute order. Element text, attribute values, CDATA sections, and processing instructions are preserved exactly. The Diff view shows you which lines moved or split, so you can verify nothing semantic has shifted.",
+        "No — only whitespace, indentation, and (optionally) attribute order. Element text, attribute values, CDATA sections, and processing instructions are preserved exactly. Compare with input, in the ⋯ menu, shows you which lines moved or split, so you can verify nothing semantic has shifted.",
     },
     {
       question: "What's the difference between Format, Minify, and JSON?",
@@ -59,10 +60,10 @@ export const seoData = {
     {
       question: "Are there keyboard shortcuts?",
       answer:
-        "`/` focuses the input, `⌘⇧C` copies the output, `⌘⇧M` toggles Minify, `⌘⇧J` toggles JSON. The flavor picker remembers your last selection in localStorage.",
+        "`/` focuses the input, `⌘⇧C` copies the output, `⌘⇧M` toggles Minify, `⌘⇧J` toggles JSON, `⌘⇧D` toggles the side-by-side compare. The flavor picker remembers your last selection on this device.",
     },
   ],
-  relatedSlugs: ["json-formatter", "sql-formatter", "code-formatter", "diff-checker"],
+  relatedSlugs: ["json-to-xml", "code-formatter", "sql-formatter", "json-formatter"],
 } as const;
 
 export function XmlFormatterContent() {

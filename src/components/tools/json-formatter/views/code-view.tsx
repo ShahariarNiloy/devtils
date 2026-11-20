@@ -55,6 +55,14 @@ export interface CodeViewProps {
    * navigating to a parse-error line matters more than line length.
    */
   wrap?: boolean;
+  /**
+   * Visual metrics. `v2` = redesign (13px / 1.75, plain 44px gutter, error
+   * lines marked in the gutter); `default` = legacy look for tools not yet
+   * moved to v2.
+   */
+  variant?: "default" | "v2";
+  /** v2: every line with a problem (gutter numbers turn red). */
+  errorLines?: readonly number[];
 }
 
 /**
@@ -97,7 +105,14 @@ export function CodeView({
   placeholder = "Paste JSON here…",
   maxHighlightSize = HIGHLIGHT_SIZE_THRESHOLD,
   wrap = false,
+  variant = "default",
+  errorLines,
 }: CodeViewProps) {
+  const v2 = variant === "v2";
+  const metrics = v2
+    ? "font-mono text-[12px] leading-[1.75] sm:text-[13px]"
+    : "font-mono text-base leading-code tracking-tight";
+  const pad = v2 ? "py-3.5 pl-0 pr-4" : "px-3 py-3";
   const gutterRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -397,9 +412,13 @@ export function CodeView({
         <div
           ref={gutterRef}
           aria-hidden
-          className="no-scrollbar select-none overflow-hidden whitespace-pre bg-surface-soft/20 border-r border-border-subtle py-3 px-2 text-right font-mono text-base leading-code tracking-tight text-text-faint min-w-line-num shrink-0"
+          className={
+            v2
+              ? `no-scrollbar w-8 shrink-0 select-none overflow-hidden whitespace-pre py-3.5 pr-3 text-right text-text-ghost sm:w-11 ${metrics}`
+              : "no-scrollbar select-none overflow-hidden whitespace-pre bg-surface-soft/20 border-r border-border-subtle py-3 px-2 text-right font-mono text-base leading-code tracking-tight text-text-faint min-w-line-num shrink-0"
+          }
         >
-          <GutterLines numLines={numLines} errorLine={errorLine} />
+          <GutterLines numLines={numLines} errorLines={v2 ? (errorLines ?? (errorLine ? [errorLine] : [])) : []} />
         </div>
       )}
 
@@ -407,7 +426,7 @@ export function CodeView({
         <pre
           ref={preRef}
           onScroll={syncScroll}
-          className={`flex-1 ${preReadOnlyOverflow} px-3 py-3 font-mono text-base leading-code tracking-tight text-text m-0 ${wrapCls}`}
+          className={`flex-1 ${preReadOnlyOverflow} ${pad} ${metrics} text-text m-0 ${wrapCls}`}
         >
           {value ? (
             <code dangerouslySetInnerHTML={{ __html: highlighted ?? "" }} />
@@ -423,6 +442,7 @@ export function CodeView({
               html={editableHighlight}
               wrapCls={wrapCls}
               overflowCls={overlayOverflow}
+              boxCls={`${pad} ${metrics}`}
             />
           )}
           <textarea
@@ -436,7 +456,7 @@ export function CodeView({
             onClick={handleClick}
             spellCheck={false}
             placeholder={placeholder}
-            className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 px-3 py-3 font-mono text-base leading-code tracking-tight bg-transparent border-0 resize-none outline-none ${overlayOverflow} ${wrapCls}`}
+            className={`${plainMode ? "text-text" : "code-overlay-textarea"} absolute inset-0 m-0 ${pad} ${metrics} bg-transparent border-0 resize-none outline-none placeholder:text-text-faint ${overlayOverflow} ${wrapCls}`}
           />
         </div>
       )}
@@ -455,17 +475,19 @@ const HighlightOverlay = memo(function HighlightOverlay({
   html,
   wrapCls = "whitespace-pre",
   overflowCls = "overflow-auto",
+  boxCls = "px-3 py-3 font-mono text-base leading-code tracking-tight",
 }: {
   preRef: React.RefObject<HTMLPreElement | null>;
   html: string;
   wrapCls?: string;
   overflowCls?: string;
+  boxCls?: string;
 }) {
   return (
     <pre
       ref={preRef}
       aria-hidden
-      className={`absolute inset-0 m-0 px-3 py-3 ${overflowCls} font-mono text-base leading-code tracking-tight text-text pointer-events-none ${wrapCls}`}
+      className={`absolute inset-0 m-0 ${boxCls} ${overflowCls} text-text pointer-events-none ${wrapCls}`}
     >
       <code dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />
     </pre>

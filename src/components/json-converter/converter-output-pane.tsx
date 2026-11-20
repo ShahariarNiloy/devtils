@@ -1,119 +1,129 @@
 "use client";
 
-import { useMemo } from "react";
-import { Copy, Download } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Tooltip } from "@/components/primitives/tooltip";
 import { CodeView } from "@/components/tools/json-formatter/views/code-view";
-import {
-  highlight,
-  type Lang,
-} from "@/lib/highlight";
+import { highlight, type Lang } from "@/lib/highlight";
+import type { TablePreview } from "./converter.lib";
 
 interface ConverterOutputPaneProps {
   output: string;
-  outputBytes: number;
   outputLang: Lang;
   outputLabel: string;
-  /** Download filename (without extension); extension comes from `downloadExt`. */
-  downloadName?: string;
-  downloadExt: string;
-  /** Mime type used for the download blob. */
-  downloadMime: string;
-  conversionError: string | null;
+  /** Short shape summary next to the label ("4 types", "3 rows · 6 columns"). */
+  summary?: string;
+  /** Problem to show instead of output (parse or conversion error). */
+  error: { title: string; message: string } | null;
+  isComputing?: boolean;
+  /** Optional table preview under the code (CSV tools). */
+  preview?: (TablePreview & { totalRows?: number }) | null;
 }
 
 /**
- * Read-only renderer for the converter output, with copy / download in the
- * header and a status line that reflects byte size. Highlighting is computed
- * up-front and handed to CodeView via `highlighted` so the readonly path
- * doesn't re-tokenize on each unrelated parent render.
+ * v2 output pane: bold label + summary + cream Copy in the header, the
+ * read-only highlighted CodeView, and an optional "Preview" table below.
+ * Errors render as an alert in place of the output — never a silent blank.
  */
 export function ConverterOutputPane({
   output,
-  outputBytes,
   outputLang,
   outputLabel,
-  downloadName = "output",
-  downloadExt,
-  downloadMime,
-  conversionError,
+  summary,
+  error,
+  isComputing,
+  preview,
 }: ConverterOutputPaneProps) {
   const highlighted = useMemo(() => highlight(output, outputLang), [output, outputLang]);
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const handleCopy = async () => {
     if (!output) return;
-    await navigator.clipboard.writeText(output);
-    toast.success(`Copied ${output.length.toLocaleString()} characters`);
-  };
-
-  const handleDownload = () => {
-    if (!output) return;
-    const blob = new Blob([output], { type: downloadMime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${downloadName}.${downloadExt}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // Clipboard blocked (permissions / insecure context) — say so.
+      setCopied(false);
+      toast.error("Clipboard write blocked by the browser");
+    }
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-surface">
-      <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
-        <span className="ml-1 text-sm uppercase tracking-wider font-semibold text-text-faint">
-          {outputLabel}
-        </span>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip content="Copy output" side="bottom">
-            <button
-              type="button"
-              onClick={handleCopy}
-              disabled={!output}
-              aria-label="Copy output"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              <Copy size={16} aria-hidden />
-            </button>
-          </Tooltip>
-
-          <Tooltip content={`Download .${downloadExt}`} side="bottom">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={!output}
-              aria-label="Download output"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              <Download size={16} aria-hidden />
-            </button>
-          </Tooltip>
-        </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-border-subtle pr-2 pl-4">
+        <span className="text-[13px] font-bold">{outputLabel}</span>
+        {!error && summary && <span className="truncate text-xs text-text-faint">{summary}</span>}
+        {isComputing && <span className="text-xs text-text-faint">Converting…</span>}
+        <span className="grow" />
+        <button
+          type="button"
+          onClick={() => void handleCopy()}
+          disabled={!output}
+          aria-live="polite"
+          className="btn-action inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
       </div>
 
-      {conversionError && (
-        <div className="shrink-0 border-b border-border-subtle bg-danger/5 px-3 py-2 text-sm text-danger">
-          <div className="font-medium">Conversion failed</div>
-          <div className="text-xs text-text-faint">{conversionError}</div>
+      {error && (
+        <div
+          role="alert"
+          className="m-3.5 shrink-0 rounded-[10px] border border-error-border bg-error-bg px-3.5 py-3 text-[13px] text-error-text"
+        >
+          <span className="font-semibold">{error.title}.</span> {error.message}
         </div>
       )}
 
-      <div className="flex-1 min-h-0">
-        <CodeView
-          value={output}
-          highlighted={highlighted}
-          indent="2"
-          lang={outputLang}
-        />
+      <div className="min-h-0 flex-1">
+        {!error && (
+          <CodeView variant="v2" value={output} highlighted={highlighted} indent="2" lang={outputLang} />
+        )}
       </div>
 
-      <div
-        aria-live="polite"
-        className="h-8 shrink-0 border-t border-border-subtle bg-surface px-3 flex items-center justify-between text-sm font-mono text-text-faint"
-      >
-        <span>{output.length.toLocaleString()} chars · {outputBytes.toLocaleString()} B</span>
-      </div>
+      {preview && !error && preview.cols.length > 0 && (
+        <div className="max-h-[45%] shrink-0 overflow-auto border-t border-border-subtle px-3.5 pt-3 pb-4">
+          <div className="mb-2 text-xs text-text-faint">
+            Preview
+            {preview.totalRows !== undefined && preview.totalRows > preview.rows.length && (
+              <> · first {preview.rows.length} of {preview.totalRows.toLocaleString()} rows</>
+            )}
+          </div>
+          <table className="w-full table-fixed border-collapse text-xs">
+            <thead>
+              <tr>
+                {preview.cols.map((c, i) => (
+                  <th
+                    key={i}
+                    scope="col"
+                    className="border-b border-white/10 px-2 py-1.5 text-left font-bold break-all text-text-strong"
+                  >
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {preview.rows.map((r, ri) => (
+                <tr key={ri}>
+                  {preview.cols.map((_, ci) => {
+                    const v = r[ci];
+                    return (
+                      <td key={ci} className="border-b border-white/5 px-2 py-1.5 break-all text-text-muted">
+                        {v === undefined || v === "" ? "—" : v}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

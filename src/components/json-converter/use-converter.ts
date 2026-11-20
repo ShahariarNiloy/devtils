@@ -49,6 +49,18 @@ export interface UseConverterArgs {
   };
   /** Initial input value (e.g. a default sample). */
   initialInput?: string;
+  /**
+   * Pure text transform applied to every result — sync and worker alike —
+   * for options the shared emitters don't know about (e.g. "optional
+   * fields"). Keep it cheap: it runs on each new result.
+   */
+  postProcess?: (output: string) => string;
+  /**
+   * Pick up JSON handed off by the JSON formatter (default true). Tools
+   * whose input isn't JSON pass false so a pending JSON handoff can't land
+   * in a YAML or CSV editor.
+   */
+  acceptHandoff?: boolean;
 }
 
 export interface UseConverterState {
@@ -66,6 +78,9 @@ export interface UseConverterState {
 }
 
 function locateParseError(input: string, message: string) {
+  // Reverse parsers report "(line L, column C)" directly.
+  const lc = message.match(/line (\d+), column (\d+)/i);
+  if (lc) return { line: Number(lc[1]), col: Number(lc[2]) };
   const posMatch = message.match(/position (\d+)/i)
     || message.match(/at position (\d+)/i)
     || message.match(/at (\d+)/i);
@@ -85,6 +100,8 @@ export function useConverter({
   parseInput,
   worker,
   initialInput = "",
+  postProcess,
+  acceptHandoff = true,
 }: UseConverterArgs): UseConverterState {
   const [input, setInput] = useState(initialInput);
 
@@ -92,12 +109,15 @@ export function useConverter({
   const clearInput = useCallback(() => setInput(""), []);
 
   useEffect(() => {
+    if (!acceptHandoff) return;
     const handoff = consumeHandoffInput();
     // One-shot read on mount — intentional setState; React's strict rule
     // assumes this is wrong, but for an external-state pull (sessionStorage
     // hand-off from the JSON formatter) it's the simplest correct shape.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (handoff !== null) setInput(handoff);
+    // Mount-only: the handoff is a one-shot read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const parse = useMemo<ParseState>(() => {
@@ -171,7 +191,9 @@ export function useConverter({
   }, [input, parse, workerOptionsKey]);
 
   // ── Pick the active result ───────────────────────────────────────────────
-  const result = syncResult ?? asyncResult;
+  // A worker result from an earlier (large, valid) input must not outlive it.
+  const result =
+    parse.error || parse.parsed === null ? null : (syncResult ?? asyncResult);
 
   const { output, outputResult, conversionError } = useMemo<{
     output: string;
@@ -182,8 +204,21 @@ export function useConverter({
     if ("error" in result) {
       return { output: "", outputResult: null, conversionError: result.error };
     }
-    return { output: result.output, outputResult: result, conversionError: null };
-  }, [result]);
+    if (!postProcess) {
+      return { output: result.output, outputResult: result, conversionError: null };
+    }
+    try {
+      const text = postProcess(result.output);
+      return {
+        output: text,
+        outputResult: { ...result, output: text, size: new Blob([text]).size },
+        conversionError: null,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { output: "", outputResult: null, conversionError: message };
+    }
+  }, [result, postProcess]);
 
   const inputBytes = useMemo(() => new Blob([input]).size, [input]);
   const outputBytes = outputResult?.size ?? 0;

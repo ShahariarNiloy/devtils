@@ -1,9 +1,16 @@
-import { Header } from '@/components/layout/header';
-import { HomeFooter } from '@/components/layout/home-footer';
-import { ToolsIndex } from '@/components/layout/tools-index';
-import { parseTierParam } from '@/components/layout/tools-index/params';
-import { SHOWCASE_TOOLS, CATEGORIES, TOOL_COUNT, type ToolCategory } from "@/lib/tools-registry";
+import { Header } from "@/components/layout/header";
+import { HomeFooter } from "@/components/layout/home-footer";
+import {
+  JSON_SECTION,
+  LIVE,
+  MOST_USED,
+  OTHER_SECTIONS,
+  ROADMAP,
+  TOTAL,
+} from "@/components/tools-catalogue/catalogue-data";
+import { ToolsCatalogue } from "@/components/tools-catalogue/tools-catalogue";
 import { SITE_NAME } from "@/lib/site";
+import { TOOL_COUNT } from "@/lib/tools-registry";
 
 export const metadata = {
   title: "All tools",
@@ -24,36 +31,21 @@ export const metadata = {
   robots: { index: true, follow: true },
 };
 
-interface PageSearchParams {
-  cat?: string;
-  q?: string;
-  tier?: string;
-}
-
-const validCats: ReadonlySet<string> = new Set<ToolCategory>(CATEGORIES);
-
-export default async function ToolsPage({
-  searchParams,
-}: {
-  searchParams: Promise<PageSearchParams>;
-}) {
-  const sp = await searchParams;
-  const initialCat = sp?.cat && validCats.has(sp.cat) ? (sp.cat as ToolCategory) : null;
-  const initialQuery = typeof sp?.q === "string" ? sp.q : "";
-  const initialTier = parseTierParam(sp?.tier);
-
+export default async function ToolsPage({ searchParams }: PageProps<"/tools">) {
+  const { q } = await searchParams;
   return (
-    <div className="flex min-h-dvh flex-col">
-      <Header />
-      <main id="main" className="flex-1 bg-bg">
-        <ToolsIndex
-          tools={SHOWCASE_TOOLS}
-          initialCategory={initialCat}
-          initialQuery={initialQuery}
-          initialTier={initialTier}
-        />
-        <HomeFooter />
-      </main>
+    <div className="flex min-h-dvh flex-col overflow-x-clip text-base leading-[1.55]">
+      <Header variant="catalogue" />
+      <ToolsCatalogue
+        json={JSON_SECTION}
+        sections={OTHER_SECTIONS}
+        featured={MOST_USED}
+        roadmap={ROADMAP}
+        total={TOTAL}
+        live={LIVE}
+        initialQuery={typeof q === "string" ? q : ""}
+      />
+      <HomeFooter variant="compact" />
     </div>
   );
 }

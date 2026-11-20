@@ -38,7 +38,7 @@ export function FormatPicker({
   onChange: (m: OutputFormat) => void;
 }) {
   return (
-    <div role="radiogroup" className="flex flex-wrap gap-1.5">
+    <div role="radiogroup" className="flex flex-wrap gap-0.5 rounded-[11px] border border-border-subtle bg-[#0d0d0c] p-[3px]">
       {OUTPUT_FORMATS.map((m) => {
         const active = value === m;
         // Disable converting to the same format as input — pointless;
@@ -61,14 +61,14 @@ export function FormatPicker({
               if (!redundant) onChange(m);
             }}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out-strong",
+              "min-h-9 flex-1 rounded-lg px-3 text-[13px] font-semibold transition-[color,background-color,transform] duration-150 ease-out-strong",
               redundant &&
-                "cursor-not-allowed border-border-subtle bg-surface opacity-40",
+                "cursor-not-allowed text-text-tertiary opacity-40",
               !redundant && "active:scale-[0.97] cursor-pointer",
               active
-                ? "border-brand bg-brand/15 text-text"
+                ? "bg-selected text-text shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 : !redundant &&
-                    "border-border-subtle bg-surface text-text-muted hover:border-border-strong/60 hover:text-text"
+                    "text-text-tertiary hover:text-text"
             )}
           >
             {OUTPUT_FORMAT_LABEL[m]}

@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Convert arrays of JSON objects to CSV with the small but important details that make CSV interop work: configurable delimiter for EU locales (semicolon), dot-notation flattening for nested objects, optional UTF-8 BOM for Excel encoding detection, and CRLF line endings for Windows-friendly output. Nested arrays serialize as embedded JSON inside the cell so the column count stays predictable.",
+  usesNote: "From an API to a spreadsheet.",
   useCases: [
         {
           title: "Exporting API data to spreadsheets",
@@ -33,7 +34,7 @@ export const seoData = {
         {
           question: "How are nested objects handled?",
           answer:
-            "Flattened with the delimiter you choose (default `.`). `{address: {city: \"x\"}}` becomes a column called `address.city`. Use `/` or `_` if your downstream tool doesn't like dots in column names.",
+            "With Flatten nested on, they're flattened with the key joiner from the ⋯ menu (default `.`). `{address: {city: \"x\"}}` becomes a column called `address.city`. Pick `/` or `_` if your downstream tool doesn't like dots in column names, or turn Flatten nested off to keep each nested object as JSON in one cell.",
         },
         {
           question: "What happens to arrays inside an object?",

@@ -16,8 +16,10 @@ export function ThemeProvider({ children }: Props) {
   return (
     <NextThemes
       attribute="data-theme"
-      defaultTheme="system"
-      enableSystem
+      // v2 is dark-only. Forcing keeps `useTheme()` consumers consistent.
+      forcedTheme="dark"
+      defaultTheme="dark"
+      enableSystem={false}
       disableTransitionOnChange
     >
       {children}

@@ -339,6 +339,9 @@ export function explainPattern(pattern: string): ExplainToken[] {
 
 // ─── Flags ────────────────────────────────────────────────────────────────────
 
+/** What the worker computes beyond the match list. */
+export type RegexMode = "match" | "replace" | "split" | "extract";
+
 export const ALL_FLAGS = ["g", "i", "m", "s", "u", "y"] as const;
 export type Flag = (typeof ALL_FLAGS)[number];
 
@@ -477,4 +480,26 @@ export async function generateExamples(
       error: err instanceof Error ? err.message : "Generation failed.",
     };
   }
+}
+
+// ─── Copy as code ────────────────────────────────────────────────────────────
+
+/** `/pattern/flags` with any unescaped `/` escaped, ready to paste in JS. */
+export function toRegexLiteral(pattern: string, flags: string): string {
+  let out = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === "\\" && i + 1 < pattern.length) {
+      out += ch + pattern[i + 1];
+      i++;
+    } else if (ch === "/") out += "\\/";
+    else if (ch === "\n") out += "\\n";
+    else out += ch;
+  }
+  return `/${out || "(?:)"}/${flags}`;
+}
+
+/** `new RegExp("…", "flags")` with the backslashes string-escaped. */
+export function toRegExpConstructor(pattern: string, flags: string): string {
+  return `new RegExp(${JSON.stringify(pattern)}${flags ? `, ${JSON.stringify(flags)}` : ""})`;
 }

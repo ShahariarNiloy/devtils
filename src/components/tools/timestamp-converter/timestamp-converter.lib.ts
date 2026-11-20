@@ -736,3 +736,80 @@ export function searchTimezones(query: string): Array<{
       t.iana.toLowerCase().includes(q) || t.label.toLowerCase().includes(q),
   );
 }
+
+// ── v2 workspace helpers ──────────────────────────────────────────────────────
+
+/**
+ * Headline relative phrase for the v2 workspace: "Right now", "In 2 months",
+ * "3 hours ago". Coarse on purpose — one unit, rounded.
+ *
+ * @param targetMs - The moment, epoch ms.
+ * @param nowMs - Reference "now", epoch ms.
+ * @example relativePhrase(now + 90_000, now) // "In 2 minutes"
+ */
+export function relativePhrase(targetMs: number, nowMs: number): string {
+  const diff = targetMs - nowMs;
+  if (Math.abs(diff) < 1000) return "Right now";
+  const s = Math.abs(diff) / 1000;
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  let span: string;
+  if (s < 60) span = unit(Math.round(s), "second");
+  else if (s < 3600) span = unit(Math.round(s / 60), "minute");
+  else if (s < 86_400) span = unit(Math.round(s / 3600), "hour");
+  else if (s < 86_400 * 60) span = unit(Math.round(s / 86_400), "day");
+  else if (s < 86_400 * 730) span = unit(Math.round(s / 86_400 / 30.4), "month");
+  else span = unit(Math.round(s / 86_400 / 365.25), "year");
+  return diff > 0 ? `In ${span}` : `${span} ago`;
+}
+
+/**
+ * Format an instant in a zone with `Intl` (en-GB, 24-hour). Returns "—" if
+ * the zone is unknown to this runtime.
+ */
+export function formatInZone(
+  instant: Temporal.Instant,
+  timeZone: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone, ...options }).format(
+      new Date(instant.epochMilliseconds),
+    );
+  } catch {
+    return "—";
+  }
+}
+
+/** "Friday 20 November 2026 (UTC)" — the line under the relative headline. */
+export function utcDateLine(instant: Temporal.Instant): string {
+  return `${formatInZone(instant, "UTC", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} (UTC)`;
+}
+
+/** "324 · ISO week 47" in UTC. */
+export function dayOfYearLine(instant: Temporal.Instant): string {
+  const zdt = instant.toZonedDateTimeISO("UTC");
+  return `${zdt.dayOfYear} · ISO week ${zdt.weekOfYear ?? "—"}`;
+}
+
+export interface WorldZoneRow {
+  city: string;
+  zone: string;
+  /** "17:00" */
+  time: string;
+  /** "20 Nov 2026" */
+  date: string;
+}
+
+/** One row of the "Around the world" list. */
+export function worldZoneRow(
+  instant: Temporal.Instant,
+  city: string,
+  zone: string,
+): WorldZoneRow {
+  return {
+    city,
+    zone,
+    time: formatInZone(instant, zone, { hour: "2-digit", minute: "2-digit", hour12: false }),
+    date: formatInZone(instant, zone, { day: "numeric", month: "short", year: "numeric" }),
+  };
+}

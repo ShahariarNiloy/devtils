@@ -59,58 +59,6 @@ export function useTextPersistence(text: string) {
   }, [text]);
 }
 
-/**
- * Tracks viewport width via a media query and calls `setSplitDirection`
- * with `"horizontal"` on tablet+ or `"vertical"` on mobile.
- */
-export function useSplitDirection(
-  setSplitDirection: (d: "horizontal" | "vertical") => void,
-) {
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = (e: MediaQueryListEvent | MediaQueryList) =>
-      setSplitDirection(e.matches ? "horizontal" : "vertical");
-    update(mq);
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [setSplitDirection]);
-}
-
-/**
- * Detects the on-screen keyboard via the VisualViewport API and calls
- * `setIsKeyboardOpen` when it opens or closes.
- * Debounced to avoid flickering on orientation changes.
- */
-export function useKeyboardDetection(setIsKeyboardOpen: (open: boolean) => void) {
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    let pending: number | null = null;
-    let last = false;
-
-    function read() {
-      const heightDiff = window.innerHeight - vv.height;
-      const next = heightDiff > 150;
-      if (next !== last) {
-        last = next;
-        setIsKeyboardOpen(next);
-      }
-    }
-
-    function schedule() {
-      if (pending !== null) window.clearTimeout(pending);
-      pending = window.setTimeout(read, 100);
-    }
-
-    vv.addEventListener("resize", schedule);
-    read();
-    return () => {
-      vv.removeEventListener("resize", schedule);
-      if (pending !== null) window.clearTimeout(pending);
-    };
-  }, [setIsKeyboardOpen]);
-}
-
 interface HistorySaveArgs {
   compiledOk: boolean;
   pattern: string;

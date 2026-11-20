@@ -31,7 +31,7 @@ const DEFAULT_DIALECT: DialectId = "sql";
  * demonstrate themselves on first load.
  */
 const SAMPLES: Record<DialectId, string> = {
-  sql: `SELECT u.id,u.name,COUNT(o.id) AS orders FROM users u LEFT JOIN orders o ON o.user_id=u.id WHERE u.active=TRUE GROUP BY u.id,u.name HAVING COUNT(o.id)>0 ORDER BY orders DESC LIMIT 25;`,
+  sql: `select u.id, u.name, count(o.id) as orders, sum(o.total) as revenue from users u left join orders o on o.user_id = u.id and o.status = 'paid' where u.created_at >= '2026-01-01' and u.plan in ('pro', 'team') group by u.id, u.name having count(o.id) > 2 order by revenue desc limit 20;`,
   postgresql: `WITH active_users AS (SELECT id,name FROM users WHERE active=true)
 INSERT INTO audit (user_id,action,at) SELECT id,'login',now() FROM active_users RETURNING id,user_id;
 SELECT to_jsonb(u) FROM users u WHERE u.created_at > now()-interval '7 days';`,

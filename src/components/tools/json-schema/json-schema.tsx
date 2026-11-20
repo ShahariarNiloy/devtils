@@ -2,118 +2,114 @@
 
 import { useCallback, useMemo } from "react";
 import {
+  booleanCodec,
   ConverterShell,
   enumCodec,
   JSON_SAMPLES,
-  OptionLabel,
-  OptionsRow,
+  linesSummary,
+  Segmented,
+  stringCodec,
+  ToggleChip,
+  ToolbarField,
   useConverter,
   useUrlState,
   ValidationPill,
 } from "@/components/json-converter";
-import { inferJsonSchema } from "@/components/tools/json-formatter/schema-infer";
+import type { JsonSchema as JsonSchemaShape } from "@/components/tools/json-formatter/schema-infer";
 import { validateAgainstSchema } from "@/components/tools/json-formatter/schema-validate";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/primitives/select";
-import {
-  toJsonSchema,
-  type JsonSchemaOptions,
-} from "@/components/tools/json-formatter/json-convert";
+import { toJsonSchema, type JsonSchemaOptions } from "@/components/tools/json-formatter/json-convert";
 import type { Tool } from "@/lib/tools-registry";
-import { JsonSchemaContent } from "./content";
+import { JsonSchemaContent, seoData } from "./content";
+import { findUnexpectedKey, postProcessSchema } from "./json-schema.lib";
 
 const DEFAULT_INPUT = JSON.stringify(JSON_SAMPLES[0].value, null, 2);
 
-type Draft = NonNullable<JsonSchemaOptions["draft"]>;
+const DRAFTS = [
+  ["2020-12", "2020-12"],
+  ["draft-07", "draft-07"],
+] as const;
 
 /**
- * JSON Schema generator. Walks the sample once, infers a `draft 2020-12`
- * schema (or `draft-07` for compatibility with older validators) with
- * format-aware string detection. Required fields are the intersection of
- * keys observed across array items, so a list of mostly-uniform records
- * gets accurate required/optional separation automatically.
+ * JSON Schema generator. Infers a draft 2020-12 (or draft-07) schema with
+ * format-aware strings; required keys are the intersection seen across
+ * array items. A post-pass sets the title, strips `required` when asked and
+ * adds `additionalProperties: false` for "No extra keys". The status bar
+ * proves the final schema accepts the sample it came from.
  */
 export function JsonSchema({ tool }: { tool: Tool }) {
-  const [draft, setDraft] = useUrlState(
-    "draft",
-    enumCodec(["2020-12", "draft-07"] as const, "2020-12"),
-  );
+  const [title, setTitle] = useUrlState("title", stringCodec("Root"));
+  const [draft, setDraft] = useUrlState("draft", enumCodec(["2020-12", "draft-07"] as const, "2020-12"));
+  const [required, setRequired] = useUrlState("required", booleanCodec(true));
+  const [noExtraKeys, setNoExtraKeys] = useUrlState("strict", booleanCodec(false));
 
   const options = useMemo<JsonSchemaOptions>(() => ({ draft }), [draft]);
-
-  const convert = useCallback(
-    (value: unknown) => toJsonSchema(value, options),
-    [options],
+  const convert = useCallback((value: unknown) => toJsonSchema(value, options), [options]);
+  const postProcess = useCallback(
+    (out: string) => postProcessSchema(out, { title, required, noExtraKeys }),
+    [title, required, noExtraKeys],
   );
 
   const c = useConverter({
     convert,
     worker: { target: "schema", options },
     initialInput: DEFAULT_INPUT,
+    postProcess,
   });
 
-  // Round-trip validation: confirm the inferred schema accepts the same
-  // sample it was generated from. If it doesn't, the inference is buggy —
-  // not a UX concern, but a trust signal worth surfacing.
+  // Round-trip: the schema actually shown must accept the sample.
   const validation = useMemo(() => {
-    if (c.parse.error || c.parse.parsed === null) return null;
+    if (c.parse.error || c.parse.parsed === null || !c.output) return null;
     try {
-      const schema = inferJsonSchema(c.parse.parsed);
-      return validateAgainstSchema(c.parse.parsed, schema);
+      const schema = JSON.parse(c.output) as JsonSchemaShape;
+      const base = validateAgainstSchema(c.parse.parsed, schema);
+      if (!base.ok) return base;
+      const extra = findUnexpectedKey(c.parse.parsed, schema);
+      return extra ? { ok: false as const, path: extra, message: "key not allowed by additionalProperties: false" } : base;
     } catch {
       return null;
     }
-  }, [c.parse]);
+  }, [c.parse, c.output]);
 
   return (
     <ConverterShell
       tool={tool}
+      relatedSlugs={seoData.relatedSlugs}
       input={c.input}
       onInputChange={c.setInput}
       parseError={c.parse.error}
-      inputBytes={c.inputBytes}
       onLoadSample={(s) => c.loadInput(JSON.stringify(s.value, null, 2))}
       output={c.output}
       outputBytes={c.outputBytes}
       outputLang="json"
       outputLabel="JSON Schema"
+      summary={linesSummary(c.output)}
+      statusNote={draft}
+      statusExtra={
+        validation ? (
+          <ValidationPill
+            ok={validation.ok}
+            label={validation.ok ? "Validates sample" : "Rejects sample"}
+            detail={
+              validation.ok
+                ? "The schema shown accepts the sample input verbatim."
+                : `${validation.path || "(root)"}: ${validation.message}`
+            }
+          />
+        ) : null
+      }
       downloadExt="json"
       downloadMime="application/schema+json"
       downloadName="schema"
       conversionError={c.conversionError}
+      isComputing={c.isComputing}
       content={<JsonSchemaContent />}
-      optionsBar={
-        <OptionsRow>
-          <OptionLabel label="Draft">
-            <Select value={draft} onValueChange={(v) => setDraft(v as Draft)}>
-              <SelectTrigger size="sm" className="h-8 w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2020-12">2020-12 (latest)</SelectItem>
-                <SelectItem value="draft-07">draft-07</SelectItem>
-              </SelectContent>
-            </Select>
-          </OptionLabel>
-          {validation && (
-            <div className="ml-auto">
-              <ValidationPill
-                ok={validation.ok}
-                label={validation.ok ? "Validates sample" : "Schema rejects sample"}
-                detail={
-                  validation.ok
-                    ? "The inferred schema accepts the sample input verbatim."
-                    : `${validation.path || "(root)"}: ${validation.message}`
-                }
-              />
-            </div>
-          )}
-        </OptionsRow>
+      toolbar={
+        <>
+          <ToolbarField label="Title" value={title} onChange={setTitle} ariaLabel="Schema title (empty to omit)" />
+          <Segmented label="Draft" value={draft} options={DRAFTS} onChange={setDraft} />
+          <ToggleChip label="Required" checked={required} onChange={setRequired} hint="Keep inferred required keys" />
+          <ToggleChip label="No extra keys" checked={noExtraKeys} onChange={setNoExtraKeys} hint="additionalProperties: false on every object" />
+        </>
       }
     />
   );

@@ -13,11 +13,11 @@ import { FileText } from "lucide-react";
 export function DropOverlay({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl bg-bg/80 backdrop-blur-sm">
-      <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-brand/60 bg-surface/95 px-8 py-6 shadow-card">
-        <FileText size={28} className="text-brand" aria-hidden />
-        <p className="font-serif italic text-text">Drop two files to compare</p>
-        <p className="font-mono text-sm text-text-faint">
+    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[14px] bg-bg/80 backdrop-blur-sm sm:rounded-[18px]">
+      <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border-strong bg-surface px-8 py-6 shadow-window-tool">
+        <FileText size={28} className="text-clay-light" aria-hidden />
+        <p className="text-[15px] font-semibold text-text">Drop two files to compare</p>
+        <p className="font-mono text-xs text-text-faint">
           first → Original · second → Changed
         </p>
       </div>

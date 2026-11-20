@@ -3,576 +3,248 @@
 import { ToolShell } from "@/components/layout/tool-shell";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/primitives/resizable";
-import { CodeView } from "@/components/tools/json-formatter/views/code-view";
-import { highlight } from "@/lib/highlight";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
-import { useIsMobile } from "@/lib/use-is-mobile";
-import {
-  Check,
-  ChevronDown,
-  Clipboard,
-  ClipboardCopy,
-  Download,
-  Trash2,
-} from "lucide-react";
-import { useCallback, useMemo, useRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { getLanguage, LANGUAGES, toHighlighterLang, type LanguageId } from "./code-formatter.lib";
+import { CodeFormatterContent, seoData } from "./content";
 import {
-  getLanguage,
-  LANGUAGES,
-  toHighlighterLang,
-  type FormatOptions,
-  type LanguageId,
-} from "./code-formatter.lib";
-import { CodeFormatterContent } from "./content";
+  downloadText,
+  FormatterStatusBar,
+  FormatterToolbar,
+  FormatterWindow,
+  InputEditor,
+  InputPane,
+  MoreMenu,
+  OutputLines,
+  OutputPane,
+  PaneRow,
+  pasteInto,
+  SegButton,
+  SegGroup,
+  type StatusTone,
+} from "./formatter-window";
+import { countLines, linesLabel } from "./split-lines.lib";
 import { useCodeFormatter } from "./use-code-formatter";
 
+/** The three languages the mockup puts on the toolbar; the rest sit under "More". */
+const PRIMARY: ReadonlyArray<{ v: LanguageId; label: string }> = [
+  { v: "javascript", label: "JavaScript" },
+  { v: "css", label: "CSS" },
+  { v: "html", label: "HTML" },
+];
+const PRIMARY_IDS = new Set<LanguageId>(PRIMARY.map((p) => p.v));
+const OTHER_LANGUAGES = LANGUAGES.filter((l) => !PRIMARY_IDS.has(l.id));
+
 /**
- * Code formatter / formatter. Pastes any supported source, returns it
- * formatted with Prettier. Debounced auto-format (no Format button to
- * click) — typing slows or stops, output refreshes.
- *
- * Per the AGENTS.md UX principles:
- *   - Honest metrics: parse errors render in the output pane verbatim
- *     with a line/column hint, not silently swallowed.
- *   - Stays on your device: nothing is sent to a server. The formatter
- *     bundles run as code-split chunks in the user's browser.
+ * Code formatter (v2 "conv" workspace). Prettier runs in the browser with
+ * per-language parser chunks; debounced auto-format, no Format button.
+ * Parse errors show verbatim, with Prettier's line number.
  */
 export function CodeFormatter({ tool }: { tool: Tool }) {
   const s = useCodeFormatter();
-  const isMobile = useIsMobile();
   const workspaceRef = useRef<HTMLDivElement>(null);
   const lang = getLanguage(s.language);
   const groups = new Set(lang.optionGroups);
   const hLang = toHighlighterLang(s.language);
-  // 1 MB cap — covers reformatting a 14 K-line stylesheet (the highest
-  // realistic single-file paste). The default 100 KB cap in CodeView is
-  // tuned for the json-formatter's live-edit dynamics; code-formatter
-  // is paste-and-read, so the per-keystroke overlay cost matters less.
-  const MAX_HIGHLIGHT = 1_000_000;
-  // Pre-compute the output's highlighted HTML so the read-only CodeView
-  // doesn't re-tokenise on unrelated re-renders (cursor, status pill).
-  const outputHtml = useMemo(
-    () => (s.output ? highlight(s.output, hLang, MAX_HIGHLIGHT) : ""),
-    [s.output, hLang]
-  );
-
-  // ── Actions ─────────────────────────────────────────────────────────
-  const onPaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) s.setInput(text);
-    } catch {
-      toast.error("Couldn't read clipboard");
-    }
-  };
+  const hasInput = s.input.trim().length > 0;
+  const output = s.error ? "" : s.output;
+  const outLines = countLines(output);
+  const tab = s.options.tabWidth ?? 2;
+  const width = s.options.printWidth ?? 80;
+  const trailing = s.options.trailingComma ?? "all";
+  const isOther = !PRIMARY_IDS.has(s.language);
 
   const onCopy = useCallback(async () => {
-    if (!s.output) {
-      toast("Nothing to copy yet", { duration: 1000 });
-      return;
-    }
+    if (!output) return false;
     try {
-      await navigator.clipboard.writeText(s.output);
-      toast.success(`Copied ${s.output.length.toLocaleString()} chars`);
+      await navigator.clipboard.writeText(output);
+      return true;
     } catch {
-      toast.error("Couldn't copy to clipboard");
+      return false;
     }
-  }, [s.output]);
+  }, [output]);
 
   const onDownload = useCallback(() => {
-    if (!s.output) return;
-    const blob = new Blob([s.output], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `formatted.${lang.extension}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (!output) return;
+    downloadText(output, `formatted.${lang.extension}`, "text/plain");
     toast.success(`formatted.${lang.extension} downloaded`, { duration: 1600 });
-  }, [s.output, lang.extension]);
+  }, [output, lang.extension]);
+
+  const onFile = useCallback(
+    async (file: File) => {
+      s.setInput(await file.text());
+    },
+    [s],
+  );
 
   // ── Shortcuts ───────────────────────────────────────────────────────
-  useShortcut({ key: "/", ignoreInEditable: true }, (e) => {
+  useShortcut({ key: "/", ignoreInEditable: true, label: "Focus input" }, (e) => {
     e.preventDefault();
-    // CodeView owns its textarea internally; find the first one inside
-    // the workspace and focus it.
     workspaceRef.current?.querySelector("textarea")?.focus();
   });
-  useShortcut({ key: "c", meta: true, shift: true }, (e) => {
+  useShortcut({ key: "c", meta: true, shift: true, label: "Copy output" }, (e) => {
     e.preventDefault();
-    void onCopy();
+    void onCopy().then((ok) => {
+      if (ok) toast.success(`Copied ${output.length.toLocaleString()} chars`);
+      else toast("Nothing to copy yet", { duration: 1000 });
+    });
   });
 
-  // ── Render ──────────────────────────────────────────────────────────
+  // ── Status ──────────────────────────────────────────────────────────
+  let tone: StatusTone = "ok";
+  let inputStatus = "Looks good";
+  if (!hasInput) {
+    tone = "idle";
+    inputStatus = "Waiting for input";
+  } else if (s.error) {
+    tone = "error";
+    inputStatus = "Can't parse";
+  } else if (s.pending) {
+    tone = "pending";
+    inputStatus = "Formatting…";
+  }
+  const errorText = s.error ? `${s.errorLine ? `Line ${s.errorLine}: ` : ""}${s.error}` : null;
+  const statusText = errorText ?? (tone === "ok" ? "Formatted" : inputStatus);
+  const st = s.stats;
+  const delta = st.delta === 0 ? "" : ` (${st.delta > 0 ? "+" : ""}${st.delta.toLocaleString()})`;
+  const extra = output
+    ? `${st.inputLines}→${st.outputLines} lines · ${st.inputChars.toLocaleString()}→${st.outputChars.toLocaleString()} chars${delta} · ${s.elapsed} ms`
+    : undefined;
+
+  const moreLanguages = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SegButton on={isOther} aria-label="More languages">
+          {isOther ? lang.label : "More"}
+          <ChevronDown size={13} aria-hidden />
+        </SegButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-[min(70vh,520px)] w-48 overflow-y-auto">
+        {OTHER_LANGUAGES.map((l) => (
+          <DropdownMenuCheckboxItem key={l.id} checked={l.id === s.language} onCheckedChange={() => s.setLanguage(l.id)}>
+            {l.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <ToolShell tool={tool}>
-      <div ref={workspaceRef} className="flex flex-col gap-3">
-        {/* Toolbar */}
-        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface/95 px-3 py-2 shadow-card backdrop-blur">
-          <LanguagePicker value={s.language} onChange={s.setLanguage} />
+    <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
+      <div ref={workspaceRef}>
+        <FormatterWindow onFile={onFile} dropTitle="Drop a source file" dropHint="Pick its language on the toolbar.">
+          <FormatterToolbar>
+            <SegGroup<LanguageId>
+              label="Language"
+              options={PRIMARY}
+              value={isOther ? null : s.language}
+              onChange={s.setLanguage}
+              trailing={moreLanguages}
+            />
+            {groups.has("indent") && (
+              <SegGroup<number>
+                label="Indent"
+                options={[
+                  { v: 2, label: "2 sp" },
+                  { v: 4, label: "4 sp" },
+                ]}
+                value={tab === 2 || tab === 4 ? tab : null}
+                onChange={(v) => s.setOption("tabWidth", v)}
+              />
+            )}
+            <MoreMenu>
+              {groups.has("indent") && (
+                <>
+                  <DropdownMenuLabel>Indent</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem checked={tab === 8} onCheckedChange={(on) => s.setOption("tabWidth", on ? 8 : 2)}>
+                    Indent 8 spaces
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={!!s.options.useTabs} onCheckedChange={(on) => s.setOption("useTabs", on)}>
+                    Indent with tabs
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {groups.has("width") && (
+                <>
+                  <DropdownMenuLabel>Line width</DropdownMenuLabel>
+                  {[80, 100, 120].map((w) => (
+                    <DropdownMenuCheckboxItem key={w} checked={width === w} onCheckedChange={() => s.setOption("printWidth", w)}>
+                      {w} columns
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {groups.has("js") && (
+                <>
+                  <DropdownMenuLabel>JavaScript</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem checked={!!s.options.semi} onCheckedChange={(on) => s.setOption("semi", on)}>
+                    Semicolons
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={!!s.options.singleQuote} onCheckedChange={(on) => s.setOption("singleQuote", on)}>
+                    Single quotes
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={!!s.options.bracketSpacing} onCheckedChange={(on) => s.setOption("bracketSpacing", on)}>
+                    Bracket spacing
+                  </DropdownMenuCheckboxItem>
+                  {(["all", "es5", "none"] as const).map((t) => (
+                    <DropdownMenuCheckboxItem key={t} checked={trailing === t} onCheckedChange={() => s.setOption("trailingComma", t)}>
+                      Trailing commas: {t}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {groups.has("css") && (
+                <>
+                  <DropdownMenuCheckboxItem checked={!!s.options.singleQuote} onCheckedChange={(on) => s.setOption("singleQuote", on)}>
+                    Single quotes
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem disabled={!output} onSelect={onDownload}>
+                Download .{lang.extension}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void pasteInto(s.setInput)}>Paste from clipboard</DropdownMenuItem>
+              <DropdownMenuItem onSelect={s.loadSample}>Load sample</DropdownMenuItem>
+              <DropdownMenuItem disabled={!s.input} onSelect={s.clear}>
+                Clear input
+              </DropdownMenuItem>
+            </MoreMenu>
+          </FormatterToolbar>
 
-          <div className="hidden h-6 w-px bg-border-subtle md:block" />
-
-          {groups.has("indent") && (
-            <ChipGroup
-              label="indent"
-              options={[
-                { v: 2, label: "2" },
-                { v: 4, label: "4" },
-                { v: 8, label: "8" },
-              ]}
-              value={s.options.tabWidth ?? 2}
-              onChange={(v) => s.setOption("tabWidth", v)}
-            />
-          )}
-          {groups.has("width") && (
-            <ChipGroup
-              label="width"
-              options={[
-                { v: 80, label: "80" },
-                { v: 100, label: "100" },
-                { v: 120, label: "120" },
-              ]}
-              value={s.options.printWidth ?? 80}
-              onChange={(v) => s.setOption("printWidth", v)}
-            />
-          )}
-          {groups.has("js") && (
-            <ChipGroup<"all" | "es5" | "none">
-              label="trailing,"
-              options={[
-                { v: "all", label: "all" },
-                { v: "es5", label: "es5" },
-                { v: "none", label: "none" },
-              ]}
-              value={s.options.trailingComma ?? "all"}
-              onChange={(v) => s.setOption("trailingComma", v)}
-            />
-          )}
-
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <StatusPill
-              pending={s.pending}
-              elapsed={s.elapsed}
-              hasError={!!s.error}
-            />
-            <button
-              type="button"
-              onClick={onCopy}
-              disabled={!s.output}
-              aria-label="Copy output"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-bg text-text-faint transition-colors hover:bg-surface-soft hover:text-text disabled:opacity-40 cursor-pointer"
-            >
-              <ClipboardCopy size={13} aria-hidden />
-            </button>
-            <MoreMenu
-              options={s.options}
-              setOption={s.setOption}
-              groups={groups}
-              onDownload={onDownload}
-              onLoadSample={s.loadSample}
-              onClear={s.clear}
-              canDownload={!!s.output}
-            />
-          </div>
-        </div>
-
-        {/* Input ↔ Output panes — both backed by CodeView for syntax
-            highlighting, line-number gutter, and 16px monospace font. */}
-        {isMobile ? (
-          <div className="flex flex-col gap-3">
-            <InputCard
-              value={s.input}
-              onChange={s.setInput}
-              onPaste={onPaste}
-              onClear={s.clear}
-              lang={hLang}
-              maxHighlight={MAX_HIGHLIGHT}
-            />
-            <OutputCard
-              output={s.output}
-              outputHtml={outputHtml}
-              error={s.error}
-              errorLine={s.errorLine}
-              lang={hLang}
-              maxHighlight={MAX_HIGHLIGHT}
-            />
-          </div>
-        ) : (
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="h-[65vh] rounded-xl border border-border bg-surface shadow-card overflow-hidden"
-          >
-            <ResizablePanel defaultSize={50} minSize={25}>
-              <InputCard
+          <PaneRow>
+            <InputPane label={lang.label} status={inputStatus} tone={tone}>
+              <InputEditor
                 value={s.input}
                 onChange={s.setInput}
-                onPaste={onPaste}
-                onClear={s.clear}
                 lang={hLang}
-                maxHighlight={MAX_HIGHLIGHT}
-                bare
+                ariaLabel={`${lang.label} input`}
+                placeholder={`Paste ${lang.label} to format…`}
               />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={50} minSize={25}>
-              <OutputCard
-                output={s.output}
-                outputHtml={outputHtml}
-                error={s.error}
-                errorLine={s.errorLine}
-                lang={hLang}
-                maxHighlight={MAX_HIGHLIGHT}
-                bare
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        )}
+            </InputPane>
+            <OutputPane label={lang.label} summary={output ? linesLabel(outLines) : undefined} onCopy={onCopy} canCopy={!!output} error={errorText}>
+              <OutputLines text={output} lang={hLang} placeholder={s.error ? `Fix the ${lang.label} on the left to see output.` : undefined} />
+            </OutputPane>
+          </PaneRow>
 
-        {/* Stats footer */}
-        <p className="px-1 font-mono text-sm text-text-faint">
-          {s.stats.inputLines}→{s.stats.outputLines} lines ·{" "}
-          {s.stats.inputChars.toLocaleString()}→
-          {s.stats.outputChars.toLocaleString()} chars
-          {s.stats.delta !== 0 && (
-            <>
-              {" "}
-              <span
-                className={s.stats.delta < 0 ? "text-success" : "text-warning"}
-              >
-                ({s.stats.delta > 0 ? "+" : ""}
-                {s.stats.delta.toLocaleString()})
-              </span>
-            </>
-          )}
-        </p>
-
-        <CodeFormatterContent />
+          <FormatterStatusBar tone={tone} text={statusText} detail={output ? `${lang.label} · ${linesLabel(outLines)}` : undefined} extra={extra} />
+        </FormatterWindow>
       </div>
+
+      <CodeFormatterContent />
     </ToolShell>
-  );
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────
-
-function LanguagePicker({
-  value,
-  onChange,
-}: {
-  value: LanguageId;
-  onChange: (v: LanguageId) => void;
-}) {
-  const current = LANGUAGES.find((l) => l.id === value);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-brand px-2.5 text-sm text-text-on-sage transition-colors hover:bg-brand/80 cursor-pointer"
-          aria-label="Language"
-        >
-          <span className="font-mono">{current?.label ?? value}</span>
-          <ChevronDown size={13} aria-hidden className="text-inherit" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-44">
-        <DropdownMenuLabel>Language</DropdownMenuLabel>
-        {LANGUAGES.map((l) => {
-          const selected = l.id === value;
-          return (
-            <DropdownMenuItem
-              key={l.id}
-              onSelect={() => onChange(l.id)}
-              className="pl-7"
-            >
-              {selected && (
-                <Check
-                  size={12}
-                  aria-hidden
-                  className="absolute left-2 text-text"
-                />
-              )}
-              <span className="font-mono">{l.label}</span>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function ChipGroup<T extends string | number>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: ReadonlyArray<{ v: T; label: string }>;
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-1.5">
-      <span className="font-mono text-sm uppercase tracking-wider text-text-faint">
-        {label}
-      </span>
-      <div className="inline-flex h-8 items-center rounded-md border border-border-subtle bg-bg p-0.5">
-        {options.map((o) => (
-          <button
-            key={String(o.v)}
-            type="button"
-            onClick={() => onChange(o.v)}
-            className={`inline-flex h-7 items-center rounded px-2 font-mono text-sm transition-colors cursor-pointer ${
-              value === o.v
-                ? "bg-surface text-text shadow-sm"
-                : "text-text-faint hover:text-text"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StatusPill({
-  pending,
-  elapsed,
-  hasError,
-}: {
-  pending: boolean;
-  elapsed: number;
-  hasError: boolean;
-}) {
-  if (hasError) {
-    return (
-      <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-error-border bg-error-bg px-2 font-mono text-sm text-error-text">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
-        parse error
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-bg px-2 font-mono text-sm text-text-faint">
-      <span
-        aria-hidden
-        className={`inline-block h-1.5 w-1.5 rounded-full transition-colors ${pending ? "animate-pulse bg-brand" : "bg-success"}`}
-      />
-      {pending ? "formatting…" : `${elapsed}ms`}
-    </span>
-  );
-}
-
-function MoreMenu({
-  options,
-  setOption,
-  groups,
-  onDownload,
-  onLoadSample,
-  onClear,
-  canDownload,
-}: {
-  options: FormatOptions;
-  setOption: <K extends keyof FormatOptions>(
-    key: K,
-    value: FormatOptions[K]
-  ) => void;
-  groups: Set<string>;
-  onDownload: () => void;
-  onLoadSample: () => void;
-  onClear: () => void;
-  canDownload: boolean;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="More options"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-bg px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-        >
-          Options
-          <ChevronDown size={13} aria-hidden />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {groups.has("indent") && (
-          <DropdownMenuItem
-            onSelect={() => setOption("useTabs", !options.useTabs)}
-          >
-            {options.useTabs ? "✓ " : ""}Use tabs
-          </DropdownMenuItem>
-        )}
-        {groups.has("js") && (
-          <>
-            <DropdownMenuItem onSelect={() => setOption("semi", !options.semi)}>
-              {options.semi ? "✓ " : ""}Semicolons
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => setOption("singleQuote", !options.singleQuote)}
-            >
-              {options.singleQuote ? "✓ " : ""}Single quotes
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                setOption("bracketSpacing", !options.bracketSpacing)
-              }
-            >
-              {options.bracketSpacing ? "✓ " : ""}Bracket spacing
-            </DropdownMenuItem>
-          </>
-        )}
-        {groups.has("css") && (
-          <DropdownMenuItem
-            onSelect={() => setOption("singleQuote", !options.singleQuote)}
-          >
-            {options.singleQuote ? "✓ " : ""}Single quotes
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onDownload} disabled={!canDownload}>
-          <Download size={13} aria-hidden />
-          Download formatted
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onLoadSample}>Load sample</DropdownMenuItem>
-        <DropdownMenuItem onSelect={onClear}>Clear input</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function InputCard({
-  value,
-  onChange,
-  onPaste,
-  onClear,
-  lang,
-  maxHighlight,
-  bare,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onPaste: () => void;
-  onClear: () => void;
-  lang: ReturnType<typeof toHighlighterLang>;
-  maxHighlight: number;
-  bare?: boolean;
-}) {
-  const wrapper = bare
-    ? "h-full flex flex-col"
-    : "rounded-xl border border-border bg-surface shadow-card overflow-hidden flex flex-col h-[50vh]";
-  return (
-    <div className={wrapper}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-        <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
-          Input
-        </span>
-        <span className="font-mono text-sm text-text-faint">
-          {value ? `${value.length.toLocaleString()} chars` : "paste source"}
-        </span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={onPaste}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-text cursor-pointer"
-          >
-            <Clipboard size={13} aria-hidden />
-            Paste
-          </button>
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={!value}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-text-faint transition-colors hover:bg-surface-soft hover:text-danger disabled:opacity-40 cursor-pointer"
-          >
-            <Trash2 size={13} aria-hidden />
-            Clear
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 min-h-0">
-        <CodeView
-          value={value}
-          onChange={onChange}
-          indent="2"
-          lang={lang}
-          placeholder="Paste source code to format…"
-          maxHighlightSize={maxHighlight}
-          wrap
-          // No onPasteFormatted — CodeView skips its JSON auto-format
-          // path and the textarea handles paste natively.
-        />
-      </div>
-    </div>
-  );
-}
-
-function OutputCard({
-  output,
-  outputHtml,
-  error,
-  errorLine,
-  lang,
-  maxHighlight,
-  bare,
-}: {
-  output: string;
-  outputHtml: string;
-  error: string | null;
-  errorLine: number | undefined;
-  lang: ReturnType<typeof toHighlighterLang>;
-  maxHighlight: number;
-  bare?: boolean;
-}) {
-  const wrapper = bare
-    ? "h-full flex flex-col"
-    : "rounded-xl border border-border bg-surface shadow-card overflow-hidden flex flex-col h-[50vh]";
-  return (
-    <div className={wrapper}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-        <span className="text-sm font-semibold uppercase tracking-wider text-text-faint">
-          Output
-        </span>
-        <span className="font-mono text-sm text-text-faint">
-          {output ? `${output.length.toLocaleString()} chars` : ""}
-        </span>
-      </div>
-      {error ? (
-        <div className="flex-1 overflow-auto px-3 py-3 font-mono text-[13px] leading-relaxed text-danger">
-          <p className="mb-1 font-semibold">
-            Parse error{errorLine ? ` on line ${errorLine}` : ""}
-          </p>
-          <pre className="whitespace-pre-wrap break-all">{error}</pre>
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0">
-          <CodeView
-            value={output}
-            highlighted={outputHtml}
-            indent="2"
-            lang={lang}
-            maxHighlightSize={maxHighlight}
-            wrap
-          />
-        </div>
-      )}
-    </div>
   );
 }

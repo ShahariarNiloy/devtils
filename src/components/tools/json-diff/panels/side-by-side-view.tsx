@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { buildSideRows, diffLines, type WordOp } from "@/lib/diff";
-import { ChevronsUpDown, Sparkles } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import { useMemo } from "react";
 import { canonicalize, type JsonValue } from "../json-diff.lib";
 
@@ -57,27 +57,16 @@ export function SideBySideView({
   );
 
   if (rows.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-surface px-4 py-12 text-center text-sm text-text-faint">
-        Enter valid JSON on both sides to see the side-by-side diff.
-      </div>
-    );
+    return <p className="m-0 px-4 py-10 text-center text-[13px] text-text-faint">Enter valid JSON on both sides to see the side-by-side diff.</p>;
   }
 
   if (rows.every((r) => r.kind === "equal")) {
-    return (
-      <div className="flex items-center justify-center gap-3 rounded-xl border border-success-border bg-success-bg px-4 py-8 text-success-text">
-        <Sparkles size={16} />
-        <span className="text-sm font-medium">
-          No textual differences after canonicalization
-        </span>
-      </div>
-    );
+    return <p className="mx-4 my-5 text-sm text-success-text">✓ No textual differences between the pretty-printed documents.</p>;
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface">
-      <table className="w-full table-fixed border-collapse font-mono text-[14px] leading-[1.65]">
+    <div className="overflow-x-auto py-2">
+      <table className="w-full table-fixed border-collapse font-mono text-[12.5px] leading-[1.75] sm:text-[13px]">
         <colgroup>
           <col className="w-[44px]" />
           <col />
@@ -189,7 +178,7 @@ function Row({ row }: { row: SideRow }) {
 
 function SkipRow({ count }: { count: number }) {
   return (
-    <tr className="bg-surface-2/40">
+    <tr className="bg-text/2">
       <td
         colSpan={4}
         className="select-none px-3 py-1.5 text-center text-xs text-text-faint"
@@ -208,16 +197,16 @@ function SkipRow({ count }: { count: number }) {
 // Solid colours rather than opacity blends — diff rows need to read
 // instantly without squinting.
 const GUTTER_TONE_CLASSES: Record<"success" | "danger", string> = {
-  success: "bg-success-border text-success-text",
-  danger: "bg-error-border text-error-text",
+  success: "bg-success/13 text-success-text",
+  danger: "bg-error/13 text-error-text",
 };
 
 function Gutter({ num, tone }: { num?: number; tone?: "success" | "danger" }) {
-  const cls = tone ? GUTTER_TONE_CLASSES[tone] : "text-text-faint";
+  const cls = tone ? GUTTER_TONE_CLASSES[tone] : "text-text-ghost";
   return (
     <td
       className={cn(
-        "select-none border-r border-border-subtle px-2 py-px text-right align-top text-[11px] tabular-nums",
+        "select-none px-2 py-px text-right align-top tabular-nums",
         cls,
       )}
     >
@@ -232,9 +221,9 @@ type CellTone = "success" | "danger" | "empty";
 // opacity blends. `empty` cells (the opposite-side blank on add/del rows)
 // take a faint surface tint so the row still reads as present.
 const CELL_TONE_BG: Record<CellTone, string> = {
-  success: "bg-success-bg",
-  danger: "bg-error-bg",
-  empty: "bg-surface-2/40",
+  success: "bg-success/13",
+  danger: "bg-error/13",
+  empty: "bg-text/2",
 };
 
 function Cell({
@@ -254,7 +243,7 @@ function Cell({
       className={cn("border-r border-border-subtle px-3 py-px align-top", bg)}
     >
       {words ? (
-        <pre className="whitespace-pre-wrap break-all text-text">
+        <pre className="m-0 whitespace-pre-wrap break-all font-mono text-syntax-plain">
           {words.map((w, i) => (
             <WordSpan
               key={`${w.kind}-${i}-${w.text.length}`}
@@ -264,7 +253,7 @@ function Cell({
           ))}
         </pre>
       ) : (
-        <pre className="whitespace-pre-wrap break-all text-text">
+        <pre className="m-0 whitespace-pre-wrap break-all font-mono text-syntax-plain">
           {text || " "}
         </pre>
       )}
@@ -283,8 +272,8 @@ function WordSpan({ word, tone }: { word: WordOp; tone: "success" | "danger" }) 
     <span
       className={
         tone === "success"
-          ? "rounded-sm bg-success-border px-0.5 text-success-text"
-          : "rounded-sm bg-error-border px-0.5 text-error-text"
+          ? "rounded-sm bg-success/30 text-success-text"
+          : "rounded-sm bg-error/30 text-error-text"
       }
     >
       {word.text}

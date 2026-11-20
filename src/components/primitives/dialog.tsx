@@ -15,7 +15,7 @@ const DialogOverlay = forwardRef<HTMLDivElement, Radix.DialogOverlayProps>(
     <Radix.Overlay
       ref={ref}
       className={cn(
-        "fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm",
+        "fixed inset-0 z-40 bg-[rgba(8,8,7,.62)] backdrop-blur-[6px]",
         "data-[state=open]:animate-[fade-in_180ms_ease-out] data-[state=closed]:animate-[fade-out_120ms_ease-in]",
         className,
       )}
@@ -37,7 +37,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
       <Radix.Content
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-[20%] z-50 w-[min(540px,calc(100vw-32px))] -translate-x-1/2 rounded-xl border border-border bg-surface shadow-[0_4px_12px_-6px_rgba(164,114,81,0.2)]",
+          "fixed left-1/2 top-[20%] z-50 w-[min(540px,calc(100vw-32px))] -translate-x-1/2 rounded-[18px] bg-[rgba(26,26,24,.97)] shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_0_0_1px_rgba(255,255,255,.09),0_40px_80px_-30px_rgba(0,0,0,.9)]",
           "data-[state=open]:animate-[scale-in_200ms_cubic-bezier(0.2,0.9,0.4,1)] data-[state=closed]:animate-[scale-out_120ms_ease-in]",
           className,
         )}
@@ -46,10 +46,10 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
         {children}
         {!hideClose && (
           <Radix.Close
-            className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-warm hover:text-text"
+            className="surface-key absolute right-4 top-4 inline-flex size-9 items-center justify-center rounded-[9px] text-text-muted hover:text-text"
             aria-label="Close dialog"
           >
-            <X size={14} />
+            <X size={16} />
           </Radix.Close>
         )}
       </Radix.Content>
@@ -89,9 +89,27 @@ function DialogHeader({ children, className }: DialogHeaderProps) {
   return <div className={cn("flex flex-col gap-1 px-5 pt-5 pb-3", className)}>{children}</div>;
 }
 
+/**
+ * Full-screen sheet (mobile menu). No overlay or centring — it covers the
+ * viewport; Radix still provides focus trapping, Esc and scroll lock.
+ */
+const DialogSheetContent = forwardRef<HTMLDivElement, Radix.DialogContentProps>(
+  ({ className, ...rest }, ref) => (
+    <DialogPortal>
+      <Radix.Content
+        ref={ref}
+        className={cn("fixed inset-0 z-50 flex flex-col data-[state=open]:animate-[fade-in_160ms_ease-out]", className)}
+        {...rest}
+      />
+    </DialogPortal>
+  ),
+);
+DialogSheetContent.displayName = "DialogSheetContent";
+
 export {
   DialogOverlay,
   DialogContent,
+  DialogSheetContent,
   DialogTitle,
   DialogDescription,
   DialogHeader,

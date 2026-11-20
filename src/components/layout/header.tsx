@@ -1,85 +1,141 @@
 "use client";
 
+import { Menu, Search } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 import {
   CommandPalette,
   useCommandPalette,
-} from '@/components/primitives/command-palette';
-import { Kbd } from '@/components/primitives/kbd';
-import { Search } from "lucide-react";
-import Link from "next/link";
-import { Logo } from './brand/Logo';
-import { ThemeToggle } from './theme-toggle';
+} from "@/components/primitives/command-palette";
+import { cn } from "@/lib/cn";
+import { BrandMark, Keycap } from "./brand/brand-mark";
+import { MobileMenu } from "./mobile-menu";
 
 /**
- * Top app bar. Sticky with backdrop blur, sober wordmark on the left,
- * nav links in the middle, palette trigger + theme toggle on the right.
+ * Where the nav is rendered. The v2 mockups differ only in the links that
+ * are shown and the right-hand action:
+ *   - landing   → ⌘K hint + "Open tools"
+ *   - catalogue → "Request a tool"  (Tools is the current page)
+ *   - tool      → "Jump to tool ⌘K" (Tools is the current section)
  */
-export function Header() {
+export type HeaderVariant = "landing" | "catalogue" | "tool";
+
+interface NavLink {
+  href: string;
+  label: string;
+}
+
+const LANDING_LINKS: NavLink[] = [
+  { href: "/tools", label: "Tools" },
+  { href: "/#categories", label: "Categories" },
+  { href: "/changelog", label: "Changelog" },
+  { href: "/faq", label: "FAQ" },
+];
+
+const SECTION_LINKS: NavLink[] = [
+  { href: "/tools", label: "Tools" },
+  { href: "/changelog", label: "Changelog" },
+  { href: "/faq", label: "FAQ" },
+];
+
+/** Floating glass nav (v2). Not sticky — it sits 16px below the viewport top. */
+export function Header({ variant = "landing" }: { variant?: HeaderVariant }) {
   const { open, setOpen, hint } = useCommandPalette();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const links = variant === "landing" ? LANDING_LINKS : SECTION_LINKS;
+  const mod = hint.startsWith("⌘") ? "⌘" : "Ctrl";
 
   return (
-    <header
-      className="sticky top-0 z-30 h-header border-b border-border"
-      style={{
-        background: "color-mix(in oklab, var(--color-bg) 88%, transparent)",
-        backdropFilter: "saturate(140%) blur(10px)",
-      }}
-    >
-      <div className="mx-auto flex h-full max-w-8xl items-center gap-6 px-6 sm:px-10">
-        {/* Brand wordmark — inlined SVG so the S2 gradient renders cleanly
-            on both light and dark themes. Height tokenized via h-logo. */}
-        <Link
-          href="/"
-          aria-label="utilyx — home"
-          className="flex items-center"
-        >
-          <Logo variant="wordmark" />
+    <div className="relative z-[5] flex justify-center px-5 pt-4">
+      <nav
+        aria-label="Primary"
+        className="surface-glass flex w-full max-w-[1000px] flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-border py-2.5 pr-3 pl-[18px]"
+      >
+        <Link href="/" aria-label="utilyx — home" className="text-text hover:text-text">
+          <BrandMark />
         </Link>
 
-        {/* Center nav */}
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-text-muted">
-          <Link href="/tools" className="transition-colors hover:text-text">
-            Tools
-          </Link>
-          <Link href="/#faq" className="transition-colors hover:text-text">
-            FAQ
-          </Link>
-          <Link href="/contact" className="transition-colors hover:text-text">
-            Contact
-          </Link>
-        </nav>
+        {/* ≥ sm: inline links + action */}
+        <div className="hidden grow flex-wrap justify-center gap-[22px] text-sm sm:flex">
+          {links.map((l) => {
+            const current = variant !== "landing" && l.href === "/tools";
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                aria-current={current ? "page" : undefined}
+                className={cn(
+                  "transition-colors hover:text-text",
+                  current ? "font-semibold text-text" : "text-text-tertiary",
+                )}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
+        </div>
 
-        {/* Right side actions */}
-        <div className="ml-auto flex items-center gap-2">
+        {variant === "landing" && (
+          <>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label="Open command palette"
+              className="hidden items-center gap-1.5 rounded-md sm:flex"
+            >
+              <Keycap>{mod}</Keycap>
+              <Keycap>K</Keycap>
+            </button>
+            <Link
+              href="/tools"
+              className="btn-action hidden min-h-9 items-center rounded-[9px] px-3.5 text-sm font-semibold sm:inline-flex"
+            >
+              Open tools
+            </Link>
+          </>
+        )}
+        {variant === "catalogue" && (
+          <Link
+            href="/request"
+            className="btn-action hidden min-h-9 items-center rounded-[9px] px-3.5 text-sm font-semibold sm:inline-flex"
+          >
+            Request a tool
+          </Link>
+        )}
+        {variant === "tool" && (
           <button
             type="button"
             onClick={() => setOpen(true)}
-            aria-label="Open command palette"
-            className="group hidden sm:inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-surface text-text-muted transition-colors hover:border-border-strong hover:text-text"
+            className="hidden items-center gap-1.5 text-xs text-text-tertiary transition-colors hover:text-text sm:flex"
           >
-            <Search size={13} />
-            <span className="text-sm">Search tools…</span>
-            <span className="ml-3">
-              <Kbd>{hint}</Kbd>
-            </span>
+            Jump to tool
+            <Keycap className="text-[11px]">{mod}</Keycap>
+            <Keycap className="text-[11px]">K</Keycap>
           </button>
+        )}
 
-          <ThemeToggle />
-
-          <Link
-            href="/tools"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-3.5 h-9 text-sm font-semibold transition-colors"
-            style={{
-              background: "var(--color-brand)",
-              color: "var(--color-text-on-sage)",
-            }}
-          >
-            Get started
-          </Link>
-        </div>
-      </div>
+        {/* < sm: search + menu */}
+        <span className="grow sm:hidden" />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Search tools"
+          className="flex size-11 items-center justify-center rounded-[10px] text-text-key sm:hidden"
+        >
+          <Search size={18} strokeWidth={2} aria-hidden />
+        </button>
+        <button
+          type="button"
+          aria-label="Open menu"
+          onClick={() => setMenuOpen(true)}
+          className="flex size-11 items-center justify-center rounded-[10px] border border-white/10 bg-white/[.04] text-text-key sm:hidden"
+        >
+          <Menu size={18} strokeWidth={2} aria-hidden />
+        </button>
+      </nav>
 
       <CommandPalette open={open} onOpenChange={setOpen} />
-    </header>
+      <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} onSearch={() => setOpen(true)} />
+    </div>
   );
 }

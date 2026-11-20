@@ -12,6 +12,8 @@ export function useBase64() {
   return {
     input: state.input,
     output: result.output,
+    /** Decode failure message (null when fine). */
+    error: result.error,
     direction: state.direction,
     variant: state.variant,
     charset: state.charset,

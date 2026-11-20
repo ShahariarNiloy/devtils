@@ -1,7 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
-  intro: "Convert JSON to YAML using the battle-tested js-yaml dumper. Configurable indent (2 / 4 / 8) to match your team's convention, line-width wrapping so long strings break cleanly, and alphabetical key sorting for diff-friendly output. Useful for converting between JSON and YAML config formats without manual hand-translation.",
+  intro: "Convert JSON to YAML using the battle-tested js-yaml dumper. Configurable indent (2 or 4 spaces) to match your team's convention, line-width wrapping so long strings break cleanly, and alphabetical key sorting for diff-friendly output. Useful for converting between JSON and YAML config formats without manual hand-translation.",
+  usesNote: "For configs people actually read.",
   useCases: [
         {
           title: "Migrating CI config from JSON to YAML",
@@ -28,7 +29,7 @@ export const seoData = {
         {
           question: "Why does my YAML have `'` around some values?",
           answer:
-            "js-yaml quotes strings when they could otherwise be interpreted as another type — `'yes'`, `'no'`, `'true'`, `'12'`, `'on'`. These are YAML 1.1 ambiguities; the quotes preserve string semantics.",
+            "js-yaml quotes strings when they could otherwise be interpreted as another type — `'yes'`, `'no'`, `'true'`, `'12'`, `'on'`. These are YAML 1.1 ambiguities; the quotes preserve string semantics. Turn on Quote strings to double-quote every string instead.",
         },
         {
           question: "Should I sort keys?",
@@ -48,12 +49,12 @@ export const seoData = {
         {
           question: "Can I convert YAML to JSON?",
           answer:
-            "Use the JSON formatter (paste YAML into JSON formatter and use its parsing). A dedicated bidirectional swap on this page is on the roadmap.",
+            "Yes. Use the dedicated YAML → JSON tool, or pick Swap to YAML → JSON in this page's ⋯ menu; your current output carries over as the new input.",
         },
         {
-          question: "Why is my indent option specifically 2 / 4 / 8?",
+          question: "Why only 2 or 4 spaces?",
           answer:
-            "The YAML spec requires indentation to be consistent and explicit. js-yaml accepts arbitrary numbers but most communities standardise on 2 (Kubernetes, Ansible) or 4. 8 is occasionally used for highly nested configs to keep scope visible.",
+            "The YAML spec requires indentation to be consistent and explicit. js-yaml accepts arbitrary numbers, but communities standardise on 2 (Kubernetes, Ansible) or 4, so those are the two choices here.",
         },
       ],
   relatedSlugs: ["json-to-csv", "json-to-xml", "json-formatter", "json-to-typescript"],

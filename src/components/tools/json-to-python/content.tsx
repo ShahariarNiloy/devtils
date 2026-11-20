@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Generate Python type definitions from any JSON sample. Three model styles to match your codebase: stdlib `@dataclass` (zero dependencies), `TypedDict` (lightweight, dict-shaped), or Pydantic v2 `BaseModel` (runtime validation + serialization). String formats — `date-time`, `date`, `uuid` — are mapped to their stdlib types so you don't have to re-parse.",
+  usesNote: "Typed Python from real data.",
   useCases: [
         {
           title: "FastAPI request/response models",

@@ -31,6 +31,27 @@ import { seoData as sqlFormatter } from "@/components/tools/sql-formatter/conten
 import { seoData as xmlFormatter } from "@/components/tools/xml-formatter/content";
 import { seoData as textCase } from "@/components/tools/text-case/content";
 import { seoData as timestampConverter } from "@/components/tools/timestamp-converter/content";
+import { seoData as urlEncoder } from "@/components/tools/url-encoder/content";
+import { seoData as htmlEntity } from "@/components/tools/html-entity/content";
+import { seoData as hreflangGenerator } from "@/components/tools/hreflang-generator/content";
+import { seoData as hreflangValidator } from "@/components/tools/hreflang-validator/content";
+import { seoData as hreflangSitemap } from "@/components/tools/hreflang-sitemap/content";
+import { seoData as canonicalGenerator } from "@/components/tools/canonical-generator/content";
+import { seoData as robotsTxtGenerator } from "@/components/tools/robots-txt-generator/content";
+import { seoData as markdownPreview } from "@/components/tools/markdown-preview/content";
+import { seoData as wordCounter } from "@/components/tools/word-counter/content";
+import { seoData as urlParser } from "@/components/tools/url-parser/content";
+import { seoData as uuidGenerator } from "@/components/tools/uuid-generator/content";
+import { seoData as cronParser } from "@/components/tools/cron-parser/content";
+import { seoData as passwordGenerator } from "@/components/tools/password-generator/content";
+import { seoData as yamlToJson } from "@/components/tools/yaml-to-json/content";
+import { seoData as csvToJson } from "@/components/tools/csv-to-json/content";
+import { seoData as sitemapValidator } from "@/components/tools/sitemap-validator/content";
+import { seoData as openGraphGenerator } from "@/components/tools/open-graph-generator/content";
+import { seoData as metaPreview } from "@/components/tools/meta-preview/content";
+import { seoData as jsonLdGenerator } from "@/components/tools/json-ld-generator/content";
+import { seoData as jsonDiff } from "@/components/tools/json-diff/content";
+import { seoData as cssUnitConverter } from "@/components/tools/css-unit-converter/content";
 
 export type ToolSeoData = ToolContentProps;
 
@@ -56,6 +77,27 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "xml-formatter": xmlFormatter,
   "case-converter": textCase,
   "timestamp-converter": timestampConverter,
+  "url-encoder": urlEncoder,
+  "html-entity": htmlEntity,
+  "hreflang-generator": hreflangGenerator,
+  "hreflang-validator": hreflangValidator,
+  "hreflang-sitemap": hreflangSitemap,
+  "canonical-generator": canonicalGenerator,
+  "robots-txt-generator": robotsTxtGenerator,
+  "markdown-preview": markdownPreview,
+  "word-counter": wordCounter,
+  "url-parser": urlParser,
+  "uuid-generator": uuidGenerator,
+  "cron-parser": cronParser,
+  "password-generator": passwordGenerator,
+  "yaml-to-json": yamlToJson,
+  "csv-to-json": csvToJson,
+  "sitemap-validator": sitemapValidator,
+  "open-graph-generator": openGraphGenerator,
+  "meta-preview": metaPreview,
+  "json-ld-generator": jsonLdGenerator,
+  "json-diff": jsonDiff,
+  "css-unit-converter": cssUnitConverter,
 };
 
 export function getToolSeoData(slug: string): ToolSeoData | undefined {

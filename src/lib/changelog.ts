@@ -15,12 +15,15 @@ export interface ChangelogEntry {
   title: string;
   /** 2–6 highlights, plain prose lines. */
   highlights: string[];
+  /** Badge on the landing "Always shipping" list. */
+  kind?: "new" | "improved";
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-05-29",
     title: "Catalogue browser + SEO foundation",
+    kind: "improved",
     highlights: [
       "New sectioned-by-category /tools layout with a sticky left rail and scroll-spy navigation.",
       "Per-tool SEO content blocks (intro + use cases + FAQ + related tools) on every implemented tool.",
@@ -32,6 +35,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-05-28",
     title: "JSON converter family",
+    kind: "new",
     highlights: [
       "Nine new dedicated tools: JSON → TypeScript, Zod, Go, Python, Rust, CSV, YAML, XML, Schema.",
       "Singularization for plural array names (`users: User[]`, not `users: UsersItem[]`).",
@@ -42,6 +46,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-05-26",
     title: "JSON formatter refresh",
+    kind: "improved",
     highlights: [
       "Children-first declaration order for TypeScript output.",
       "Codegen pipeline rebuilt on a shared schema IR with proper nullable detection and structural dedup.",

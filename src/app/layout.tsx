@@ -14,19 +14,23 @@ import Script from "next/script";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-import { Fredoka, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Fredoka, JetBrains_Mono, Noto_Sans } from "next/font/google";
 
+// v2 type: Fredoka for headings and the wordmark, Noto Sans for everything
+// else, JetBrains Mono for code and keycaps. Exposed as variables that
+// --font-display / --font-sans / --font-mono in globals.css read.
+// Fredoka is a variable font: load the axis (covers 500/600) rather than
+// fixed weights — fixed weights produced mismatched class hashes between
+// the server and client builds, so headings silently fell back.
 const fredoka = Fredoka({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-display-fredoka",
   display: "swap",
 });
-
-const jakarta = Plus_Jakarta_Sans({
+const notoSans = Noto_Sans({
   subsets: ["latin"],
-  variable: "--font-sans",
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sans-noto",
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 const jetbrains = JetBrains_Mono({
@@ -70,11 +74,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f2ea" },
-    { media: "(prefers-color-scheme: dark)", color: "#13140f" },
-  ],
-  colorScheme: "light dark",
+  themeColor: "#0b0b0a",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -83,8 +84,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
       suppressHydrationWarning
-      className={`${fredoka.variable} ${jakarta.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${fredoka.variable} ${notoSans.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-screen bg-bg text-text font-sans">
         <a href="#main" className="skip-link">
@@ -96,13 +98,13 @@ export default function RootLayout({
           <ShortcutsOverlay />
           <Toaster
             position="bottom-right"
-            theme="light"
+            theme="dark"
             toastOptions={{
               classNames: {
                 toast:
-                  "!bg-surface !border !border-border !text-text !font-sans !rounded-xl !shadow-[0_8px_24px_-12px_rgba(26,26,24,0.18)]",
+                  "!bg-surface !border !border-border !text-text !font-sans !rounded-xl !shadow-float",
                 description: "!text-text-muted",
-                actionButton: "!bg-brand !text-bg",
+                actionButton: "!bg-brand !text-on-brand",
               },
             }}
           />

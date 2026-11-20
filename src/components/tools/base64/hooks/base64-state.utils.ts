@@ -24,10 +24,13 @@ interface HydratedParams {
   variant: Base64Variant;
 }
 
+/** First-visit sample (mockup copy). A shared link's `in` param wins. */
+export const BASE64_SAMPLE = "Hello, utilyx! Nothing leaves your browser.";
+
 export function readUrlParams(): HydratedParams {
-  if (typeof window === "undefined") return { input: "", direction: "encode", variant: "standard" };
+  if (typeof window === "undefined") return { input: BASE64_SAMPLE, direction: "encode", variant: "standard" };
   const params = new URLSearchParams(window.location.search);
-  const inParam   = params.get("in") ?? "";
+  const inParam   = params.get("in") ?? BASE64_SAMPLE;
   const modeParam = params.get("mode");
   const vParam    = params.get("v");
   const direction: Direction =

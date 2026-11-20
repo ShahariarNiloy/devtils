@@ -1,318 +1,210 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertTriangle,
-  ChevronDown,
-  Download,
-  Pencil,
-  Trash2,
-  X,
-} from "lucide-react";
-import { useState } from "react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/primitives/dropdown-menu";
 import { cn } from "@/lib/cn";
-import { MIME_LABEL } from "../../image-compressor.constants";
+import { motion } from "framer-motion";
+import { AlertTriangle, Columns2, Download, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { describeCompressionError } from "../../image-compressor.errors";
 import { formatBytes } from "../../image-compressor.lib";
-import type { CompressionSettings, ImageFile } from "../../image-compressor.types";
-import { ExpandedRow } from "../file-detail/expanded-row";
-import { BusyIndicator, IconButton, SavingsBadge } from "./file-row-controls";
+import type { ImageFile } from "../../image-compressor.types";
+import { dimensionsLabel, sizeBarPct } from "../../image-compressor.view";
+import { SavingsBadge } from "./file-row-controls";
 
 interface RowProps {
   file: ImageFile;
-  expanded: boolean;
-  isLast: boolean;
-  onToggle: () => void;
+  /** Shown in the compare panel. */
+  selected: boolean;
+  onSelect: () => void;
   onRemove: () => void;
   onDownload: () => void;
-  onUpdateSettings: (patch: Partial<CompressionSettings>) => void;
-  onResetToGlobal: () => void;
-  onRecompress: () => void;
   onCancel: () => void;
   onSetDisplayName: (name: string | null) => void;
   reduceMotion: boolean;
   entryDelay: number;
 }
 
+/** v2 file card: thumb, name, dimensions, savings, size bar, before → after. */
 export function FileRow({
   file,
-  expanded,
-  isLast,
-  onToggle,
+  selected,
+  onSelect,
   onRemove,
   onDownload,
-  onUpdateSettings,
-  onResetToGlobal,
-  onRecompress,
   onCancel,
   onSetDisplayName,
   reduceMotion,
   entryDelay,
 }: RowProps) {
-  const formatLabel = MIME_LABEL[file.inputMimeType] ?? "IMG";
-  const showDone = file.status === "done" && !!file.result;
-  const isBusy = file.status === "compressing" || file.status === "idle";
-  // Display name without extension; the row shows this, the expanded
-  // section lets the user edit it, and download time re-attaches the
-  // output extension.
-  const baseName =
-    file.displayName ?? file.file.name.replace(/\.[^.]+$/, "");
-
-  // Inline rename lives in the row header now: click the name (or its
-  // pencil) to edit; commit on Enter/blur, cancel on Escape.
+  const result = file.status === "done" ? file.result : null;
+  const busy = file.status === "compressing" || file.status === "idle";
+  const baseName = file.displayName ?? file.file.name.replace(/\.[^.]+$/, "");
   const [editing, setEditing] = useState(false);
+  // Keeps the closing menu from pulling focus back off the rename input.
+  const renameRequested = useRef(false);
   const commitName = (value: string) => {
     onSetDisplayName(value);
     setEditing(false);
   };
 
-  // Kind-specific failure copy. Cancelled renders as a muted, non-scary
-  // state; everything else gets the danger treatment + a recovery hint.
-  const errorDetail = file.status === "error" ? file.error : null;
-  const errorInfo = errorDetail ? describeCompressionError(errorDetail) : null;
-  const cancelled = errorDetail?.kind === "cancelled";
+  // Kind-specific failure copy; "cancelled" reads as a muted, non-scary state.
+  const errorInfo = file.status === "error" && file.error ? describeCompressionError(file.error) : null;
+  const cancelled = file.error?.kind === "cancelled";
+  // A stale result (re-compressing) still shows its numbers, dimmed.
+  const shown = result ?? (busy ? file.result : null);
 
   return (
     <motion.li
-      layout
+      layout={!reduceMotion}
       initial={reduceMotion ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -2 }}
-      transition={{
-        duration: 0.22,
-        ease: [0.23, 1, 0.32, 1],
-        delay: entryDelay,
-      }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1], delay: entryDelay }}
       className={cn(
-        "group/row relative",
-        !isLast && "border-b border-border-subtle",
-        expanded && "bg-surface-soft/40",
+        "surface-panel flex flex-col gap-2 rounded-xl p-3 transition-[border-color]",
+        selected && "border-clay-light/45!",
       )}
     >
-      {/* Left-edge directional indicator — clay sliver appears on hover/expand. */}
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-2 bottom-2 left-0 w-1 rounded-r-full bg-clay transition-opacity duration-200 ease-out-strong",
-          expanded ? "opacity-100" : "opacity-0 group-hover/row:opacity-60",
-        )}
-      />
-
-      {/* Flat layout — no nested buttons. Toggle is its own <button>,
-          action icons sit beside it as siblings. */}
-      <div className="flex items-center">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={onToggle}
-          onKeyDown={(e) => {
-            if (
-              (e.key === "Enter" || e.key === " ") &&
-              e.currentTarget === e.target
-            ) {
-              e.preventDefault();
-              onToggle();
-            }
-          }}
-          aria-expanded={expanded}
-          aria-controls={`row-${file.id}-expanded`}
-          className="flex flex-1 min-w-0 items-center gap-3.5 px-4 py-3.5 text-left transition-[background-color] duration-150 ease-out-strong hover:bg-surface-soft/30 cursor-pointer"
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          aria-label={`Compare ${file.file.name}`}
+          title={selected ? "Shown in the compare preview" : "Compare this image"}
+          className="flex min-w-0 grow cursor-pointer items-center gap-2.5 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
-          {/* Thumbnail */}
-          <span
-            aria-hidden
-            className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-soft"
-          >
+          <span aria-hidden className="relative size-[38px] shrink-0 overflow-hidden rounded-lg bg-surface-soft">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={file.previewUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={file.previewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
           </span>
+          <span className="flex min-w-0 grow flex-col">
+            {editing ? null : <span className="text-[13px] font-bold break-all text-text">{baseName}</span>}
+            <span className="text-[11px] text-text-faint">
+              {dimensionsLabel(file)}
+              {selected ? <span className="text-clay-light"> · comparing</span> : null}
+            </span>
+          </span>
+        </button>
+        {busy ? (
+          <span className={cn("shrink-0 text-xs font-semibold", file.status === "compressing" ? "text-clay-light" : "text-text-faint")}>
+            {file.status === "compressing" ? "Compressing" : "Queued"}
+          </span>
+        ) : errorInfo ? (
+          <span
+            title={errorInfo.hint}
+            className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-semibold", cancelled ? "text-text-faint" : "text-error-text")}
+          >
+            {!cancelled ? <AlertTriangle size={12} strokeWidth={2.5} aria-hidden /> : null}
+            <span className="capitalize">{errorInfo.label}</span>
+          </span>
+        ) : result ? (
+          <SavingsBadge savedPct={result.savedPct} />
+        ) : null}
 
-          {/* Name + meta — read-only here. Renaming lives inside the
-              expanded section so the row stays uncluttered. */}
-          <div className="min-w-0 flex-1">
-            {editing ? (
-              <input
-                autoFocus
-                defaultValue={baseName}
-                aria-label="Rename file"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") commitName(e.currentTarget.value);
-                  else if (e.key === "Escape") setEditing(false);
-                }}
-                onBlur={(e) => commitName(e.currentTarget.value)}
-                className="w-full rounded-md border border-brand bg-canvas px-2 py-0.5 text-sm font-semibold text-text outline-none"
-              />
-            ) : (
-              <button
-                type="button"
-                title="Rename"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditing(true);
-                }}
-                className="flex min-w-0 items-center gap-1.5 text-left cursor-text"
-              >
-                <span className="truncate text-sm font-semibold text-text">
-                  {baseName}
-                </span>
-                <Pencil
-                  size={12}
-                  strokeWidth={1.7}
-                  className="shrink-0 text-text-faint opacity-0 transition-opacity duration-150 group-hover/row:opacity-100"
-                  aria-hidden
-                />
-              </button>
-            )}
-            <p className="mt-0.5 truncate font-mono text-sm text-text-faint tabular-nums">
-              {formatBytes(file.originalSize)}
-              <span aria-hidden className="mx-1.5 opacity-50">·</span>
-              {formatLabel}
-            </p>
-          </div>
-
-          {/* Status / metrics — read-only display */}
-          <div className="flex shrink-0 items-center gap-3 pl-3">
-            {isBusy ? (
-              <BusyIndicator
-                label={
-                  file.status === "compressing"
-                    ? file.inputMimeType === "image/avif"
-                      ? "Compressing AVIF"
-                      : "Compressing"
-                    : "Queued"
-                }
-                active={file.status === "compressing"}
-                reduceMotion={reduceMotion}
-              />
-            ) : errorInfo ? (
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 font-mono text-sm",
-                  cancelled ? "text-text-faint" : "text-danger",
-                )}
-                title={errorInfo.hint}
-              >
-                {!cancelled ? (
-                  <AlertTriangle size={12} strokeWidth={2.5} aria-hidden />
-                ) : null}
-                {errorInfo.label}
-              </span>
-            ) : showDone && file.result ? (
-              <motion.div
-                className="flex items-center gap-3"
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <span className="font-mono text-sm font-semibold tabular-nums text-text">
-                  {formatBytes(file.result.newSize)}
-                </span>
-                <SavingsBadge savedPct={file.result.savedPct} />
-              </motion.div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Action icons — separate sibling buttons (no nesting). */}
-        {showDone && file.result ? (
-          <div className="flex shrink-0 items-center gap-1 pr-3">
-            <IconButton
-              label={`Download ${file.file.name}`}
-              onClick={onDownload}
-            >
-              <Download size={16} strokeWidth={1.7} />
-            </IconButton>
-            <IconButton
-              label={`Remove ${file.file.name}`}
-              hoverClass="hover:text-danger"
-              onClick={onRemove}
-            >
-              <Trash2 size={16} strokeWidth={1.7} />
-            </IconButton>
-            {/* Labeled expand toggle — the icon alone gave users no hint
-                that there's a compare/tweak panel below. The verb makes
-                the affordance explicit. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label={expanded ? "Hide details" : "Show before / after and settings"}
-              aria-expanded={expanded}
-              aria-controls={`row-${file.id}-expanded`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle();
-              }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle bg-surface px-2.5 text-sm font-medium text-text-muted transition-[color,background-color,border-color,transform] duration-150 ease-out-strong hover:border-border-strong/60 hover:bg-surface-soft hover:text-text active:scale-[0.97] cursor-pointer"
+              aria-label={`More actions for ${file.file.name}`}
+              className="-mr-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-white/6 hover:text-text data-[state=open]:bg-white/6 data-[state=open]:text-text"
             >
-              {expanded ? "Hide" : "Edit & Preview"}
-              <ChevronDown
-                size={13}
-                strokeWidth={1.7}
-                className={cn(
-                  "transition-transform duration-200 ease-out-strong",
-                  expanded && "rotate-180",
-                )}
-              />
+              <MoreHorizontal size={16} aria-hidden />
             </button>
-          </div>
-        ) : null}
-
-        {/* While a compression is in flight the user can abort it — the
-            pool terminates the worker and the row falls back to its
-            pre-run state. Queued (not-yet-started) files have no worker
-            yet, so the button only appears once work is actually running. */}
-        {file.status === "compressing" ? (
-          <div className="flex shrink-0 items-center gap-1 pr-3">
-            <IconButton
-              label={`Cancel compressing ${file.file.name}`}
-              hoverClass="hover:text-danger"
-              onClick={onCancel}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-44"
+            onCloseAutoFocus={(e) => {
+              if (renameRequested.current) {
+                e.preventDefault();
+                renameRequested.current = false;
+              }
+            }}
+          >
+            <DropdownMenuItem onSelect={onSelect}>
+              <Columns2 size={14} aria-hidden />
+              Compare
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDownload} disabled={!result}>
+              <Download size={14} aria-hidden />
+              Download
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                renameRequested.current = true;
+                setEditing(true);
+              }}
             >
-              <X size={16} strokeWidth={1.7} />
-            </IconButton>
-          </div>
-        ) : null}
+              <Pencil size={14} aria-hidden />
+              Rename
+            </DropdownMenuItem>
+            {file.status === "compressing" ? (
+              <DropdownMenuItem onSelect={onCancel}>
+                <X size={14} aria-hidden />
+                Cancel compressing
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onRemove} className="data-highlighted:text-error-text">
+              <Trash2 size={14} aria-hidden />
+              Remove
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Expanded preview + per-file controls. Kept mounted while a result
-          exists so the panel doesn't collapse during a re-compress. */}
-      <AnimatePresence initial={false}>
-        {expanded && file.result ? (
-          <motion.div
-            key="expanded"
-            id={`row-${file.id}-expanded`}
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-            animate={{
-              height: "auto",
-              opacity: 1,
-              transition: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-            }}
-            exit={
-              reduceMotion
-                ? { opacity: 0 }
-                : {
-                    height: 0,
-                    opacity: 0,
-                    transition: { duration: 0.18, ease: [0.4, 0, 1, 1] },
-                  }
-            }
-            className="overflow-hidden"
-          >
-            <ExpandedRow
-              file={file}
-              onUpdateSettings={onUpdateSettings}
-              onResetToGlobal={onResetToGlobal}
-              onRecompress={onRecompress}
-              onDownload={onDownload}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {editing ? (
+        <input
+          autoFocus
+          defaultValue={baseName}
+          aria-label="Rename file (extension is added on download)"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitName(e.currentTarget.value);
+            else if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={(e) => commitName(e.currentTarget.value)}
+          className="min-h-9 w-full rounded-lg border border-border-strong bg-canvas px-2.5 text-[13px] font-semibold text-text outline-none focus:border-brand"
+        />
+      ) : null}
+
+      <SizeBar file={file} busy={busy} reduceMotion={reduceMotion} />
+
+      <div className={cn("flex justify-between gap-3 font-mono text-xs text-text-faint tabular-nums", busy && shown && "opacity-60")}>
+        <span>{formatBytes(file.originalSize)}</span>
+        <span className="text-text">{shown ? `→ ${formatBytes(shown.newSize)}` : busy ? "→ …" : "→ —"}</span>
+      </div>
     </motion.li>
+  );
+}
+
+function SizeBar({ file, busy, reduceMotion }: { file: ImageFile; busy: boolean; reduceMotion: boolean }) {
+  const r = file.result;
+  return (
+    <div aria-hidden className="relative h-1.5 overflow-hidden rounded-full bg-white/6">
+      {busy && file.status === "compressing" ? (
+        reduceMotion ? (
+          <span className="absolute inset-0 bg-accent/50" />
+        ) : (
+          <span
+            className="absolute top-0 left-0 h-full w-1/3 rounded-full bg-accent will-change-transform"
+            style={{ animation: "indeterminate 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite" }}
+          />
+        )
+      ) : r && !busy ? (
+        <span
+          className={cn("absolute inset-y-0 left-0 rounded-full", r.savedPct < 0 ? "bg-warning" : "bg-accent")}
+          style={{ width: `${sizeBarPct(file.originalSize, r.newSize)}%` }}
+        />
+      ) : file.status === "error" ? (
+        <span className="absolute inset-0 bg-error/40" />
+      ) : null}
+    </div>
   );
 }

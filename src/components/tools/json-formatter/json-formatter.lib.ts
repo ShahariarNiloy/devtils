@@ -1,9 +1,11 @@
 import type {
   IndentStyle,
+  SortOrder,
   ValidationState,
   JsonStats,
   DiffResult,
 } from "./json-formatter.types";
+import { formatLossless, scanJsonText } from "./json-lossless";
 
 /**
  * Shared TextEncoder. Encoding is cheap, but instantiating a new encoder for
@@ -30,11 +32,37 @@ export function formatJson(value: unknown, indent: IndentStyle): string {
   return JSON.stringify(value, null, indentArg(indent));
 }
 
+/**
+ * Format / minify (`indent: null`) / sort JSON *text* without altering data.
+ * Uses the fast native path unless it would change a number or reorder
+ * integer-like keys — then re-formats from the source tokens instead.
+ * Pass `parsed` to skip the validating parse when the caller already has it.
+ * Throws on invalid JSON.
+ */
+export function formatJsonText(
+  raw: string,
+  indent: IndentStyle | null,
+  sort: SortOrder,
+  parsed?: unknown,
+): string {
+  const value = parsed !== undefined ? parsed : JSON.parse(raw);
+  if (scanJsonText(raw).needsLossless) {
+    try {
+      return formatLossless(raw, indent, sort);
+    } catch (err) {
+      // Only pathological nesting depth (stack overflow) falls back.
+      if (!(err instanceof RangeError)) throw err;
+    }
+  }
+  const v = sort !== "none" ? sortJsonKeys(value, sort) : value;
+  return indent === null ? JSON.stringify(v) : formatJson(v, indent);
+}
+
 /** Strip all whitespace. Returns minified string + byte stats. */
 export function minifyJson(
   raw: string,
 ): { output: string; before: number; after: number; savedPct: number } {
-  const output = JSON.stringify(JSON.parse(raw));
+  const output = formatJsonText(raw, null, "none");
   const before = byteLength(raw);
   const after = byteLength(output);
   return {

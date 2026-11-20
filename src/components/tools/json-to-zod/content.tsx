@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Generate a Zod schema from any JSON sample, complete with `z.infer` type aliases so you get a runtime validator and the matching TypeScript type from one declaration. Built on the same schema IR as the JSON → TypeScript tool, so nested optionals, structural dedup, and format-aware string detection all carry over — UUID fields emit `.uuid()`, ISO timestamps emit `.datetime({ offset: true })`, emails emit `.email()`.",
+  usesNote: "Validation that matches your real data.",
   useCases: [
         {
           title: "Validating API responses at runtime",
@@ -43,7 +44,7 @@ export const seoData = {
         {
           question: "Can I disable the format refinements?",
           answer:
-            "Yes — flip the 'Format refinements' switch off. The output becomes plain `z.string()` for every string field, useful when you don't want stricter validation than your data actually provides.",
+            "Yes — turn off Format refinements in the ⋯ menu. The output becomes plain `z.string()` for every string field, useful when you don't want stricter validation than your data actually provides.",
         },
         {
           question: "Why do I see both `UserSchema` and `userSchema`?",
@@ -53,7 +54,7 @@ export const seoData = {
         {
           question: "Does the URL save my options?",
           answer:
-            "Yes — root name, strict mode, and refinements are all encoded as query parameters for shareable links.",
+            "Yes — root name, exported types, optional, strict mode and refinements are all encoded as query parameters for shareable links.",
         },
       ],
   relatedSlugs: ["json-to-typescript", "json-schema", "json-to-go", "json-to-python"],

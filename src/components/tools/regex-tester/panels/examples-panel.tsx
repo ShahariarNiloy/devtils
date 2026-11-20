@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Copy, RefreshCcw } from "lucide-react";
+import { AlertCircle, Copy, ListPlus, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { generateExamples, detectDomain, type RealisticExample, type PatternDomain } from "../realistic-generator";
@@ -12,9 +12,11 @@ import type { Compiled } from "../regex.lib";
 interface ExamplesPanelProps {
   compiled: Compiled;
   isActive: boolean;
+  /** Append the generated samples to the test string. */
+  onAddAll?: (values: string[]) => void;
 }
 
-export function ExamplesPanel({ compiled, isActive }: ExamplesPanelProps) {
+export function ExamplesPanel({ compiled, isActive, onAddAll }: ExamplesPanelProps) {
   const [examples, setExamples] = useState<RealisticExample[]>([]);
   const [domain, setDomain]     = useState<PatternDomain>("generic");
   const [seed, setSeed]         = useState(0);
@@ -86,12 +88,25 @@ export function ExamplesPanel({ compiled, isActive }: ExamplesPanelProps) {
               type="button"
               onClick={handleRegenerate}
               title="Regenerate"
+              aria-label="Regenerate"
               className="h-7 w-7 flex items-center justify-center rounded-md text-text-faint hover:text-text hover:bg-surface-soft transition-colors cursor-pointer"
             >
               <RefreshCcw size={13} className={loading ? "animate-spin" : ""} />
             </button>
+            {onAddAll && (
+              <button
+                type="button"
+                onClick={() => examples.length && onAddAll(examples.map((e) => e.value))}
+                title="Add all to the test string"
+                aria-label="Add all to the test string"
+                className="h-7 w-7 flex items-center justify-center rounded-md text-text-faint hover:text-text hover:bg-surface-soft transition-colors cursor-pointer"
+              >
+                <ListPlus size={13} />
+              </button>
+            )}
             <button
               type="button"
+              aria-label="Copy all"
               onClick={handleCopyAll}
               title="Copy all"
               className="h-7 w-7 flex items-center justify-center rounded-md text-text-faint hover:text-text hover:bg-surface-soft transition-colors cursor-pointer"

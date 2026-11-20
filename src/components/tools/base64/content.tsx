@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: "Encode and decode Base64 with both the standard and URL-safe alphabets. Handles text, binary files, and image previews — the result of decoding is auto-inspected so you instantly see whether you got back text, an image, or arbitrary bytes. Roundtrip verification confirms encode→decode matches your original input.",
+  usesNote: "For the moments you need bytes as text.",
   useCases: [
         {
           title: "Encoding binary for inline embedding",
@@ -38,17 +39,17 @@ export const seoData = {
         {
           question: "Why does my decoded text look like garbage?",
           answer:
-            "Either the encoded data isn't valid Base64, or the original wasn't UTF-8 text. The output panel offers an alternate view for binary data — try the Bytes tab to see the raw decoded bytes.",
+            "Either the encoded data isn't valid Base64, or the original wasn't UTF-8 text. For binary data, open the ⋯ menu and switch the output view to Hex dump to see the raw decoded bytes, or pick another charset if the text was Latin-1.",
         },
         {
           question: "Can I encode a file?",
           answer:
-            "Drop a file onto the input pane (or use the file picker) to encode its contents. Works for images, fonts, PDFs, anything. The output is the file's Base64 representation, ready to copy.",
+            "Drop a file onto the input pane, or use the upload button, to encode its contents. Works for images, fonts, PDFs, anything. The output is the file's Base64 representation, ready to copy.",
         },
         {
           question: "What's roundtrip verification?",
           answer:
-            "After encoding then decoding, the result should match your original input byte-for-byte. The roundtrip indicator flips to ✓ when verified, and to ✗ if the encoder / decoder disagree — usually a sign of invalid input.",
+            "After encoding then decoding, the result should match your original input byte-for-byte. The status bar shows round-trip ✓ when that holds, and round-trip mismatch when it doesn't — usually a sign the chosen charset can't represent your text. The Round-trip diff view shows both side by side.",
         },
         {
           question: "Why does my Base64 string have trailing `==`?",

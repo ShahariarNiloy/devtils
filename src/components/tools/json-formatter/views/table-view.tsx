@@ -56,13 +56,13 @@ export function TableView({ value }: TableViewProps) {
 
   return (
     <div className="relative overflow-auto h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border-subtle sticky top-0 bg-surface z-20">
-        <span className="text-sm text-text-faint font-mono">
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border-subtle bg-canvas px-3.5 py-2">
+        <span className="font-mono text-xs text-text-faint">
           {value.length} rows
           {isCapped && ` · showing first ${MAX_RENDER_ROWS}`}
         </span>
       </div>
-      <table className="w-full border-collapse text-base">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
             {columns.map((col) => {
@@ -72,8 +72,8 @@ export function TableView({ value }: TableViewProps) {
                   key={col}
                   onClick={() => handleHeaderClick(col)}
                   className={cn(
-                    "sticky top-10 bg-surface z-10 px-4 py-2.5 text-left text-sm font-semibold text-text-muted border-b border-border cursor-pointer select-none whitespace-nowrap",
-                    "hover:text-text hover:bg-surface-soft transition-colors",
+                    "sticky top-[33px] z-10 cursor-pointer border-b border-border bg-canvas px-2.5 py-2 text-left font-semibold whitespace-nowrap text-text-faint select-none",
+                    "transition-colors hover:text-text",
                     isActive && "text-text",
                   )}
                 >
@@ -91,7 +91,7 @@ export function TableView({ value }: TableViewProps) {
           {visibleRows.map((row, ri) => (
             <tr
               key={ri}
-              className="even:bg-surface-soft border-b border-border-subtle last:border-0 hover:bg-surface-sage/30 transition-colors"
+              className="border-b border-white/[.05] transition-colors last:border-0 hover:bg-white/[.03]"
             >
               {columns.map((col) => {
                 const v = row[col];
@@ -103,15 +103,14 @@ export function TableView({ value }: TableViewProps) {
                   <td
                     key={col}
                     className={cn(
-                      "px-4 py-2 text-base font-mono whitespace-nowrap max-w-[28rem] overflow-hidden text-ellipsis align-top tracking-tight leading-relaxed",
-                      isNull && "text-text-faint italic",
-                      isBool && "text-brand",
-                      isNum && "text-text-muted",
+                      "max-w-[28rem] overflow-hidden px-2.5 py-2 align-top font-mono text-ellipsis whitespace-nowrap",
+                      isNull && "text-syntax-punctuation",
+                      isBool && "text-syntax-boolean",
+                      isNum && "text-syntax-number",
                       isObj && "text-text-faint",
-                      !isNull && !isBool && !isNum && !isObj && "text-text",
+                      !isNull && !isBool && !isNum && !isObj && "text-syntax-string",
                     )}
                     title={isObj ? JSON.stringify(v) : String(v ?? "")}
-                    style={isNum ? { color: "var(--color-clay)" } : undefined}
                   >
                     {renderCell(v)}
                   </td>
@@ -121,6 +120,77 @@ export function TableView({ value }: TableViewProps) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ── Flat Path / Value / Type table (v2) ─────────────────────────────────────
+
+interface FlatRow {
+  path: string;
+  value: string;
+  type: string;
+  color: string;
+}
+
+const TYPE_COLOR: Record<string, string> = {
+  string: "text-syntax-string",
+  number: "text-syntax-number",
+  boolean: "text-syntax-boolean",
+  null: "text-syntax-punctuation",
+};
+
+function flatten(v: unknown, path: string, out: FlatRow[]): void {
+  if (out.length >= MAX_RENDER_ROWS) return;
+  if (v !== null && typeof v === "object") {
+    const entries = Array.isArray(v) ? v.map((x, i) => [i, x] as const) : Object.entries(v);
+    if (entries.length === 0) {
+      out.push({ path, value: Array.isArray(v) ? "[]" : "{}", type: Array.isArray(v) ? "array" : "object", color: "text-text-faint" });
+      return;
+    }
+    for (const [k, child] of entries) {
+      const next = typeof k === "number" ? `${path}[${k}]` : /^[A-Za-z_$][\w$]*$/.test(k) ? `${path}.${k}` : `${path}[${JSON.stringify(k)}]`;
+      flatten(child, next, out);
+    }
+    return;
+  }
+  const type = v === null ? "null" : typeof v;
+  out.push({ path, value: JSON.stringify(v) ?? String(v), type, color: TYPE_COLOR[type] ?? "text-text" });
+}
+
+/**
+ * Every leaf as one row — works for any document, not only arrays of
+ * records. Capped like the records table; the cap is stated, not hidden.
+ */
+export function FlatTableView({ value }: { value: unknown }) {
+  const rows = useMemo(() => {
+    const out: FlatRow[] = [];
+    flatten(value, "$", out);
+    return out;
+  }, [value]);
+  return (
+    <div className="h-full overflow-auto p-3.5">
+      <table className="w-full table-fixed border-collapse text-[13px]">
+        <thead>
+          <tr className="text-left text-text-faint">
+            <th className="border-b border-border px-2.5 py-2 font-semibold">Path</th>
+            <th className="border-b border-border px-2.5 py-2 font-semibold">Value</th>
+            <th className="w-24 border-b border-border px-2.5 py-2 font-semibold">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.path}>
+              <td className="border-b border-white/[.05] px-2.5 py-2 font-mono break-all text-syntax-key">{r.path}</td>
+              <td className={cn("border-b border-white/[.05] px-2.5 py-2 font-mono break-all", r.color)}>{r.value}</td>
+              <td className="border-b border-white/[.05] px-2.5 py-2 break-all text-text-faint">{r.type}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length >= MAX_RENDER_ROWS && (
+        <p className="mt-3 text-xs text-text-faint">Showing the first {MAX_RENDER_ROWS} values.</p>
+      )}
     </div>
   );
 }

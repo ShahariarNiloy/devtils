@@ -1,7 +1,8 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
-  intro: "Convert colours between every common format: HEX, RGB, HSL, HSB, OKLCH, OKLab, and named CSS colours. Live preview shows the colour itself plus accessibility metadata: contrast against black and white, WCAG ratings, and a perceptual lightness scale. Round-trip accuracy is preserved by working in OKLab internally where the colour space supports it.",
+  usesNote: "One colour, every format your code needs.",
+  intro: "Convert colours between every common format: HEX, RGB, HSL, OKLCH, and — from the ⋯ menu — HSB, CMYK, LAB, LCH, the nearest CSS name and the nearest Tailwind colour. A live swatch shows the colour with its WCAG contrast against white and black, plus a nine-step tint and shade scale you can click to use. Everything runs in your browser.",
   useCases: [
         {
           title: "Building a design token system",
@@ -11,7 +12,7 @@ export const seoData = {
         {
           title: "Verifying accessibility contrast",
           description:
-            "Check whether your text + background pair meets WCAG AA (4.5:1) or AAA (7:1). The ratio updates as you tweak either colour, so you can find the closest passing variant.",
+            "Ratios against white and black show under the swatch. For any other background, turn on “Contrast on any background” in the ⋯ menu and check whether your pair meets WCAG AA (4.5:1) or AAA (7:1).",
         },
         {
           title: "Translating between design tool formats",
@@ -19,9 +20,9 @@ export const seoData = {
             "Figma uses HEX, CSS uses HSL / OKLCH, design specs use RGB — the converter handles the round-tripping without precision drift.",
         },
         {
-          title: "Generating dark-mode pairs",
+          title: "Building hover and pressed states",
           description:
-            "Use the inverted-lightness view to see what your colour looks like flipped for dark mode. Useful when designing palettes that need to read correctly in both themes.",
+            "The tint and shade scale mixes your colour towards white and black in 20% steps. Click a step to make it the working colour and copy it in any format — or open the 50–900 ramp from the ⋯ menu for a full token scale.",
         },
       ],
   faqs: [
@@ -48,12 +49,12 @@ export const seoData = {
         {
           question: "Can I sample a colour from an image?",
           answer:
-            "Use the system colour picker (eyedropper icon when available in supporting browsers) to sample any pixel on screen. Otherwise paste a HEX directly.",
+            "Click the swatch button next to the colour field to open your browser's colour picker. In Chromium browsers it includes an eyedropper that can sample any pixel on screen. Otherwise paste a HEX directly.",
         },
         {
           question: "Does it support P3 / wide-gamut colours?",
           answer:
-            "Yes — OKLCH and OKLab can describe colours outside the sRGB gamut. The preview swatch shows a clipped sRGB version when your screen can't render the wider gamut, with a hint that the colour exceeds sRGB.",
+            "Not yet. Every conversion goes through sRGB, so an OKLCH, LAB or LCH value outside the sRGB gamut is clipped to the nearest sRGB colour before it's shown and converted. Values inside sRGB round-trip exactly.",
         },
       ],
   relatedSlugs: ["color-picker", "color-palette-generator", "color-blindness-simulator", "css-gradient"],

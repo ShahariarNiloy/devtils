@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
-import { TOOLS } from "@/lib/tools-registry";
+import { CATEGORIES, SHOWCASE_TOOLS, TOOLS } from "@/lib/tools-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 
 /**
@@ -22,6 +22,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
     },
     { url: `${SITE_URL}/changelog`, lastModified: now, priority: 0.5, changeFrequency: "weekly" },
+    { url: `${SITE_URL}/faq`, lastModified: now, priority: 0.5, changeFrequency: "monthly" },
+    { url: `${SITE_URL}/request`, lastModified: now, priority: 0.4, changeFrequency: "monthly" },
+    // Category landings (only categories that have catalogue tools).
+    ...CATEGORIES.filter((c) => SHOWCASE_TOOLS.some((t) => t.category === c)).map((c) => ({
+      url: `${SITE_URL}/tools/category/${c.toLowerCase().replace(/\./g, "-")}`,
+      lastModified: now,
+      priority: 0.6,
+      changeFrequency: "weekly" as const,
+    })),
     { url: `${SITE_URL}/privacy`, lastModified: now, priority: 0.3 },
     { url: `${SITE_URL}/terms`, lastModified: now, priority: 0.3 },
     { url: `${SITE_URL}/contact`, lastModified: now, priority: 0.3 },

@@ -2,6 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro: 'Generate Rust struct definitions with serde derives from any JSON sample. The converter handles the idioms that make serde happy: snake_case fields with `#[serde(rename = "...")]` when the source key differs, `Option<T>` for optional and nullable fields with `skip_serializing_if = "Option::is_none"` so JSON round-trips cleanly, and `Vec<T>` / `serde_json::Value` for arrays and unknown shapes.',
+  usesNote: "Deserialize without the boilerplate.",
   useCases: [
         {
           title: "Modelling external API responses",

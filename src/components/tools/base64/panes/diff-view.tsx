@@ -3,26 +3,28 @@
 interface DiffViewProps {
   original: string;
   encoded: string;
+  match: boolean;
 }
 
-export function DiffView({ original, encoded }: DiffViewProps) {
+/** Original vs. decoded-then-re-encoded, so lost data is visible, not just flagged. */
+export function DiffView({ original, encoded, match }: DiffViewProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <DiffColumn title="Original input" value={original} />
-      <DiffColumn title="Decoded → re-encoded" value={encoded} />
-      <p className="col-span-2 text-sm text-text-faint italic">
-        Round-trip diff: shows any data lost in the encoding cycle.
+    <div className="flex flex-col gap-3 p-4">
+      <p className={`m-0 font-mono text-xs ${match ? "text-success" : "text-error"}`}>
+        ● {match ? "Round-trip matches byte for byte" : "Round-trip mismatch — something was lost (check the charset)"}
       </p>
+      <DiffColumn title="Your input" value={original} />
+      <DiffColumn title="Encoded → decoded back" value={encoded} />
     </div>
   );
 }
 
 function DiffColumn({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-button border border-border-subtle bg-surface-soft/40 p-3">
-      <p className="text-sm uppercase tracking-wider font-semibold text-text-faint mb-1.5">{title}</p>
-      <pre className="m-0 font-mono text-sm leading-relaxed text-text whitespace-pre-wrap break-all">
-        {value || <span className="text-text-faint italic">(empty)</span>}
+    <div className="surface-panel rounded-xl p-3">
+      <p className="m-0 mb-1.5 text-xs font-semibold text-text-faint">{title}</p>
+      <pre className="m-0 font-mono text-[12.5px] leading-[1.7] break-all whitespace-pre-wrap text-syntax-plain">
+        {value || <span className="text-text-ghost">(empty)</span>}
       </pre>
     </div>
   );

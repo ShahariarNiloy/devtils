@@ -1,143 +1,89 @@
-import { CATEGORIES, CATEGORY_COUNTS } from "@/lib/tools-registry";
-import { LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { SITE_NAME } from "@/lib/site";
 import Link from "next/link";
-import { Logo } from "./brand/Logo";
+import { BrandMark } from "./brand/brand-mark";
+
+const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Categories",
+    links: [
+      { href: "/tools/category/json", label: "JSON" },
+      { href: "/tools/category/text", label: "Text" },
+      { href: "/tools/category/encoding", label: "Encoding" },
+      { href: "/#categories", label: "All categories" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { href: "/tools", label: "All tools" },
+      { href: "/changelog", label: "Changelog" },
+      { href: "/faq", label: "FAQ" },
+      { href: "/contact", label: "Contact" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
+    ],
+  },
+];
 
 /**
- * Multi-column footer with category links, tier counts, and a small
- * "built quietly" line. Plain warm cream surface — no decorative
- * pattern. Sage olive pip in the wordmark to match the header.
+ * v2 site footer — shared by every page. `compact` is the single-row
+ * variant used inside app-like pages (catalogue, tools).
  */
-export function HomeFooter() {
-  const half = Math.ceil(CATEGORIES.length / 2);
-  const colA = CATEGORIES.slice(0, half);
-  const colB = CATEGORIES.slice(half);
-  return (
-    <footer className="relative border-t border-border bg-surface-soft">
-      <div className="relative mx-auto grid max-w-8xl grid-cols-2 gap-y-10 gap-x-6 px-6 sm:px-10 py-12 sm:grid-cols-4">
-        {/* Brand block */}
-        <div className="col-span-2 sm:col-span-1">
-          <Link href="/" aria-label="utilyx — home" className="inline-flex">
-            <Logo variant="wordmark" />
-          </Link>
-          <p
-            className="mt-3 text-sm text-text-muted leading-desc"
-            style={{ maxWidth: 240 }}
-          >
-            {LIVE_TOOL_COUNT} handcrafted developer utilities live today —
-            free, fast, keyboard-first, and built quietly.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-text-faint">
-            <Stat label="tools live" value={LIVE_TOOL_COUNT} />
-            <Stat label="categories" value={CATEGORIES.length} />
-          </div>
-        </div>
-
-        {/* Categories — column A */}
-        <div>
-          <FooterHeading>Categories</FooterHeading>
-          <ul className="space-y-2">
-            {colA.map((c) => (
-              <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
-                {c}
-                <span className="text-text-faint">
-                  {CATEGORY_COUNTS[c] === 0
-                    ? " · soon"
-                    : ` · ${CATEGORY_COUNTS[c]}`}
-                </span>
-              </FooterLink>
-            ))}
-          </ul>
-        </div>
-
-        {/* Categories — column B */}
-        <div>
-          <FooterHeading>&nbsp;</FooterHeading>
-          <ul className="space-y-2">
-            {colB.map((c) => (
-              <FooterLink key={c} href={`/tools?cat=${encodeURIComponent(c)}`}>
-                {c}
-                <span className="text-text-faint">
-                  {CATEGORY_COUNTS[c] === 0
-                    ? " · soon"
-                    : ` · ${CATEGORY_COUNTS[c]}`}
-                </span>
-              </FooterLink>
-            ))}
-          </ul>
-        </div>
-
-        {/* Resources */}
-        <div>
-          <FooterHeading>Resources</FooterHeading>
-          <ul className="space-y-2">
-            <FooterLink href="/tools">All tools</FooterLink>
-            <FooterLink href="/changelog">Changelog</FooterLink>
-            <FooterLink href="/#faq">FAQ</FooterLink>
-            <FooterLink href="/privacy">Privacy</FooterLink>
-            <FooterLink href="/contact">Contact</FooterLink>
-          </ul>
-        </div>
-      </div>
-
-      {/* Bottom rule */}
-      <div className="border-t border-border">
-        <div className="mx-auto max-w-8xl px-6 sm:px-10 py-5 flex flex-wrap items-center gap-3 justify-between">
-          <p className="text-sm text-text-faint">
+export function HomeFooter({ variant = "full", wide = false }: { variant?: "full" | "compact"; wide?: boolean }) {
+  if (variant === "compact") {
+    return (
+      <footer className="border-t border-border-subtle">
+        <div className={`mx-auto flex ${wide ? "max-w-[1360px]" : "max-w-[1160px]"} flex-wrap gap-x-6 gap-y-2.5 px-6 pt-[22px] pb-[30px] text-[13px] text-text-faint`}>
+          <span className="grow">
             © {new Date().getFullYear()} {SITE_NAME} · made with care
-          </p>
-          <div className="flex items-center gap-4 text-sm text-text-faint">
-            <Link href="/privacy" className="hover:text-text transition-colors">
-              Privacy
+          </span>
+          {[
+            { href: "/request", label: "Request a tool" },
+            { href: "/changelog", label: "What's new" },
+            { href: "/faq", label: "FAQ" },
+            { href: "/privacy", label: "Privacy" },
+            { href: "/terms", label: "Terms" },
+            { href: "/contact", label: "Contact" },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="text-text-tertiary hover:text-text">
+              {l.label}
             </Link>
-            <Link href="/terms" className="hover:text-text transition-colors">
-              Terms
-            </Link>
-            <Link href="/contact" className="hover:text-text transition-colors">
-              Contact
-            </Link>
-          </div>
+          ))}
         </div>
+      </footer>
+    );
+  }
+  return (
+    <footer className="border-t border-border-subtle">
+      <div className="mx-auto grid max-w-[1100px] grid-cols-[repeat(auto-fit,minmax(min(100%,170px),1fr))] gap-8 px-6 pt-12 pb-8 text-sm">
+        <div className="flex flex-col gap-2.5 sm:col-span-2">
+          <Link href="/" aria-label="utilyx — home" className="self-start text-text hover:text-text">
+            <BrandMark />
+          </Link>
+          <p className="m-0 max-w-[280px] text-text-faint">Private, fast, free developer tools. Built quietly.</p>
+        </div>
+        {COLUMNS.map((col) => (
+          <nav key={col.title} aria-label={col.title} className="flex flex-col gap-2">
+            <span className="mb-1 text-xs text-text-faint">{col.title}</span>
+            {col.links.map((l) => (
+              <Link key={l.href} href={l.href} className="text-text-muted transition-colors hover:text-text">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        ))}
+      </div>
+      <div className="mx-auto flex max-w-[1100px] flex-wrap gap-2.5 border-t border-white/[.05] px-6 pt-[18px] pb-7 text-[13px] text-text-faint">
+        <span className="grow">
+          © {new Date().getFullYear()} {SITE_NAME} · made with care
+        </span>
+        <span className="font-mono">100% client-side</span>
       </div>
     </footer>
-  );
-}
-
-function FooterHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-sm font-bold uppercase tracking-ultra mb-3 text-text-faint">
-      {children}
-    </p>
-  );
-}
-
-function FooterLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="text-sm text-text-muted transition-colors hover:text-text"
-      >
-        {children}
-      </Link>
-    </li>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <span className="inline-flex items-baseline gap-1">
-      <strong className="text-sm font-semibold tabular-nums text-text">
-        {value}
-      </strong>
-      <span>{label}</span>
-    </span>
   );
 }

@@ -3,16 +3,17 @@ import { ToolContent } from "@/components/shared/tool-content";
 export const seoData = {
   intro:
     "Semantic JSON diff — compares parsed values rather than text, so reformatting and key reorderings don't show up as differences. Detects array moves, flags type changes as warnings, supports identity-keyed array compare for API responses, and exports the result as an RFC 6902 JSON Patch. Runs entirely in your browser — pasted JSON never leaves the tab.",
+  usesNote: "Structure-aware, not line-by-line.",
   useCases: [
     {
       title: "Reviewing API response changes between environments",
       description:
-        "Paste staging on the left, production on the right. Identity-keyed mode (by `id`) matches items across reordered arrays so you only see what actually changed, not 'everything moved'. Copy the JSON Patch to share the delta in a PR comment.",
+        "Paste staging on the left, production on the right. Identity-keyed mode (⋯ → Compare arrays → By id) matches items across reordered arrays so you only see what actually changed, not 'everything moved'. Copy the JSON Patch to share the delta in a PR comment.",
     },
     {
       title: "Auditing config or schema changes in a PR",
       description:
-        "Drop the before / after JSON in. Type changes (number → string, etc.) get a warning banner since they're almost always bugs. The side-by-side view canonicalizes keys so reformatting doesn't pollute the diff.",
+        "Drop the before / after JSON in. Type changes (number → string, etc.) get their own warning pill since they're almost always bugs. With Sort keys on, the text side-by-side view canonicalizes keys so reformatting doesn't pollute the diff.",
     },
     {
       title: "Verifying a JSON Patch round-trips correctly",
@@ -29,7 +30,7 @@ export const seoData = {
     {
       question: "What does 'semantic diff' mean here?",
       answer:
-        "We parse both inputs as JSON and compare the resulting values structurally. So `{\"a\":1,\"b\":2}` and `{\"b\":2,\"a\":1}` are equal — key order doesn't matter, per the JSON spec. Whitespace, indentation, and trailing commas don't affect the diff either. If you want the literal text diff, switch to the Side-by-side tab.",
+        "We parse both inputs as JSON and compare the resulting values structurally. So `{\"a\":1,\"b\":2}` and `{\"b\":2,\"a\":1}` are equal — key order doesn't matter, per the JSON spec. Whitespace, indentation, and trailing commas don't affect the diff either. If you want a line-by-line text diff of the pretty-printed documents, pick Text side-by-side from the ⋯ menu.",
     },
     {
       question: "What's the difference between the three array compare modes?",
@@ -39,17 +40,17 @@ export const seoData = {
     {
       question: "Why are type changes called out separately?",
       answer:
-        "A field going from a number to a string (`42` → `\"42\"`) is almost always a bug — JSON serialization mismatches between client and server, accidental coercion, a schema drift you didn't intend. They render in warning color with a banner at the top of the controls so they don't get lost in the noise of normal value changes.",
+        "A field going from a number to a string (`42` → `\"42\"`) is almost always a bug — JSON serialization mismatches between client and server, accidental coercion, a schema drift you didn't intend. They're counted in a separate warning pill in the toolbar and labelled with the old → new type on their row, so they don't get lost in the noise of normal value changes.",
     },
     {
       question: "What is JSON Patch (RFC 6902)?",
       answer:
-        "A JSON-based format for describing changes to a JSON document. Each operation is `add`, `remove`, `replace`, or `move` with a path. Applied to the left value, the patch produces the right value. It's the standard way to send incremental changes over an API (PATCH requests) and to express edits in a portable way. We generate the patch automatically from the diff result — copy it and apply it server-side.",
+        "A JSON-based format for describing changes to a JSON document. Each operation is `add`, `remove`, `replace`, or `move` with a path. Applied to the left value, the patch produces the right value. It's the standard way to send incremental changes over an API (PATCH requests) and to express edits in a portable way. We generate the patch automatically from the diff result — open it from the ⋯ menu (or use Copy JSON Patch there) and apply it server-side.",
     },
     {
       question: "How does 'sort keys' work?",
       answer:
-        "Toggle it on to canonicalize both sides — recursively sort all object keys alphabetically before comparing. The semantic diff result is already key-order-insensitive, so this mostly affects the Side-by-side view, which would otherwise show key-order differences as noisy line moves. Array element order is NOT touched — only object keys.",
+        "Toggle it on to canonicalize both sides — recursively sort all object keys alphabetically before comparing. The semantic diff result is already key-order-insensitive, so this mostly affects the Text side-by-side view, which would otherwise show key-order differences as noisy line moves. Array element order is NOT touched — only object keys.",
     },
     {
       question: "How does identity-keyed mode handle missing keys?",
@@ -68,9 +69,9 @@ export const seoData = {
     },
   ],
   relatedSlugs: [
+    "diff-checker",
     "json-formatter",
     "json-schema",
-    "diff-checker",
     "json-to-typescript",
   ],
 } as const;

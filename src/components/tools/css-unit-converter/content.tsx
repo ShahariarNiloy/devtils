@@ -2,34 +2,36 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 interface SeoData {
   intro: string;
+  usesNote?: string;
   useCases: readonly { title: string; description: string }[];
   faqs: readonly { question: string; answer: string }[];
   relatedSlugs: readonly string[];
 }
 
 const DEFAULT_SEO: SeoData = {
+  usesNote: "Stop doing rem maths in your head.",
   intro:
     "Convert between px, rem, em, %, pt, pc, in, cm, mm, vw, and vh with a configurable root font-size. Bulk-convert a whole CSS block, scope conversions to spacing or typography only, and build fluid `clamp()` expressions for responsive type. Runs entirely in your browser — pasted CSS never leaves the tab.",
   useCases: [
     {
       title: "Migrating a px-only stylesheet to rem",
       description:
-        "Paste your existing CSS into the Bulk panel, pick `px → rem`, leave Hairlines preserved so 1px borders stay sharp, and copy the result. The diff view confirms only spacing and sizing values changed.",
+        "Open Bulk-convert from the ⋯ menu, paste your existing CSS, pick `px → rem`, leave Hairlines preserved so 1px borders stay sharp, and copy the result. The diff view confirms only spacing and sizing values changed.",
     },
     {
       title: "Building a fluid type ramp without re-doing the math",
       description:
-        "Open the Clamp() builder, enter min size + min viewport and max size + max viewport, and the tool emits `clamp(1rem, …, 1.5rem)` with the algebra shown. Drag the preview slider to see the size at any viewport width.",
+        "Pick “Build a fluid clamp()” from the ⋯ menu, enter min size + min viewport and max size + max viewport, and the tool emits `clamp(1rem, …, 1.5rem)` with the algebra shown. Drag the preview slider to see the size at any viewport width.",
     },
     {
       title: "Quick px ↔ rem during code review",
       description:
-        "Type a value, see px / rem / em / pt / pc / % / in / cm / mm / vw / vh all at once. The reference table makes 16px ↔ 1rem and similar conversions a one-click affair. Tailwind scale badges flag when a value lines up with `space-N`.",
+        "Type a value, see px / rem / em / % / vw / vh / pt at once — pc, in, cm and mm are one ⋯ toggle away. The px → rem table makes 16px ↔ 1rem a one-click affair, and Design-scale matches flag when a value lines up with Tailwind's `space-N`.",
     },
     {
       title: "Auditing a project's root font-size",
       description:
-        "Paste any CSS into the Bulk panel. If a `:root { font-size: … }` declaration exists, the tool surfaces it and offers to switch the base font-size everywhere — so conversions match how the page actually renders.",
+        "Paste any CSS into Bulk-convert. If a `:root { font-size: … }` declaration exists, the tool surfaces it and offers to switch the base font-size everywhere — so conversions match how the page actually renders.",
     },
   ],
   faqs: [
@@ -41,7 +43,7 @@ const DEFAULT_SEO: SeoData = {
     {
       question: "How does the tool decide what counts as 1 rem?",
       answer:
-        "Root font-size, which you control with the Base chip in the header (presets 10 / 12 / 14 / 16 / 18 / 20 + custom). 16px is the browser default. The 10px shortcut (`html { font-size: 62.5% }`) yields a base of 10, useful for easy math but make sure your real CSS matches the value you set here.",
+        "Root font-size, which you set in the Root font field — type any value, or pick a preset (10 / 12 / 14 / 16 / 18 / 20) from the ⋯ menu. 16px is the browser default. The 10px shortcut (`html { font-size: 62.5% }`) yields a base of 10, useful for easy math but make sure your real CSS matches the value you set here.",
     },
     {
       question: "Is `dpi` a length unit?",
@@ -49,7 +51,7 @@ const DEFAULT_SEO: SeoData = {
         "No — `dpi` is a *resolution* unit used in media queries (`@media (resolution: 96dpi)`). For length conversions involving physical units, CSS defines `pt`, `pc`, `in`, `cm`, and `mm` (all included here). They convert via the fixed identity `1in = 96 CSS px`, regardless of the device's actual pixel density.",
     },
     {
-      question: "What does the 'Bulk' panel actually change?",
+      question: "What does Bulk-convert actually change?",
       answer:
         "It rewrites numeric+unit pairs inside CSS declarations: `padding: 16px` → `padding: 1rem`. The walker tracks comments, string literals, and `url(...)` payloads so they're never touched. You can scope the conversion to spacing/sizing only, typography only, or all properties — and the 'Keep 1px hairlines' checkbox preserves single-pixel borders for crisp dividers.",
     },
@@ -59,9 +61,9 @@ const DEFAULT_SEO: SeoData = {
         "You give it four numbers: a min font-size, the viewport width at which the minimum should still apply, and the same pair for the maximum. It fits a straight line between those two points and emits `clamp(min, intercept + slope*vw, max)`. Below the min viewport you get the min size; above the max viewport, the max. Drag the preview slider to see what size the formula produces at any viewport width in between.",
     },
     {
-      question: "Why does a converted value show ≈ next to it?",
+      question: "Why does a result say “rounded”?",
       answer:
-        "Because the value doesn't round cleanly at your current precision setting. `17px / 16` is `1.0625rem` exactly — that's fine — but `15px / 16` is `0.9375rem`, which most designers don't want as a literal in their CSS. The badge lets you spot 'off-grid' values at a glance so you can nudge them to the nearest clean increment.",
+        "Because the value doesn't round cleanly at your current Decimals setting (⋯ menu). `17px / 16` is `1.0625rem` exactly — that's fine — but `15px / 16` is `0.9375rem`, which most designers don't want as a literal in their CSS. The note lets you spot 'off-grid' values at a glance so you can nudge them to the nearest clean increment.",
     },
     {
       question: "Does my CSS leave the browser?",
@@ -71,7 +73,7 @@ const DEFAULT_SEO: SeoData = {
     {
       question: "Are there keyboard shortcuts?",
       answer:
-        "`⌘K` focuses the value input on the Convert tab. On any number field, ↑/↓ steps by 1, `⇧+↑/↓` steps by 10. Selecting a unit from the dropdown updates everything live — there's no Convert button to click.",
+        "`/` focuses the value field. In it, ↑/↓ steps by 1 and `⇧+↑/↓` steps by 10. Picking a unit updates everything live — there's no Convert button to click. Click any result card to copy it.",
     },
   ],
   relatedSlugs: [
@@ -127,6 +129,7 @@ function buildAliasSeo(from: string, to: string): SeoData {
 
   return {
     intro,
+    usesNote: DEFAULT_SEO.usesNote,
     useCases: DEFAULT_SEO.useCases,
     faqs: [targetedFaq, ...DEFAULT_SEO.faqs],
     relatedSlugs,
@@ -141,13 +144,13 @@ function pairIntro(from: string, to: string, fromFull: string, toFull: string): 
   const key = `${from}-${to}`;
   switch (key) {
     case "px-rem":
-      return "Convert pixels to rem instantly. Type any px value and the rem equivalent updates live, using a configurable root font-size (default 16px). The 10px shortcut (`html { font-size: 62.5% }`) is supported via the Base picker. Bulk-convert an entire CSS file or build fluid `clamp()` expressions in the other tabs. Runs in your browser — nothing uploaded.";
+      return "Convert pixels to rem instantly. Type any px value and the rem equivalent updates live, using a configurable root font-size (default 16px). The 10px shortcut (`html { font-size: 62.5% }`) is supported by setting Root font to 10. Bulk-convert an entire CSS file or build fluid `clamp()` expressions from the ⋯ menu. Runs in your browser — nothing uploaded.";
     case "rem-px":
       return "Convert rem to pixels instantly. Type any rem value and see the px equivalent at your chosen root font-size (default 16px). Useful when reverse-engineering a stylesheet, calculating exact pixel dimensions for design specs, or converting design-system tokens back to absolute values. All conversions run locally in your browser.";
     case "px-em":
       return "Convert pixels to em with a configurable parent font-size. While `em` cascades from the parent element in real CSS, for calculator purposes this tool uses the root font-size you set (matching how 99% of em values are used in practice). Type any px and the em equivalent appears immediately.";
     case "em-px":
-      return "Convert em to pixels instantly. Useful for sanity-checking inherited typography scales, translating em-based design tokens to absolute values, or auditing a third-party stylesheet. Set the root font-size with the Base chip; everything updates live.";
+      return "Convert em to pixels instantly. Useful for sanity-checking inherited typography scales, translating em-based design tokens to absolute values, or auditing a third-party stylesheet. Set the root font-size in the Root font field; everything updates live.";
     case "px-pt":
       return "Convert pixels to points (the typography unit used in print and the OS clipboard). The CSS specification fixes 1pt = 96/72 px exactly, so this conversion is precise regardless of your display's DPI. Useful when matching CSS sizes to Figma / Sketch / print specs that quote in points.";
     case "pt-px":
@@ -164,25 +167,25 @@ function pairFaq(from: string, to: string): { question: string; answer: string }
       return {
         question: "How do I convert px to rem?",
         answer:
-          "Divide the pixel value by the root font-size. With the default 16px base: `16px ÷ 16 = 1rem`, `24px ÷ 16 = 1.5rem`, `32px ÷ 16 = 2rem`. Set a different base (e.g. 10 for the 62.5% shortcut, or any custom number) in the Base picker in the header — the math line below the result always shows the exact division it's doing.",
+          "Divide the pixel value by the root font-size. With the default 16px base: `16px ÷ 16 = 1rem`, `24px ÷ 16 = 1.5rem`, `32px ÷ 16 = 2rem`. Set a different base (e.g. 10 for the 62.5% shortcut, or any custom number) in the Root font field. Turn on Design-scale matches in the ⋯ menu to see the exact division it's doing.",
       };
     case "rem-px":
       return {
         question: "How do I convert rem to px?",
         answer:
-          "Multiply the rem value by the root font-size. With the default 16px base: `1rem × 16 = 16px`, `1.5rem × 16 = 24px`, `0.5rem × 16 = 8px`. Use the Base picker to change the root font-size if your project uses a different value (commonly 10 for the 62.5% shortcut).",
+          "Multiply the rem value by the root font-size. With the default 16px base: `1rem × 16 = 16px`, `1.5rem × 16 = 24px`, `0.5rem × 16 = 8px`. Use the Root font field to change the root font-size if your project uses a different value (commonly 10 for the 62.5% shortcut).",
       };
     case "px-em":
       return {
         question: "How do I convert px to em?",
         answer:
-          "Divide the pixel value by the font-size of the parent element. This calculator uses the root font-size as the parent (matching the common case where `em` inherits from `:root` or `html`). For nested elements with their own font-size, manually substitute the relevant size in the Base picker.",
+          "Divide the pixel value by the font-size of the parent element. This calculator uses the root font-size as the parent (matching the common case where `em` inherits from `:root` or `html`). For nested elements with their own font-size, manually substitute the relevant size in the Root font field.",
       };
     case "em-px":
       return {
         question: "How do I convert em to px?",
         answer:
-          "Multiply the em value by the parent element's font-size. This calculator treats the root font-size as the parent. For nested elements where `em` cascades from a parent with a different font-size, substitute that size in the Base picker to get the correct px result.",
+          "Multiply the em value by the parent element's font-size. This calculator treats the root font-size as the parent. For nested elements where `em` cascades from a parent with a different font-size, substitute that size in the Root font field to get the correct px result.",
       };
     case "px-pt":
       return {
@@ -199,12 +202,12 @@ function pairFaq(from: string, to: string): { question: string; answer: string }
     default:
       return {
         question: `How do I convert ${from} to ${to}?`,
-        answer: `Type a value in ${from} and read the equivalent ${to} from the result card. The honest math line shows the exact factor used.`,
+        answer: `Type a value in ${from} and read the equivalent ${to} from its result card. Turn on Design-scale matches in the ⋯ menu to see the exact factor used.`,
       };
   }
 }
 
-function getSeoData(slug: string): SeoData {
+export function getSeoData(slug: string): SeoData {
   const m = /^([a-z]+)-to-([a-z]+)-converter$/.exec(slug);
   if (!m) return DEFAULT_SEO;
   const [, from, to] = m;

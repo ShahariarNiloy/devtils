@@ -6,54 +6,48 @@ import {
   ConverterShell,
   enumCodec,
   JSON_SAMPLES,
-  OptionDivider,
-  OptionLabel,
-  OptionsRow,
+  MenuCheck,
+  plural,
+  Segmented,
+  stringCodec,
+  ToolbarField,
   useConverter,
   useUrlState,
 } from "@/components/json-converter";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/primitives/select";
-import { Switch } from "@/components/primitives/switch";
-import {
-  toPython,
-  type PythonOptions,
-} from "@/components/tools/json-formatter/json-convert";
+import { toPython, type PythonOptions } from "@/components/tools/json-formatter/json-convert";
 import type { Tool } from "@/lib/tools-registry";
-import { JsonToPythonContent } from "./content";
+import { JsonToPythonContent, seoData } from "./content";
+import { countClasses, safeClassName } from "./json-to-python.lib";
 
 const DEFAULT_INPUT = JSON.stringify(JSON_SAMPLES[0].value, null, 2);
 
-type ClassKind = NonNullable<PythonOptions["classKind"]>;
+const KINDS = [
+  ["dataclass", "dataclass"],
+  ["typeddict", "TypedDict"],
+  ["pydantic", "Pydantic"],
+] as const;
 
 /**
- * JSON → Python tool. Offers three model flavours — stdlib `@dataclass`,
- * `TypedDict`, and Pydantic v2 `BaseModel` — picked by the consumer's
- * codebase conventions. Dataclass-with-slots is exposed as a separate
- * toggle since it's a meaningful perf knob (≈20% memory drop) but only
- * applies to that flavour.
+ * JSON → Python: stdlib `@dataclass`, `TypedDict` or Pydantic v2
+ * `BaseModel`. `slots=True` (dataclass only, ≈20% less memory) is in the
+ * ⋯ menu.
  */
 export function JsonToPython({ tool }: { tool: Tool }) {
+  const [rootName, setRootName] = useUrlState("root", stringCodec("Root"));
   const [classKind, setClassKind] = useUrlState(
     "kind",
     enumCodec(["dataclass", "typeddict", "pydantic"] as const, "dataclass"),
   );
   const [useSlots, setUseSlots] = useUrlState("slots", booleanCodec(false));
 
+  const safeRoot = useMemo(() => safeClassName(rootName), [rootName]);
+
   const options = useMemo<PythonOptions>(
-    () => ({ classKind, useSlots: classKind === "dataclass" && useSlots }),
-    [classKind, useSlots],
+    () => ({ rootName: safeRoot, classKind, useSlots: classKind === "dataclass" && useSlots }),
+    [safeRoot, classKind, useSlots],
   );
 
-  const convert = useCallback(
-    (value: unknown) => toPython(value, options),
-    [options],
-  );
+  const convert = useCallback((value: unknown) => toPython(value, options), [options]);
 
   const c = useConverter({
     convert,
@@ -64,48 +58,33 @@ export function JsonToPython({ tool }: { tool: Tool }) {
   return (
     <ConverterShell
       tool={tool}
+      relatedSlugs={seoData.relatedSlugs}
       input={c.input}
       onInputChange={c.setInput}
       parseError={c.parse.error}
-      inputBytes={c.inputBytes}
       onLoadSample={(s) => c.loadInput(JSON.stringify(s.value, null, 2))}
       output={c.output}
       outputBytes={c.outputBytes}
       outputLang="python"
       outputLabel="Python"
+      summary={c.output ? plural(countClasses(c.output), "type") : ""}
+      statusNote={safeRoot}
       downloadExt="py"
       downloadMime="text/x-python"
       downloadName="models"
       conversionError={c.conversionError}
+      isComputing={c.isComputing}
       content={<JsonToPythonContent />}
-      optionsBar={
-        <OptionsRow>
-          <OptionLabel label="Model">
-            <Select value={classKind} onValueChange={(v) => setClassKind(v as ClassKind)}>
-              <SelectTrigger size="sm" className="h-8 w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dataclass">@dataclass</SelectItem>
-                <SelectItem value="typeddict">TypedDict</SelectItem>
-                <SelectItem value="pydantic">Pydantic v2</SelectItem>
-              </SelectContent>
-            </Select>
-          </OptionLabel>
-
-          {classKind === "dataclass" && (
-            <>
-              <OptionDivider />
-              <OptionLabel label="slots=True">
-                <Switch
-                  checked={useSlots}
-                  onCheckedChange={setUseSlots}
-                  aria-label="Emit slots=True for memory savings"
-                />
-              </OptionLabel>
-            </>
-          )}
-        </OptionsRow>
+      toolbar={
+        <>
+          <ToolbarField label="Root" value={rootName} onChange={setRootName} ariaLabel="Root class name" />
+          <Segmented label="Model style" value={classKind} options={KINDS} onChange={setClassKind} />
+        </>
+      }
+      menu={
+        classKind === "dataclass" ? (
+          <MenuCheck label="slots=True" hint="Dataclass slots: less memory per instance" checked={useSlots} onChange={setUseSlots} />
+        ) : undefined
       }
     />
   );

@@ -22,7 +22,27 @@ import { SqlFormatter } from "@/components/tools/sql-formatter";
 import { XmlFormatter } from "@/components/tools/xml-formatter";
 import { TextCase } from "@/components/tools/text-case";
 import { TimestampConverter } from "@/components/tools/timestamp-converter";
+import { UrlEncoder } from "@/components/tools/url-encoder";
+import { HtmlEntity } from "@/components/tools/html-entity";
+import { HreflangGenerator } from "@/components/tools/hreflang-generator";
+import { HreflangValidator } from "@/components/tools/hreflang-validator";
+import { HreflangSitemap } from "@/components/tools/hreflang-sitemap";
+import { CanonicalGenerator } from "@/components/tools/canonical-generator";
+import { RobotsTxtGenerator } from "@/components/tools/robots-txt-generator";
+import { MarkdownPreview } from "@/components/tools/markdown-preview";
+import { WordCounter } from "@/components/tools/word-counter";
+import { UrlParser } from "@/components/tools/url-parser";
+import { UuidGenerator } from "@/components/tools/uuid-generator";
+import { CronParser } from "@/components/tools/cron-parser";
+import { PasswordGenerator } from "@/components/tools/password-generator";
+import { YamlToJson } from "@/components/tools/yaml-to-json";
+import { CsvToJson } from "@/components/tools/csv-to-json";
+import { SitemapValidator } from "@/components/tools/sitemap-validator";
+import { OpenGraphGenerator } from "@/components/tools/open-graph-generator";
+import { MetaPreview } from "@/components/tools/meta-preview";
+import { JsonLdGenerator } from "@/components/tools/json-ld-generator";
 import type { TOOLS } from "./tools/data";
+import { LIVE_SLUGS } from "./tools/live";
 import type { Tool } from "./tools/types";
 
 export type ToolComponent = ComponentType<{ tool: Tool }>;
@@ -72,11 +92,37 @@ export const COMPONENT_MAP: Partial<Record<RegistrySlug, ToolComponent>> = {
   "diff-checker": DiffChecker,
   "timestamp-converter": TimestampConverter,
   "image-compressor": ImageCompressor,
+  "url-encoder": UrlEncoder,
+  "html-entity": HtmlEntity,
+  "hreflang-generator": HreflangGenerator,
+  "hreflang-validator": HreflangValidator,
+  "hreflang-sitemap": HreflangSitemap,
+  "canonical-generator": CanonicalGenerator,
+  "robots-txt-generator": RobotsTxtGenerator,
+  "markdown-preview": MarkdownPreview,
+  "word-counter": WordCounter,
+  "url-parser": UrlParser,
+  "uuid-generator": UuidGenerator,
+  "cron-parser": CronParser,
+  "password-generator": PasswordGenerator,
+  "yaml-to-json": YamlToJson,
+  "csv-to-json": CsvToJson,
+  "sitemap-validator": SitemapValidator,
+  "open-graph-generator": OpenGraphGenerator,
+  "meta-preview": MetaPreview,
+  "json-ld-generator": JsonLdGenerator,
 };
 
 export const IMPLEMENTED_TOOL_SLUGS: ReadonlySet<string> = new Set(
   Object.keys(COMPONENT_MAP),
 );
+
+// Keep the light LIVE_SLUGS list (used by the ⌘K palette) honest.
+{
+  const live = new Set(LIVE_SLUGS);
+  const drift = [...IMPLEMENTED_TOOL_SLUGS].filter((s) => !live.has(s)).concat(LIVE_SLUGS.filter((s) => !IMPLEMENTED_TOOL_SLUGS.has(s)));
+  if (drift.length) throw new Error(`src/lib/tools/live.ts is out of sync with COMPONENT_MAP: ${drift.join(", ")}`);
+}
 
 /**
  * Live tool count — the number that user-facing badges should show so the

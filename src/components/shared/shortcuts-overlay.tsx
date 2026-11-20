@@ -1,164 +1,88 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { Kbd } from "@/components/primitives/kbd";
+import { Dialog, DialogContent, DialogTitle } from "@/components/primitives/dialog";
+import { useRegisteredShortcuts, useShortcut, type RegisteredShortcut } from "@/lib/keyboard";
 
-export interface Shortcut {
-  /** Display label, e.g. "Copy output". */
-  label: string;
-  /** Keys to render — split per key for the Kbd primitive. */
-  keys: string[];
-  /** Optional grouping for the overlay layout. */
-  group?: string;
+const OPEN_EVENT = "utilyx:open-shortcuts";
+
+/** Open the shortcuts sheet from anywhere (e.g. the ⌘K palette footer). */
+export function openShortcutsSheet() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
-/**
- * Global keyboard shortcuts. Tools opt in to extending this list via the
- * `useExtendShortcuts` hook below — anything added through that hook
- * surfaces in the overlay without each tool re-implementing the modal.
- */
-const GLOBAL_SHORTCUTS: Shortcut[] = [
-  { group: "Navigation", label: "Open command palette", keys: ["⌘", "K"] },
-  { group: "Navigation", label: "Browse all tools", keys: ["G", "T"] },
-  { group: "Navigation", label: "Go home", keys: ["G", "H"] },
-  { group: "Help", label: "Show this overlay", keys: ["?"] },
-  { group: "Help", label: "Close any overlay", keys: ["Esc"] },
+/** Keys the sheet itself owns; everything else comes from the live registry. */
+const SHEET_KEYS: Omit<RegisteredShortcut, "id">[] = [
+  { label: "Show shortcuts", group: "Anywhere", keys: ["?"] },
+  { label: "Close dialog", group: "Anywhere", keys: ["esc"] },
 ];
 
-let extraShortcuts: Shortcut[] = [];
-const subscribers = new Set<() => void>();
-
-/**
- * Used inside a tool component to publish its keyboard shortcuts into the
- * global overlay. Returns nothing — the registration is mounted on
- * useEffect and unmounted on cleanup so each tool's bindings appear only
- * while that tool is on screen.
- */
-export function useExtendShortcuts(items: Shortcut[]) {
-  useEffect(() => {
-    extraShortcuts = items;
-    subscribers.forEach((fn) => fn());
-    return () => {
-      extraShortcuts = [];
-      subscribers.forEach((fn) => fn());
-    };
-  }, [items]);
+/** Section order: Anywhere first, then whatever the page registered. */
+function groupShortcuts(items: Omit<RegisteredShortcut, "id">[]) {
+  const map = new Map<string, Omit<RegisteredShortcut, "id">[]>();
+  for (const s of items) {
+    const seen = map.get(s.group) ?? [];
+    // One row per label+keys, even if two components registered it.
+    if (!seen.some((x) => x.label === s.label && x.keys.join() === s.keys.join())) seen.push(s);
+    map.set(s.group, seen);
+  }
+  return [...map.entries()].sort(([a], [b]) => (a === "Anywhere" ? -1 : b === "Anywhere" ? 1 : 0));
 }
 
 /**
- * Renders nothing by default; opens a centred modal when `?` is pressed
- * outside an editable element. Lists every global shortcut + whatever the
- * current tool published via `useExtendShortcuts`.
+ * v2 keyboard-shortcuts sheet, opened with `?` (outside text fields) or from
+ * the palette. Lists only shortcuts that are live on the current page:
+ * everything comes from `useShortcut({ label })` registrations.
  */
 export function ShortcutsOverlay() {
   const [open, setOpen] = useState(false);
-  const [tick, setTick] = useState(0);
+  const registered = useRegisteredShortcuts();
 
-  // Subscribe to tool-published shortcut changes so the overlay re-renders
-  // when a tool mounts / unmounts. `tick` is a render counter; nothing
-  // depends on its value.
+  useShortcut({ key: "?", shift: true }, (e) => {
+    e.preventDefault();
+    setOpen(true);
+  });
+  // Some layouts report "?" without Shift (e.g. dedicated key); accept both.
+  useShortcut({ key: "?" }, (e) => {
+    e.preventDefault();
+    setOpen(true);
+  });
   useEffect(() => {
-    const fn = () => setTick((n) => n + 1);
-    subscribers.add(fn);
-    return () => {
-      subscribers.delete(fn);
-    };
+    const handler = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, handler);
+    return () => window.removeEventListener(OPEN_EVENT, handler);
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        setOpen(false);
-        return;
-      }
-      // `?` opens the overlay — but not if the user is typing into an
-      // input / textarea / contenteditable, where the key is meant for
-      // literal input.
-      if (e.key === "?" && !open) {
-        const t = e.target as HTMLElement | null;
-        if (t) {
-          const tag = t.tagName;
-          if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) return;
-        }
-        e.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  if (!open) return null;
-
-  const all = [...GLOBAL_SHORTCUTS, ...extraShortcuts];
-  const groups = new Map<string, Shortcut[]>();
-  for (const s of all) {
-    const g = s.group ?? "General";
-    const arr = groups.get(g) ?? [];
-    arr.push(s);
-    groups.set(g, arr);
-  }
-
-  // `tick` is only a render trigger — referencing it avoids the unused-var
-  // warning while keeping the subscriber path honest.
-  void tick;
+  const groups = groupShortcuts([...SHEET_KEYS, ...registered]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
-      onClick={() => setOpen(false)}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4 backdrop-blur-sm"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[80vh] overflow-auto rounded-2xl border border-border bg-surface shadow-2xl"
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent
+        aria-describedby={undefined}
+        className="top-1/2 max-h-[86dvh] w-[min(780px,calc(100vw-32px))] -translate-y-1/2 overflow-y-auto p-[22px] sm:w-[min(780px,calc(100vw-96px))]"
       >
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
-          <div>
-            <div className="text-sm uppercase tracking-wider font-semibold text-text-faint">
-              Help
-            </div>
-            <h2 className="text-lg font-semibold text-text">Keyboard shortcuts</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close shortcuts overlay"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text"
-          >
-            <X size={16} aria-hidden />
-          </button>
-        </div>
-
-        <div className="grid gap-6 p-5 sm:grid-cols-2">
-          {Array.from(groups.entries()).map(([group, items]) => (
-            <div key={group}>
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-text-faint">
-                {group}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {items.map((s) => (
-                  <div key={s.label} className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-text-muted">{s.label}</span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      {s.keys.map((k) => (
-                        <Kbd key={k}>{k}</Kbd>
-                      ))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <DialogTitle className="m-0 mb-[18px] pr-12 font-sans text-xl font-bold tracking-[-0.02em]">Keyboard shortcuts</DialogTitle>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-x-7 gap-y-[18px]">
+          {groups.map(([title, items]) => (
+            <section key={title} aria-label={title} className="flex flex-col gap-0.5">
+              <h3 className="m-0 mb-1.5 font-sans text-xs font-bold tracking-normal text-text-faint">{title}</h3>
+              {items.map((s) => (
+                <div key={s.label + s.keys.join()} className="flex min-h-10 items-center gap-3 border-b border-white/[.05]">
+                  <span className="grow text-sm text-text-key">{s.label}</span>
+                  <span className="flex gap-1">
+                    {s.keys.map((k) => (
+                      <kbd key={k} className="surface-key inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-[6px] px-1.5 font-mono text-xs text-text">
+                        {k}
+                      </kbd>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </section>
           ))}
         </div>
-
-        <div className="border-t border-border-subtle px-5 py-2.5 text-xs text-text-faint">
-          Press <Kbd>?</Kbd> any time to bring this back · <Kbd>Esc</Kbd> to close.
-        </div>
-      </div>
-    </div>
+        <p className="m-0 mt-[18px] text-[13px] text-text-faint">On Windows and Linux, use Ctrl instead of ⌘.</p>
+      </DialogContent>
+    </Dialog>
   );
 }

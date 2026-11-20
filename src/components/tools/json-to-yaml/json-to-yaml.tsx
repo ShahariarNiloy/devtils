@@ -7,31 +7,22 @@ import {
   ConverterShell,
   enumCodec,
   JSON_SAMPLES,
-  OptionDivider,
-  OptionLabel,
-  OptionsRow,
+  linesSummary,
+  MenuCheck,
+  MenuChoice,
   parseYaml,
-  stringCodec,
+  Segmented,
+  ToggleChip,
   useConverter,
   useUrlState,
 } from "@/components/json-converter";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/primitives/select";
-import { Switch } from "@/components/primitives/switch";
-import { Tooltip } from "@/components/primitives/tooltip";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/primitives/dropdown-menu";
 import { byteLength } from "@/components/tools/json-formatter/json-formatter.lib";
 import type { ConversionResult } from "@/components/tools/json-formatter/json-formatter.types";
-import {
-  toYAML,
-  type YamlOptions,
-} from "@/components/tools/json-formatter/json-convert";
+import type { YamlOptions } from "@/components/tools/json-formatter/json-convert";
 import type { Tool } from "@/lib/tools-registry";
-import { JsonToYamlContent } from "./content";
+import { JsonToYamlContent, seoData } from "./content";
+import { jsonToYaml } from "./json-to-yaml.lib";
 
 const DEFAULT_JSON_INPUT = JSON.stringify(JSON_SAMPLES[3].value, null, 2);
 const DEFAULT_YAML_INPUT = [
@@ -46,54 +37,68 @@ const DEFAULT_YAML_INPUT = [
   "",
 ].join("\n");
 
+const INDENTS = [
+  ["2", "2 spaces"],
+  ["4", "4 spaces"],
+] as const;
+
+const WIDTHS = [
+  ["80", "80 columns"],
+  ["120", "120 columns"],
+  ["180", "180 columns"],
+  ["-1", "No wrapping"],
+] as const;
+
 /**
- * Bidirectional JSON ↔ YAML tool. Forward direction (JSON → YAML) uses the
- * full options bar (indent, line width, sort keys). Reverse direction
- * (YAML → JSON) is simpler — js-yaml.load handles the parse, JSON.stringify
- * with the same indent renders the output. The direction toggle is itself a
- * URL state, so a shared link round-trips to the right mode.
+ * JSON ↔ YAML. Forward (JSON → YAML): indent and Quote strings in the
+ * toolbar; line width, sort keys and the direction swap in ⋯. Reverse
+ * (YAML → JSON) parses with js-yaml and pretty-prints with the same indent.
+ * Direction is URL state so a shared link opens in the right mode.
  */
 export function JsonToYaml({ tool }: { tool: Tool }) {
   const [direction, setDirection] = useUrlState(
     "dir",
     enumCodec(["json-to-yaml", "yaml-to-json"] as const, "json-to-yaml"),
   );
-  const [indent, setIndent] = useUrlState("indent", stringCodec("2"));
-  const [lineWidth, setLineWidth] = useUrlState("width", stringCodec("120"));
+  const [indent, setIndent] = useUrlState("indent", enumCodec(["2", "4"] as const, "2"));
+  const [lineWidth, setLineWidth] = useUrlState("width", enumCodec(["80", "120", "180", "-1"] as const, "120"));
   const [sortKeys, setSortKeys] = useUrlState("sort", booleanCodec(false));
+  const [quoteStrings, setQuoteStrings] = useUrlState("quote", booleanCodec(false));
 
   const forward = direction === "json-to-yaml";
 
   const yamlOptions = useMemo<YamlOptions>(
-    () => ({
-      indent: Number(indent),
-      lineWidth: Number(lineWidth),
-      sortKeys,
-    }),
+    () => ({ indent: Number(indent), lineWidth: Number(lineWidth), sortKeys }),
     [indent, lineWidth, sortKeys],
   );
 
   const convert = useCallback(
     (value: unknown): ConversionResult => {
-      if (forward) return toYAML(value, yamlOptions);
-      const indented = Number(indent);
-      const text = JSON.stringify(value, null, indented);
+      if (forward) {
+        const output = jsonToYaml(value, {
+          indent: Number(indent),
+          lineWidth: Number(lineWidth),
+          sortKeys,
+          quoteStrings,
+        });
+        return { output, format: "yaml", size: byteLength(output) };
+      }
+      const text = JSON.stringify(value, null, Number(indent));
       return { output: text, format: "schema", size: byteLength(text) };
     },
-    [forward, yamlOptions, indent],
+    [forward, indent, lineWidth, sortKeys, quoteStrings],
   );
 
   const c = useConverter({
     convert,
     parseInput: forward ? undefined : parseYaml,
-    // Worker only knows JSON.parse, so disable for reverse direction.
-    worker: forward ? { target: "yaml", options: yamlOptions } : undefined,
+    // The worker only knows JSON input and the shared emitter's options.
+    worker: forward && !quoteStrings ? { target: "yaml", options: yamlOptions } : undefined,
     initialInput: forward ? DEFAULT_JSON_INPUT : DEFAULT_YAML_INPUT,
   });
 
   const flipDirection = () => {
-    // Move the current output into the input pane so the user keeps their
-    // working text when toggling direction.
+    // Carry the current output over so the user keeps their working text.
     const carryOver = c.output;
     setDirection(forward ? "yaml-to-json" : "json-to-yaml");
     if (carryOver) c.loadInput(carryOver);
@@ -102,21 +107,15 @@ export function JsonToYaml({ tool }: { tool: Tool }) {
   return (
     <ConverterShell
       tool={tool}
+      relatedSlugs={seoData.relatedSlugs}
       input={c.input}
       onInputChange={c.setInput}
       parseError={c.parse.error}
-      inputBytes={c.inputBytes}
       onLoadSample={(s) =>
         c.loadInput(
           forward
             ? JSON.stringify(s.value, null, 2)
-            : (() => {
-                try {
-                  return toYAML(s.value, yamlOptions).output;
-                } catch {
-                  return JSON.stringify(s.value, null, 2);
-                }
-              })(),
+            : jsonToYaml(s.value, { indent: 2, lineWidth: 120, sortKeys: false, quoteStrings: false }),
         )
       }
       inputLang={forward ? "json" : "yaml"}
@@ -125,73 +124,36 @@ export function JsonToYaml({ tool }: { tool: Tool }) {
       outputBytes={c.outputBytes}
       outputLang={forward ? "yaml" : "json"}
       outputLabel={forward ? "YAML" : "JSON"}
+      summary={linesSummary(c.output)}
+      statusVerb={forward ? "Generated" : "Converted"}
       downloadExt={forward ? "yaml" : "json"}
       downloadMime={forward ? "text/yaml" : "application/json"}
       downloadName={forward ? "config" : "data"}
       conversionError={c.conversionError}
+      isComputing={c.isComputing}
       content={<JsonToYamlContent />}
-      optionsBar={
-        <OptionsRow>
-          <Tooltip
-            content={forward ? "Switch to YAML → JSON" : "Switch to JSON → YAML"}
-            side="bottom"
-          >
-            <button
-              type="button"
-              onClick={flipDirection}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-soft px-2.5 text-sm text-text hover:border-border-strong transition-colors"
-              aria-label="Swap conversion direction"
-            >
-              <ArrowLeftRight size={13} />
-              <span className="font-medium">{forward ? "JSON → YAML" : "YAML → JSON"}</span>
-            </button>
-          </Tooltip>
-
-          <OptionDivider />
-
-          <OptionLabel label="Indent">
-            <Select value={indent} onValueChange={setIndent}>
-              <SelectTrigger size="sm" className="h-8 w-[80px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">2</SelectItem>
-                <SelectItem value="4">4</SelectItem>
-                <SelectItem value="8">8</SelectItem>
-              </SelectContent>
-            </Select>
-          </OptionLabel>
-
+      toolbar={
+        <>
+          <Segmented label="Indent" value={indent} options={INDENTS} onChange={setIndent} />
+          {forward && (
+            <ToggleChip label="Quote strings" checked={quoteStrings} onChange={setQuoteStrings} hint="Wrap every string in double quotes" />
+          )}
+        </>
+      }
+      menu={
+        <>
+          <DropdownMenuItem onClick={flipDirection}>
+            <ArrowLeftRight size={14} aria-hidden className="text-text-faint" />
+            {forward ? "Swap to YAML → JSON" : "Swap to JSON → YAML"}
+          </DropdownMenuItem>
           {forward && (
             <>
-              <OptionDivider />
-
-              <OptionLabel label="Line width">
-                <Select value={lineWidth} onValueChange={setLineWidth}>
-                  <SelectTrigger size="sm" className="h-8 w-[88px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="80">80</SelectItem>
-                    <SelectItem value="120">120</SelectItem>
-                    <SelectItem value="180">180</SelectItem>
-                    <SelectItem value="-1">∞</SelectItem>
-                  </SelectContent>
-                </Select>
-              </OptionLabel>
-
-              <OptionDivider />
-
-              <OptionLabel label="Sort keys">
-                <Switch
-                  checked={sortKeys}
-                  onCheckedChange={setSortKeys}
-                  aria-label="Sort object keys alphabetically"
-                />
-              </OptionLabel>
+              <DropdownMenuSeparator />
+              <MenuCheck label="Sort keys" hint="Alphabetical keys at every level" checked={sortKeys} onChange={setSortKeys} />
+              <MenuChoice label="Line width" value={lineWidth} options={WIDTHS} onChange={setLineWidth} />
             </>
           )}
-        </OptionsRow>
+        </>
       }
     />
   );

@@ -16,6 +16,7 @@ import {
   Sparkles,
   Wand2,
   X,
+  FileCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -28,6 +29,7 @@ interface MobileMoreSheetProps {
   canFormat: boolean;
   isQueryOpen: boolean;
   isStatsOpen: boolean;
+  isSchemaOpen: boolean;
 
   onFormat: () => void;
   onMinify: () => void;
@@ -38,6 +40,7 @@ interface MobileMoreSheetProps {
   onConvert: (kind: string) => void;
   onToggleQuery: () => void;
   onToggleStats: () => void;
+  onToggleSchema: () => void;
 
   onShare: () => void;
   onDownload: () => void;
@@ -73,6 +76,7 @@ export function MobileMoreSheet({
   canFormat,
   isQueryOpen,
   isStatsOpen,
+  isSchemaOpen,
   onFormat,
   onMinify,
   onSortAsc,
@@ -81,6 +85,7 @@ export function MobileMoreSheet({
   onConvert,
   onToggleQuery,
   onToggleStats,
+  onToggleSchema,
   onShare,
   onDownload,
   onOpenFind,
@@ -145,6 +150,7 @@ export function MobileMoreSheet({
               canFormat={canFormat}
               isQueryOpen={isQueryOpen}
               isStatsOpen={isStatsOpen}
+              isSchemaOpen={isSchemaOpen}
               sharing={sharing}
               recentCount={recentCount}
               onOpenConvert={() => setView("convert")}
@@ -155,6 +161,7 @@ export function MobileMoreSheet({
               onRepair={dispatch(onRepair)}
               onToggleQuery={dispatch(onToggleQuery)}
               onToggleStats={dispatch(onToggleStats)}
+              onToggleSchema={dispatch(onToggleSchema)}
               onShare={dispatch(onShare)}
               onDownload={dispatch(onDownload)}
               onOpenFind={dispatch(onOpenFind)}
@@ -186,6 +193,7 @@ function RootView({
   canFormat,
   isQueryOpen,
   isStatsOpen,
+  isSchemaOpen,
   sharing,
   recentCount,
   onOpenConvert,
@@ -196,6 +204,7 @@ function RootView({
   onRepair,
   onToggleQuery,
   onToggleStats,
+  onToggleSchema,
   onShare,
   onDownload,
   onOpenFind,
@@ -206,6 +215,7 @@ function RootView({
   canFormat: boolean;
   isQueryOpen: boolean;
   isStatsOpen: boolean;
+  isSchemaOpen: boolean;
   sharing: boolean;
   recentCount: number;
   onOpenConvert: () => void;
@@ -216,6 +226,7 @@ function RootView({
   onRepair: () => void;
   onToggleQuery: () => void;
   onToggleStats: () => void;
+  onToggleSchema: () => void;
   onShare: () => void;
   onDownload: () => void;
   onOpenFind: () => void;
@@ -291,6 +302,13 @@ function RootView({
           label="Stats"
           active={isStatsOpen}
           onClick={onToggleStats}
+          disabled={!hasInput}
+        />
+        <SheetItem
+          icon={<FileCheck size={17} />}
+          label="Validate schema"
+          active={isSchemaOpen}
+          onClick={onToggleSchema}
           disabled={!hasInput}
         />
       </SheetGroup>

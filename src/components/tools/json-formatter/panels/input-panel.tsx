@@ -1,29 +1,9 @@
 "use client";
 
-import React, { memo, useCallback, useRef, useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Copy,
-  Globe,
-  Maximize2,
-  Minimize2,
-  MoreHorizontal,
-  Trash2,
-  Upload,
-  Wand2,
-  X,
-} from "lucide-react";
-import { toast } from "sonner";
+import React, { memo, useRef, useState } from "react";
+import { Globe, Trash2, Upload, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Tooltip } from "@/components/primitives/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/primitives/dropdown-menu";
 import { CodeView } from "../views/code-view";
 import { TRANSFORM_LABELS } from "../js-to-json.lib";
 import type { JsonFormatterState } from "../use-json-formatter";
@@ -32,19 +12,20 @@ interface InputPanelProps {
   state: JsonFormatterState;
   onLoadFile: (file: File) => void;
   onOpenFetchUrl: () => void;
+  /** Problems found by the repair dry run (window banner); 0 if unknown. */
+  problemCount: number;
+  /** Lines with problems (gutter marks them). */
+  problemLines?: readonly number[];
+  /** Mobile hides the header — pane tabs and the bottom bar replace it. */
+  isMobile?: boolean;
+  /** Lets the parent (mobile "Upload") open this pane's file picker. */
+  fileInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) {
-  const [fullscreen, setFullscreen] = useState(false);
+function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl, problemCount, problemLines, isMobile = false, fileInputRef }: InputPanelProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [jumpNonce, setJumpNonce] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleCopy = useCallback(async () => {
-    if (!state.input) return;
-    await navigator.clipboard.writeText(state.input);
-    toast.success("Input copied to clipboard");
-  }, [state.input]);
+  const ownFileRef = useRef<HTMLInputElement>(null);
+  const fileRef = fileInputRef ?? ownFileRef;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -61,144 +42,59 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
   const v = state.validation;
   const errorLine = v.status === "invalid" ? v.line : undefined;
 
-  let statusDot: React.ReactNode;
-  if (v.status === "valid") {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-success">
-        <CheckCircle2 size={10} />
-        Valid
-      </span>
-    );
-  } else if (v.status === "invalid") {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-danger">
-        <AlertCircle size={10} />
-        Error
-      </span>
-    );
-  } else {
-    statusDot = (
-      <span className="inline-flex items-center gap-1 text-text-faint">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-text-faint/60" />
-        Empty
-      </span>
-    );
-  }
+  let status: { text: string; tone: string; dot: string };
+  if (v.status === "valid") status = { text: "Valid JSON", tone: "text-success", dot: "bg-success" };
+  else if (v.status === "invalid")
+    status = {
+      text: problemCount > 0 ? `${problemCount} problem${problemCount === 1 ? "" : "s"}` : "Invalid",
+      tone: "text-error",
+      dot: "bg-error",
+    };
+  else if (state.input.trim()) status = { text: "Checking…", tone: "text-text-faint", dot: "bg-text-faint" };
+  else status = { text: "Empty", tone: "text-text-faint", dot: "bg-text-faint" };
 
   return (
     <div
       className={cn(
-        "relative flex h-full flex-col overflow-hidden bg-surface",
-        fullscreen && "fixed inset-0 z-50 bg-surface",
+        "relative flex h-full flex-col overflow-hidden bg-canvas",
         isDragOver && "ring-2 ring-inset ring-brand/50",
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Header */}
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,.txt,.csv"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) { onLoadFile(file); e.target.value = ""; }
-          }}
-        />
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,.txt,.csv"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) { onLoadFile(file); e.target.value = ""; }
+        }}
+      />
 
-        <span className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-text-muted">
-          Input
-        </span>
-        <span className="text-sm font-normal text-text-faint">
-          {statusDot}
-        </span>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip content="Upload file" side="bottom">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-              aria-label="Upload file"
-            >
-              <Upload size={14} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Fetch from URL" side="bottom">
-            <button
-              type="button"
-              onClick={onOpenFetchUrl}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-              aria-label="Fetch from URL"
-            >
-              <Globe size={14} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Copy input" side="bottom">
-            <button
-              type="button"
-              onClick={() => void handleCopy()}
-              disabled={!state.input}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Copy input"
-            >
-              <Copy size={14} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Clear" side="bottom">
-            <button
-              type="button"
-              onClick={state.clear}
-              disabled={!state.input}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-danger transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-faint"
-              aria-label="Clear input"
-            >
-              <Trash2 size={14} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content={fullscreen ? "Exit fullscreen" : "Fullscreen"} side="bottom">
-            <button
-              type="button"
-              onClick={() => setFullscreen((f) => !f)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-              aria-label="Toggle fullscreen"
-            >
-              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
-          </Tooltip>
-
-          <DropdownMenu>
-            <Tooltip content="More" side="bottom">
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-                  aria-label="More actions"
-                >
-                  <MoreHorizontal size={14} />
-                </button>
-              </DropdownMenuTrigger>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => state.validate()}>Validate</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => state.setTreeExpandAll((n) => n + 1)}>
-                Expand all (tree)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => state.setTreeCollapseAll((n) => n + 1)}>
-                Collapse all (tree)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {/* Header (desktop / tablet). Mobile uses pane tabs + a bottom bar. */}
+      {!isMobile && (
+        <div className="flex min-h-[46px] shrink-0 items-center gap-2 border-b border-border-subtle pr-2 pl-4">
+          <span className="text-[13px] font-bold">Input</span>
+          <span className={cn("inline-flex items-center gap-1.5 text-xs", status.tone)}>
+            <span aria-hidden="true" className={cn("size-1.5 rounded-full", status.dot)} />
+            {status.text}
+          </span>
+          <span className="grow" />
+          <PaneIcon label="Upload file" onClick={() => fileRef.current?.click()}>
+            <Upload size={15} />
+          </PaneIcon>
+          <PaneIcon label="Load from URL" onClick={onOpenFetchUrl}>
+            <Globe size={15} />
+          </PaneIcon>
+          <PaneIcon label="Clear input" onClick={state.clear} disabled={!state.input}>
+            <Trash2 size={15} />
+          </PaneIcon>
         </div>
-      </div>
+      )}
 
       {/* JS-object → JSON conversion banner. Renders ONLY when there's a
           concrete conversion result — never on the transient "analysing"
@@ -243,43 +139,12 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
         </div>
       )}
 
-      {/* Validation banner. The message jumps the caret to the error; the
-          Repair CTA on the right makes the (now much more capable) auto-fix
-          discoverable right where the user sees the error, instead of being
-          hidden behind a toolbar button they have to know about. The CTA is
-          suppressed when the JS-object banner is already offering a one-click
-          Apply — never two competing fix buttons at once. */}
-      {v.status === "invalid" && (
-        <div className="flex w-full shrink-0 items-center gap-2 border-b border-error-border bg-error-bg px-3 py-2 text-sm text-error-text">
-          <AlertCircle size={13} className="shrink-0" />
-          <button
-            type="button"
-            onClick={() => setJumpNonce((n) => n + 1)}
-            className="group min-w-0 flex-1 truncate text-left transition-opacity hover:opacity-80"
-            title="Jump to error"
-          >
-            Line {v.line}, col {v.col}: {v.message}
-            <span className="ml-2 text-sm font-medium opacity-50 transition-opacity group-hover:opacity-100">
-              Jump →
-            </span>
-          </button>
-          {!state.jsConversion && (
-            <button
-              type="button"
-              onClick={state.repair}
-              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-error-text px-2.5 text-xs-plus font-medium text-error-bg transition-opacity hover:opacity-90 cursor-pointer"
-              title="Auto-fix this JSON"
-            >
-              <Wand2 size={12} aria-hidden />
-              Repair
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
         <CodeView
+          variant="v2"
+          placeholder="Paste JSON here, or press ⌘V anywhere…"
+          errorLines={problemLines}
           value={state.input}
           onChange={state.setInput}
           indent={state.indent}
@@ -287,7 +152,7 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
           errorLine={errorLine}
           jumpToError={
             v.status === "invalid"
-              ? { line: v.line, col: v.col, nonce: jumpNonce }
+              ? { line: v.line, col: v.col, nonce: 0 }
               : undefined
           }
           onPasteFormatted={state.formatFrom}
@@ -301,3 +166,19 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl }: InputPanelProps) 
 // frame. Props are stable during a drag (parent isn't re-rendering), so this
 // bails out and the multi-MB editor never re-renders mid-resize.
 export const InputPanel = memo(InputPanelImpl);
+
+function PaneIcon({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <Tooltip content={label} side="bottom">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className="flex size-[34px] items-center justify-center rounded-lg text-text-faint transition-colors enabled:hover:bg-white/6 enabled:hover:text-text disabled:opacity-40"
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
+}

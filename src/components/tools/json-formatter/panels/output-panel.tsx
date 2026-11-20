@@ -16,24 +16,33 @@ import {
   FoldVertical,
   Maximize2,
   Minimize2,
+  MoreHorizontal,
   Search,
+  TriangleAlert,
   UnfoldVertical,
   WrapText,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Tooltip } from "@/components/primitives/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/primitives/dropdown-menu";
 import { CodeView } from "../views/code-view";
 import { DeferredMount } from "../views/deferred-mount";
 import { TreeView } from "../views/tree-view";
-import { TableView } from "../views/table-view";
+import { FlatTableView, TableView } from "../views/table-view";
 import { PathView } from "../views/path-view";
 import type { ViewMode } from "../json-formatter.types";
 import type { JsonFormatterState } from "../use-json-formatter";
 import type { HistoryEntry } from "../hooks/use-history";
 import { OutputSearchBar } from "./output-search-bar";
-import { EmptyState } from "./empty-state";
+import { EmptyState, InvalidState } from "./empty-state";
 import { applySearchHighlight, highlight, langForOutput } from "../json-highlighter";
-import { formatJson } from "../json-formatter.lib";
+import { formatJson, formatJsonText } from "../json-formatter.lib";
 
 // Graph is a heavier SVG view — only its chunk loads when the tab opens.
 const GraphView = lazy(() => import("../views/graph/graph-view"));
@@ -49,6 +58,9 @@ const VIEW_LABELS: { mode: ViewMode; label: string }[] = [
 interface OutputPanelProps {
   state: JsonFormatterState;
   onLoadSample: (key: string) => void;
+  onLoadBroken: () => void;
+  /** Mobile: 4-column view pills instead of the tab header (no Graph). */
+  isMobile?: boolean;
   onLoadFile: (file: File) => void;
   onOpenFetchUrl: () => void;
   recent: HistoryEntry[];
@@ -60,6 +72,8 @@ interface OutputPanelProps {
 function OutputPanelImpl({
   state,
   onLoadSample,
+  onLoadBroken,
+  isMobile = false,
   onLoadFile,
   onOpenFetchUrl,
   recent,
@@ -68,6 +82,12 @@ function OutputPanelImpl({
   onClearRecent,
 }: OutputPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await state.copyOutput();
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
@@ -87,8 +107,14 @@ function OutputPanelImpl({
   const formattedFromParsed = useMemo(() => {
     if (state.viewMode !== "code") return "";
     if (state.parsedValue === null || state.parsedValue === undefined) return "";
-    try { return formatJson(state.parsedValue, state.indent); } catch { return ""; }
-  }, [state.viewMode, state.parsedValue, state.indent]);
+    // Format from the source text so big integers / long decimals keep their
+    // exact digits; fall back to the parsed value if the text is mid-edit.
+    try {
+      return formatJsonText(state.parsedSource, state.indent, "none", state.parsedValue);
+    } catch {
+      try { return formatJson(state.parsedValue, state.indent); } catch { return ""; }
+    }
+  }, [state.viewMode, state.parsedValue, state.parsedSource, state.indent]);
   const displayedCode = state.output || formattedFromParsed || state.input;
   const deferredCode = useDeferredValue(displayedCode);
 
@@ -120,6 +146,7 @@ function OutputPanelImpl({
 
   const showEmptyState =
     !state.output && !state.parsedValue && state.input.trim().length === 0;
+  const showInvalid = state.validation.status === "invalid" && !state.output;
 
   const handleToggleSearch = () => {
     if (showSearch && searchTerm) setSearchTerm("");
@@ -139,144 +166,123 @@ function OutputPanelImpl({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden bg-surface",
-        fullscreen && "fixed inset-0 z-50 bg-surface",
+        "flex h-full flex-col overflow-hidden bg-canvas",
+        fullscreen && "fixed inset-0 z-50 bg-canvas",
       )}
     >
-      {/* Tab bar */}
-      <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
-        <div className="flex items-center gap-0.5 flex-1">
-          {VIEW_LABELS.map(({ mode, label }) => {
-            const requiresArray = mode === "table";
-            const isDisabled = requiresArray && !state.canUseTableView;
-            const isActive = state.viewMode === mode;
-
-            const btn = (
-              <button
-                key={mode}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => !isDisabled && switchView(mode)}
-                className={cn(
-                  "relative inline-flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors select-none",
-                  isActive
-                    ? "bg-surface-soft text-text"
-                    : "text-text-faint hover:bg-surface-soft hover:text-text",
-                  isDisabled &&
-                    "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-text-faint",
-                )}
-              >
-                {label}
-              </button>
-            );
-
-            if (isDisabled) {
+      {/* View tabs + output actions */}
+      {isMobile ? (
+        !showEmptyState && (
+          <div role="tablist" aria-label="Output view" className="grid shrink-0 grid-cols-4 gap-1.5 border-b border-border-subtle p-2.5">
+            {VIEW_LABELS.filter((v) => v.mode !== "graph").map(({ mode, label }) => {
+              const disabled = false;
+              const on = state.viewMode === mode;
               return (
-                <Tooltip key={mode} content="Requires array of objects" side="bottom">
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  disabled={disabled}
+                  onClick={() => switchView(mode)}
+                  className={cn(
+                    "min-h-10 min-w-0 rounded-full border px-1.5 text-[13px] font-semibold disabled:opacity-40",
+                    on ? "border-brand bg-brand text-on-brand" : "border-white/12 text-text-tertiary",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <div className="flex min-h-[46px] shrink-0 items-center gap-1 border-b border-border-subtle px-2">
+          <div role="tablist" aria-label="Output view" className="flex gap-0.5">
+            {VIEW_LABELS.filter((v) => v.mode !== "graph" || state.viewMode === "graph").map(({ mode, label }) => {
+              const isDisabled = false;
+              const isActive = state.viewMode === mode;
+              const btn = (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  disabled={isDisabled}
+                  onClick={() => !isDisabled && switchView(mode)}
+                  className={cn(
+                    "min-h-[34px] rounded-lg px-3 text-[13px] font-semibold transition-colors select-none",
+                    isActive ? "bg-white/[.07] text-text" : "text-text-tertiary hover:text-text",
+                    isDisabled && "cursor-not-allowed opacity-40 hover:text-text-tertiary",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+              return isDisabled ? (
+                <Tooltip key={mode} content="Needs an array of objects" side="bottom">
                   {btn}
                 </Tooltip>
+              ) : (
+                btn
               );
-            }
-            return btn;
-          })}
-        </div>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          {state.viewMode === "tree" && (
-            <>
-              <Tooltip content="Expand all" side="bottom">
+            })}
+          </div>
+          <span className="grow" />
+          <IconBtn label="Search output" onClick={handleToggleSearch} pressed={showSearch} disabled={!displayedCode}>
+            <Search size={15} />
+          </IconBtn>
+          <IconBtn label="Download" shortcut="⌘⇧D" onClick={() => state.downloadOutput("json")} disabled={!displayedCode}>
+            <Download size={15} />
+          </IconBtn>
+          {/* View extras the mockup doesn't show: graph, tree controls, fullscreen. */}
+          <DropdownMenu>
+            <Tooltip content="More views" side="bottom">
+              <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  onClick={() => state.setTreeExpandAll((n) => n + 1)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-                  aria-label="Expand all"
+                  aria-label="More views"
+                  className="flex size-[34px] items-center justify-center rounded-lg text-text-faint transition-colors hover:bg-white/6 hover:text-text"
                 >
-                  <UnfoldVertical size={15} />
+                  <MoreHorizontal size={15} aria-hidden />
                 </button>
-              </Tooltip>
-              <Tooltip content="Collapse all" side="bottom">
-                <button
-                  type="button"
-                  onClick={() => state.setTreeCollapseAll((n) => n + 1)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-                  aria-label="Collapse all"
-                >
-                  <FoldVertical size={15} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Wrap long values" side="bottom">
-                <button
-                  type="button"
-                  onClick={() => state.setWrapText(!state.wrapText)}
-                  className={cn(
-                    "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                    state.wrapText
-                      ? "bg-surface-soft text-text"
-                      : "text-text-faint hover:bg-surface-soft hover:text-text",
-                  )}
-                  aria-label="Wrap long values"
-                  aria-pressed={state.wrapText}
-                >
-                  <WrapText size={15} />
-                </button>
-              </Tooltip>
-            </>
-          )}
-
-          <Tooltip content="Search output" side="bottom">
-            <button
-              type="button"
-              onClick={handleToggleSearch}
-              disabled={!displayedCode}
-              className={cn(
-                "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                showSearch
-                  ? "bg-surface-soft text-text"
-                  : "text-text-faint hover:bg-surface-soft hover:text-text",
-                "disabled:opacity-40 disabled:hover:bg-transparent",
-              )}
-              aria-label="Search output"
-            >
-              <Search size={15} />
-            </button>
-          </Tooltip>
-
+              </DropdownMenuTrigger>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem onClick={() => switchView("graph")}>Graph view</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={state.viewMode !== "tree"} onClick={() => state.setTreeExpandAll((n) => n + 1)}>
+                <UnfoldVertical size={14} className="mr-2 text-text-faint" aria-hidden />
+                Expand all
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={state.viewMode !== "tree"} onClick={() => state.setTreeCollapseAll((n) => n + 1)}>
+                <FoldVertical size={14} className="mr-2 text-text-faint" aria-hidden />
+                Collapse all
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={state.viewMode !== "tree"} onClick={() => state.setWrapText(!state.wrapText)}>
+                <WrapText size={14} className="mr-2 text-text-faint" aria-hidden />
+                {state.wrapText ? "Don't wrap long values" : "Wrap long values"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setFullscreen((f) => !f)}>
+                {fullscreen ? <Minimize2 size={14} className="mr-2 text-text-faint" aria-hidden /> : <Maximize2 size={14} className="mr-2 text-text-faint" aria-hidden />}
+                {fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Tooltip content="Copy output" shortcut="⌘⇧C" side="bottom">
             <button
               type="button"
-              onClick={() => void state.copyOutput()}
+              onClick={() => void handleCopy()}
               disabled={!displayedCode}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Copy output"
+              className="ml-1 inline-flex min-h-[34px] items-center gap-[7px] rounded-lg border border-white/12 bg-white/[.04] px-3 text-[13px] font-semibold text-text transition-colors hover:bg-white/[.07] disabled:opacity-40"
             >
-              <Copy size={15} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Download .json" shortcut="⌘⇧D" side="bottom">
-            <button
-              type="button"
-              onClick={() => state.downloadOutput("json")}
-              disabled={!displayedCode}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Download output"
-            >
-              <Download size={15} />
-            </button>
-          </Tooltip>
-
-          <Tooltip content={fullscreen ? "Exit fullscreen" : "Fullscreen"} side="bottom">
-            <button
-              type="button"
-              onClick={() => setFullscreen((f) => !f)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors"
-              aria-label="Toggle fullscreen"
-            >
-              {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              <Copy size={14} aria-hidden />
+              {copied ? "Copied" : "Copy"}
             </button>
           </Tooltip>
         </div>
-      </div>
+      )}
 
       {showSearch && (
         <OutputSearchBar
@@ -288,6 +294,10 @@ function OutputPanelImpl({
         />
       )}
 
+      {!showEmptyState && state.viewMode !== "code" && state.impreciseNumbers > 0 && (
+        <PrecisionNotice count={state.impreciseNumbers} onShowCode={() => switchView("code")} />
+      )}
+
       {/* Body */}
       <div className="relative flex-1 overflow-hidden">
         {state.isConverting && (
@@ -295,8 +305,9 @@ function OutputPanelImpl({
             <span className="animate-pulse">Converting…</span>
           </div>
         )}
-        {showEmptyState ? (
+        {showEmptyState && (
           <EmptyState
+            onLoadBroken={onLoadBroken}
             onLoadSample={onLoadSample}
             onLoadFile={onLoadFile}
             onOpenFetchUrl={onOpenFetchUrl}
@@ -305,10 +316,13 @@ function OutputPanelImpl({
             onRemoveRecent={onRemoveRecent}
             onClearRecent={onClearRecent}
           />
-        ) : (
+        )}
+        {!showEmptyState && showInvalid && <InvalidState />}
+        {!showEmptyState && !showInvalid && (
           <DeferredMount token={state.viewMode}>
             {state.viewMode === "code" && (
               <CodeView
+                variant="v2"
                 value={displayedCode}
                 highlighted={highlightedWithSearch}
                 indent={state.indent}
@@ -345,13 +359,72 @@ function OutputPanelImpl({
               <PathView value={state.parsedOutput ?? state.parsedValue} />
             )}
             {state.viewMode === "table" && !state.canUseTableView && (
-              <div className="flex h-full items-center justify-center text-sm text-text-faint">
-                Requires an array of objects — format your JSON first.
-              </div>
+              <FlatTableView value={state.parsedOutput ?? state.parsedValue} />
             )}
           </DeferredMount>
         )}
       </div>
+    </div>
+  );
+}
+
+function IconBtn({
+  label,
+  shortcut,
+  onClick,
+  pressed,
+  disabled,
+  children,
+}: {
+  label: string;
+  shortcut?: string;
+  onClick: () => void;
+  pressed?: boolean;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip content={label} shortcut={shortcut} side="bottom">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={pressed}
+        className={cn(
+          "flex size-[34px] items-center justify-center rounded-lg transition-colors disabled:opacity-40",
+          pressed ? "bg-white/6 text-text" : "text-text-faint enabled:hover:bg-white/6 enabled:hover:text-text",
+        )}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * Honest-metrics notice: JS numbers are IEEE-754 doubles, so the value-based
+ * views can't show digits beyond ~17 significant figures. Say so instead of
+ * letting the user copy a silently rounded ID out of the tree.
+ */
+function PrecisionNotice({ count, onShowCode }: { count: number; onShowCode: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 border-b border-warning-border bg-warning-bg px-3 py-1.5 text-[12.5px] text-warning-text"
+    >
+      <TriangleAlert size={13} className="shrink-0" aria-hidden />
+      <span className="flex-1">
+        {count} number{count !== 1 ? "s" : ""} exceed{count === 1 ? "s" : ""} JavaScript precision and
+        {count !== 1 ? " are" : " is"} shown rounded here. Code view, Copy and Download keep the exact digits.
+      </span>
+      <button
+        type="button"
+        onClick={onShowCode}
+        className="shrink-0 rounded-md px-2 py-0.5 font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        Show exact in Code
+      </button>
     </div>
   );
 }
