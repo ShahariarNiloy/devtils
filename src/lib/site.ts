@@ -21,9 +21,14 @@ export const SITE_WORDMARK = "utilyx";
  * exists so localhost previews don't crash on a missing env var.
  */
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://utilyx.dev";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.utilyx.dev";
 
-/** Bare domain (no scheme) for display, robots host, structured data. */
+/**
+ * Bare domain (no scheme) for display: OG footers, the contact email, the
+ * GitHub path. Not a URL — the live site serves from `www.` (the bare domain
+ * redirects there), so canonical links, the sitemap and robots.txt use
+ * SITE_URL.
+ */
 export const SITE_DOMAIN = "utilyx.dev";
 
 /**

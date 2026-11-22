@@ -38,7 +38,7 @@ const TLDR: readonly LegalTldr[] = [
     glyphClass: "text-success",
     title: "No tracking",
     description:
-      "No analytics cookies, pixel trackers or third-party tag managers.",
+      "Cookieless page-view counts only. No cookies, pixels or ad tags.",
   },
   {
     glyph: "~",
@@ -58,28 +58,50 @@ const SECTIONS: readonly LegalSection[] = [
         <li>
           <strong>Tool inputs.</strong> JSON you paste into the formatter, regex
           patterns you test, images you compress — none of it transmits
-          anywhere. The tools are pure client-side code.
+          anywhere. Nothing leaves your browser.
         </li>
         <li>
           <strong>Tool outputs.</strong> The same applies to
           converted/transformed data — it stays in your browser.
         </li>
         <li>
-          <strong>Behavioural tracking.</strong> No cookies for analytics, no
-          pixel trackers, no third-party tag managers.
+          <strong>Behavioural tracking.</strong> No cookies, no pixel trackers,
+          no third-party tag managers, no cross-site profiles.
         </li>
       </ul>
+    ),
+  },
+  {
+    id: "requests-you-ask-for",
+    title: "Requests you ask for",
+    body: (
+      <p>
+        A few tools can fetch something on your behalf — loading JSON from a
+        URL in the JSON formatter, or a token issuer&apos;s public keys in the
+        JWT decoder. Your browser fetches it directly from that site; it never
+        passes through our servers, and the tool only does it when you ask.
+      </p>
     ),
   },
   {
     id: "what-we-do-collect",
     title: "What we do collect",
     body: (
-      <p>
-        Standard web server access logs (request path, status code, user agent,
-        IP address) for normal site operation and abuse prevention. These are
-        retained for 30 days and never linked to identity.
-      </p>
+      <ul className="m-0 flex list-disc flex-col gap-2 pl-5">
+        <li>
+          <strong>Page-view counts.</strong> Cloudflare Web Analytics counts
+          visits in aggregate: the page address, referrer, browser type,
+          country and page-load timings. It sets no cookies and stores nothing
+          on your device, and nothing you type or paste into a tool is part
+          of it.
+        </li>
+        <li>
+          <strong>Access logs.</strong> Standard web server access logs
+          (request path, status code, user agent, IP address) for normal site
+          operation and abuse prevention. These are retained for 30 days and
+          never linked to identity.
+        </li>
+      </ul>
     ),
   },
   {
@@ -87,9 +109,10 @@ const SECTIONS: readonly LegalSection[] = [
     title: "Third parties",
     body: (
       <p>
-        The site is served from our hosting provider and uses Google Fonts for
-        typography. No analytics providers, no ad networks, no behavioural
-        profilers.
+        The site is hosted on Vercel, and page views are counted by Cloudflare
+        Web Analytics as described above. Fonts are served from our own
+        domain, so your browser never contacts Google or any other font
+        service. No ad networks, no behavioural profilers.
       </p>
     ),
   },
@@ -106,7 +129,7 @@ const SECTIONS: readonly LegalSection[] = [
 ];
 
 /**
- * /privacy. Every tool is fully client-side, so the policy is brief and
+ * /privacy. Nothing a tool handles leaves the browser, so the policy is brief and
  * honest. Wording is the site owner's policy — restyle freely, but don't
  * rewrite it.
  */
@@ -123,7 +146,7 @@ export default function PrivacyPage() {
       }
       tldr={TLDR}
       sections={SECTIONS}
-      lastUpdated="Last updated: 2026-05-29."
+      lastUpdated="Last updated: 2026-11-22."
     />
   );
 }
