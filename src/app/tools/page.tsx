@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Header } from "@/components/layout/header";
 import { CollectionJsonLd } from "@/components/shared/tool-jsonld";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
@@ -11,7 +12,7 @@ import {
   ROADMAP,
   TOTAL,
 } from "@/components/tools-catalogue/catalogue-data";
-import { ToolsCatalogue } from "@/components/tools-catalogue/tools-catalogue";
+import { CatalogueView, ToolsCatalogue } from "@/components/tools-catalogue/tools-catalogue";
 import { SITE_NAME } from "@/lib/site";
 import { DISTINCT_LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
 import { TOOLS } from "@/lib/tools-registry";
@@ -39,20 +40,26 @@ export const metadata = {
   robots: { index: true, follow: true },
 };
 
-export default async function ToolsPage({ searchParams }: PageProps<"/tools">) {
-  const { q } = await searchParams;
+/*
+ * Static on purpose: reading `searchParams` here would render the page on
+ * every request and stop it being prefetched. `?q=` is read in the browser
+ * by <ToolsCatalogue>; the prebuilt HTML is the full catalogue unfiltered.
+ */
+export default function ToolsPage() {
+  const catalogue = {
+    json: JSON_SECTION,
+    sections: OTHER_SECTIONS,
+    featured: MOST_USED,
+    roadmap: ROADMAP,
+    total: TOTAL,
+    live: LIVE,
+  };
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip text-base leading-[1.55]">
       <Header variant="catalogue" />
-      <ToolsCatalogue
-        json={JSON_SECTION}
-        sections={OTHER_SECTIONS}
-        featured={MOST_USED}
-        roadmap={ROADMAP}
-        total={TOTAL}
-        live={LIVE}
-        initialQuery={typeof q === "string" ? q : ""}
-      />
+      <Suspense fallback={<CatalogueView {...catalogue} initialQuery="" />}>
+        <ToolsCatalogue {...catalogue} />
+      </Suspense>
       <HomeFooter variant="compact" />
       <CollectionJsonLd
         name="All tools"

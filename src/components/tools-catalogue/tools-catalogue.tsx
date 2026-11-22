@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Keycap } from "@/components/layout/brand/brand-mark";
@@ -33,7 +34,20 @@ interface Props {
   initialQuery: string;
 }
 
-export function ToolsCatalogue({ json, sections, featured, roadmap, total, live, initialQuery }: Props) {
+/**
+ * The catalogue with `?q=` from the URL. Reading search params here, in the
+ * browser, keeps /tools a static page: the server never needs the query, so
+ * the page is prebuilt and prefetched like every other route. Wrap it in a
+ * <Suspense> whose fallback is `<CatalogueView initialQuery="" />`, which is
+ * what the prebuilt HTML shows.
+ */
+export function ToolsCatalogue(props: Omit<Props, "initialQuery">) {
+  const q = useSearchParams().get("q") ?? "";
+  // Keyed, so following a link to a different ?q= starts from that query.
+  return <CatalogueView key={q} {...props} initialQuery={q} />;
+}
+
+export function CatalogueView({ json, sections, featured, roadmap, total, live, initialQuery }: Props) {
   const [query, setQuery] = useState(initialQuery);
   const [task, setTask] = useState<Task | "all">("all");
   const q = useDeferredValue(query).toLowerCase().trim();

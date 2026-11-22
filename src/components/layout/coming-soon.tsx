@@ -5,6 +5,7 @@ import type { ToolCategory } from '@/lib/tools/types';
 import { createElement } from 'react';
 import { getDoodle } from "@/lib/doodle-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { categoryAnchor } from "@/lib/tools/category-url";
 import {
   getCategoryMeta,
   getRelatedTools,
@@ -45,7 +46,7 @@ export function ComingSoon({ tool }: Props) {
               </Link>
               <ChevronRight size={11} aria-hidden className="shrink-0" />
               <Link
-                href={`/tools?cat=${encodeURIComponent(tool.category)}`}
+                href={categoryAnchor(tool.category)}
                 className="hover:text-text-muted transition-colors shrink-0"
               >
                 {tool.category}
@@ -133,7 +134,7 @@ export function ComingSoon({ tool }: Props) {
                 Back to all tools
               </Link>
               <Link
-                href={`/tools?cat=${encodeURIComponent(tool.category)}`}
+                href={categoryAnchor(tool.category)}
                 className="inline-flex items-center gap-2 rounded-button border border-border bg-transparent px-4 h-btn-md text-sm font-semibold text-text transition-colors hover:border-border-strong hover:bg-surface"
               >
                 More {tool.category} tools
