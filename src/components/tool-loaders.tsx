@@ -17,6 +17,8 @@ type ToolComponent = ComponentType<{ tool: Tool }>;
  * Typed `Record<LiveSlug, …>`: adding a slug to live.ts without a loader
  * here (or the reverse) is a compile error.
  */
+// The seven cURL pages share one component (and one chunk).
+const curl = dynamic(() => import("@/components/tools/curl-converter").then((m) => m.CurlConverter));
 const cssUnit = dynamic(() => import("@/components/tools/css-unit-converter").then((m) => m.CssUnitConverter));
 
 const LOADERS: Record<LiveSlug, ToolComponent> = {
@@ -51,6 +53,13 @@ const LOADERS: Record<LiveSlug, ToolComponent> = {
   "timestamp-converter": dynamic(() => import("@/components/tools/timestamp-converter").then((m) => m.TimestampConverter)),
   "image-compressor": dynamic(() => import("@/components/tools/image-compressor").then((m) => m.ImageCompressor)),
   "blur-placeholder": dynamic(() => import("@/components/tools/blur-placeholder").then((m) => m.BlurPlaceholder)),
+  "curl-to-code": curl,
+  "curl-generator": curl,
+  "curl-to-fetch": curl,
+  "curl-to-axios": curl,
+  "curl-to-python": curl,
+  "curl-to-go": curl,
+  "curl-to-php": curl,
   "url-encoder": dynamic(() => import("@/components/tools/url-encoder").then((m) => m.UrlEncoder)),
   "html-entity": dynamic(() => import("@/components/tools/html-entity").then((m) => m.HtmlEntity)),
   "hreflang-generator": dynamic(() => import("@/components/tools/hreflang-generator").then((m) => m.HreflangGenerator)),

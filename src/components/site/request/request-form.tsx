@@ -4,6 +4,7 @@ import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { buildRequestMail, validateRequest, type RequestDraft, type RequestMail } from "./request-mail";
+import { Dropdown } from "@/components/primitives/select";
 
 const EMPTY = (category: string): RequestDraft => ({ name: "", what: "", category, email: "" });
 
@@ -166,18 +167,13 @@ export function RequestForm({ categories, to, pageUrl }: { categories: readonly 
       </Field>
 
       <Field id={ids.cat} label="Category">
-        <select
+        <Dropdown
           id={ids.cat}
           value={draft.category}
-          onChange={set("category")}
-          className={cn(FIELD, "min-h-[46px] px-3", border())}
-        >
-          {categories.map((c) => (
-            <option key={c} value={c} className="bg-surface text-text">
-              {c}
-            </option>
-          ))}
-        </select>
+          onChange={(category) => setDraft((d) => ({ ...d, category }))}
+          options={categories.map((c) => ({ value: c, label: c }))}
+          className={cn(FIELD, "h-auto min-h-[46px] px-3", border())}
+        />
       </Field>
 
       <Field id={ids.email} label="Email" optional error={errors.email}>

@@ -59,8 +59,8 @@ function GenericGuide({ tool, open, onOpenChange }: { tool: Tool } & GuideProps)
               <h3 className="m-0 text-xs font-bold tracking-wide text-text-faint uppercase">What it&apos;s good for</h3>
               <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-2.5 p-0">
                 {seo.useCases.map((u) => (
-                  <li key={u.title} className="surface-panel flex flex-col gap-1.5 rounded-xl p-4">
-                    <span className="text-sm font-bold text-text">{u.title}</span>
+                  <li key={u.title || u.tag} className="surface-panel flex flex-col gap-1.5 rounded-xl p-4">
+                    <span className="text-sm font-bold text-text">{u.title || u.tag}</span>
                     <span className="text-[13px] text-text-tertiary">{u.description}</span>
                   </li>
                 ))}

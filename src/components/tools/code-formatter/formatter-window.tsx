@@ -30,6 +30,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { splitHighlightedLines } from "./split-lines.lib";
+import { Dropdown } from "@/components/primitives/select";
 
 /** Above this many output lines, fall back to the single-<pre> CodeView. */
 const MAX_LINE_ROWS = 4000;
@@ -174,7 +175,7 @@ export function SegButton({
   );
 }
 
-/** Mockup "field": a recessed label + value box; the value is a native select. */
+/** Mockup "field": a recessed label + value box with a dropdown. */
 export function FieldSelect<T extends string>({
   label,
   value,
@@ -190,24 +191,18 @@ export function FieldSelect<T extends string>({
   suffix?: string;
 }) {
   return (
-    <label className="flex min-h-11 flex-[0_1_240px] items-center gap-2 rounded-[10px] border border-white/10 bg-[#0d0d0c] px-3 text-[13px] text-text-faint focus-within:border-clay-light/50">
-      {label}
-      <select
+    <div className="flex min-h-11 flex-[0_1_240px] items-center gap-2 rounded-[10px] border border-white/10 bg-[#0d0d0c] px-3 text-[13px] text-text-faint focus-within:border-clay-light/50">
+      <span aria-hidden="true">{label}</span>
+      <Dropdown
+        bare
+        aria-label={label}
         value={value}
-        onChange={(e) => {
-          const next = options.find((o) => o.v === e.target.value);
-          if (next) onChange(next.v);
-        }}
-        className="min-w-0 grow cursor-pointer border-0 bg-transparent font-mono text-sm text-syntax-key outline-none [&>option]:bg-surface [&>option]:text-text"
-      >
-        {options.map((o) => (
-          <option key={o.v} value={o.v}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options.map((o) => ({ value: o.v, label: o.label }))}
+        className="min-h-11 grow font-mono text-sm text-syntax-key"
+      />
       {suffix && <span className="shrink-0 font-mono text-xs text-text-ghost">{suffix}</span>}
-    </label>
+    </div>
   );
 }
 

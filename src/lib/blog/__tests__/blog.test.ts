@@ -76,6 +76,7 @@ check(
       "base64-is-not-encryption",
       "blur-placeholders-measured",
       "cron-syntax-explained",
+      "curl-to-code-gotchas",
       "decode-jwt-safely",
       "format-50mb-json-in-browser",
       "how-lossy-png-compression-works",

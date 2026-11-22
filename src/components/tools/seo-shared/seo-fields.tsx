@@ -4,6 +4,7 @@ import { useId, type ReactNode } from "react";
 import { toast } from "sonner";
 import { flushPendingEdits, LazyCodeEditor, type CodeLanguage } from "@/components/primitives/code-editor";
 import { cn } from "@/lib/cn";
+import { Dropdown } from "@/components/primitives/select";
 
 const SR_ONLY = "absolute h-px w-px overflow-hidden [clip:rect(0_0_0_0)]";
 const FIELD_BOX = "rounded-[10px] border border-white/10 bg-[#0d0d0c] transition-colors focus-within:border-clay-light/50";
@@ -154,23 +155,9 @@ interface SelectProps<T extends string> {
 
 export function SeoSelect<T extends string>({ label, value, onChange, options }: SelectProps<T>) {
   return (
-    <label className={cn("flex min-h-11 items-center px-3", FIELD_BOX)}>
-      <span className={SR_ONLY}>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => {
-          const next = options.find((o) => o.value === e.target.value);
-          if (next) onChange(next.value);
-        }}
-        className="min-w-0 grow cursor-pointer border-0 bg-transparent text-sm text-text outline-none"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-surface text-text">
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className={cn("flex min-h-11 items-center px-3 focus-within:border-border-strong", FIELD_BOX)}>
+      <Dropdown bare aria-label={label} value={value} onChange={onChange} options={options} className="min-h-11 grow text-sm text-text" />
+    </div>
   );
 }
 

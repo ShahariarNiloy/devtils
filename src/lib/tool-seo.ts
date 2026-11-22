@@ -51,6 +51,7 @@ import { seoData as openGraphGenerator } from "@/components/tools/open-graph-gen
 import { seoData as metaPreview } from "@/components/tools/meta-preview/content";
 import { seoData as jsonLdGenerator } from "@/components/tools/json-ld-generator/content";
 import { seoData as blurPlaceholder } from "@/components/tools/blur-placeholder/content";
+import { CURL_SEO } from "@/components/tools/curl-converter/content";
 import { seoData as jsonDiff } from "@/components/tools/json-diff/content";
 import {
   getSeoData as cssUnitAliasSeo,
@@ -101,6 +102,8 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "meta-preview": metaPreview,
   "json-ld-generator": jsonLdGenerator,
   "blur-placeholder": blurPlaceholder,
+  // The seven cURL pages share one tool, each with its own copy.
+  ...CURL_SEO,
   "json-diff": jsonDiff,
   "css-unit-converter": cssUnitConverter,
   // The px/rem/em/pt alias routes share the converter, each with its own copy.

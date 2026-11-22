@@ -13,12 +13,19 @@ import {
 } from "../timestamp-converter.lib";
 import type { HolidayCalendarId } from "../holidays";
 import { FIELD, Stat } from "../components/arithmetic-shared";
+import { Dropdown } from "@/components/primitives/select";
 
 const UNITS = [
   "years", "months", "weeks", "days", "hours", "minutes",
   "seconds", "milliseconds", "microseconds", "nanoseconds", "business",
 ] as const;
 type Unit = (typeof UNITS)[number];
+
+const OP_OPTIONS = [
+  { value: "add", label: "Add" },
+  { value: "sub", label: "Subtract" },
+] as const;
+const UNIT_OPTIONS = UNITS.map((u) => ({ value: u, label: u === "business" ? "business days" : u }));
 interface Row {
   id: number;
   n: string;
@@ -70,33 +77,26 @@ export function AddSubtractPanel({ primaryTz, secondaryTz, cal }: Props) {
       />
       {rows.map((r) => (
         <div key={r.id} className="flex flex-wrap items-center gap-2">
-          <select
-            value={r.op}
-            onChange={(e) => patch(r.id, { op: e.target.value as "add" | "sub" })}
+          <Dropdown
             aria-label="Operation"
+            value={r.op}
+            onChange={(op) => patch(r.id, { op })}
+            options={OP_OPTIONS}
             className={cn(FIELD, "w-24")}
-          >
-            <option value="add">Add</option>
-            <option value="sub">Subtract</option>
-          </select>
+          />
           <input
             className={cn(FIELD, "w-24")}
             value={r.n}
             onChange={(e) => patch(r.id, { n: e.target.value })}
             aria-label="Amount"
           />
-          <select
-            value={r.unit}
-            onChange={(e) => patch(r.id, { unit: e.target.value as Unit })}
+          <Dropdown
             aria-label="Unit"
+            value={r.unit}
+            onChange={(unit) => patch(r.id, { unit })}
+            options={UNIT_OPTIONS}
             className={cn(FIELD, "w-36")}
-          >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u === "business" ? "business days" : u}
-              </option>
-            ))}
-          </select>
+          />
           <button
             type="button"
             onClick={() =>

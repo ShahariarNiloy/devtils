@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 export interface ToolUseCase {
+  /** Bold heading; empty when the tag says it all (cURL pages). */
   title: string;
   description: string;
   /** Short mono tag on the card ("API", "fix"), v2. */
@@ -67,9 +68,9 @@ export function ToolContent({ intro, usesTitle, usesNote, useCases, faqs }: Tool
         {useCases.length > 0 && (
           <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-2.5 p-0">
             {useCases.map((u) => (
-              <li key={u.title} className={`surface-panel flex flex-col rounded-[14px] p-4 ${u.tag ? "gap-2" : "gap-1.5"}`}>
+              <li key={`${u.tag ?? ""}${u.title}`} className={`surface-panel flex flex-col rounded-[14px] p-4 ${u.tag ? "gap-2" : "gap-1.5"}`}>
                 {u.tag && <span className={`font-mono text-xs ${TAG_TINT[u.tint ?? "clay"]}`}>{u.tag}</span>}
-                <span className="text-sm font-bold">{u.title}</span>
+                {u.title && <span className="text-sm font-bold">{u.title}</span>}
                 <span className="text-[13px] text-text-tertiary">{u.description}</span>
               </li>
             ))}

@@ -29,13 +29,13 @@ export default function Home() {
       <main id="main" className="flex-1">
         <LandingHero />
 
-        {/* Product window: "Paste anything" / "Command palette" tabs. */}
+        {/* Product window: the "Paste anything" demo. */}
         <section id="tools" className="relative z-[1] flex flex-col items-center gap-10 px-6 pt-10">
           <div className="flex flex-col gap-0.5 text-center">
-            <h2 className="m-0 font-sans text-[22px] font-bold tracking-[-0.02em]">Paste anything, or press ⌘K.</h2>
-            <p className="m-0 text-[22px] font-semibold tracking-[-0.02em] text-text-faint">Two ways in. Both take about a second.</p>
+            <h2 className="m-0 font-sans text-[22px] font-bold tracking-[-0.02em]">Paste anything.</h2>
+            <p className="m-0 text-[22px] font-semibold tracking-[-0.02em] text-text-faint">We&apos;ll work out what it is and open the right tool.</p>
           </div>
-          <HeroDemo tools={SHOWCASE_TOOLS_V2} catalogueCount={CATALOGUE_COUNT} />
+          <HeroDemo />
           <p className="m-0 max-w-[520px] text-center text-[17px] text-text-faint">
             <strong className="font-bold text-text">Private by default.</strong> What you paste is processed in your
             browser, not uploaded to us.

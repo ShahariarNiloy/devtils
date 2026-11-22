@@ -35,7 +35,8 @@ export type CoverKey =
   | "uuid"
   | "blur"
   | "formats"
-  | "keys";
+  | "keys"
+  | "curl";
 
 /** Tag swatch colours (design TINT map → palette tokens). */
 export type TagTint = "teal" | "clay" | "sage" | "rose" | "plum" | "faint";

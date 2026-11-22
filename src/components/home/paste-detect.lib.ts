@@ -27,8 +27,67 @@ export interface Detection {
   /** Registry slug of the tool the button opens. */
   slug: string;
   facts: Fact[];
+  /** Plain-text preview — shown when there are no `rows` and no `swatch`. */
   preview: string;
   confidence: Confidence;
+  /** Heading over the preview pane ("Payload", "Top-level keys", …). */
+  previewLabel: string;
+  /** Readable key → value rows; when non-empty they replace `preview`. */
+  rows: PreviewRow[];
+  /** A CSS colour to show as a swatch instead of text. */
+  swatch?: string;
+}
+
+/** How a preview row's value is coloured (matches the syntax palette). */
+export type RowTone = "string" | "number" | "boolean" | "null" | "plain" | "muted";
+
+export interface PreviewRow {
+  k: string;
+  v: string;
+  tone: RowTone;
+}
+
+/** Rows shown in the preview pane, at most. */
+export const PREVIEW_ROWS = 7;
+
+function tone(v: unknown): RowTone {
+  if (v === null) return "null";
+  if (typeof v === "string") return "string";
+  if (typeof v === "number") return "number";
+  if (typeof v === "boolean") return "boolean";
+  return "plain";
+}
+
+/** One-line summary of a JSON value: strings quoted, containers counted. */
+function summarise(v: unknown): string {
+  if (v === null) return "null";
+  if (Array.isArray(v)) return `[${v.length} items]`;
+  if (isRecord(v)) return `{${Object.keys(v).length} keys}`;
+  if (typeof v === "string") return JSON.stringify(v.length > 120 ? `${v.slice(0, 120)}…` : v);
+  return String(v);
+}
+
+function recordRows(o: Record<string, unknown>): PreviewRow[] {
+  return Object.keys(o)
+    .slice(0, PREVIEW_ROWS)
+    .map((k) => ({ k, v: summarise(o[k]), tone: tone(o[k]) }));
+}
+
+/** JSON preview: the first array items, or the top-level keys. */
+function jsonView(v: unknown): { previewLabel?: string; rows?: PreviewRow[] } {
+  if (Array.isArray(v)) {
+    return {
+      previewLabel: "First items",
+      rows: v.slice(0, PREVIEW_ROWS).map((x, i) => ({ k: `[${i}]`, v: summarise(x), tone: tone(x) })),
+    };
+  }
+  return isRecord(v) ? { previewLabel: "Top-level keys", rows: recordRows(v) } : {};
+}
+
+function relativeDays(ms: number, now: number): string {
+  const d = Math.round((ms - now) / 86_400_000);
+  if (d === 0) return "today";
+  return d > 0 ? `in ${d} days` : `${-d} days ago`;
 }
 
 /** Inputs longer than this are classified by shape only, never parsed. */
@@ -203,8 +262,14 @@ function make(
   facts: Fact[],
   preview: string,
   confidence: Confidence = "Sure",
+  view: { previewLabel?: string; rows?: PreviewRow[]; swatch?: string } = {},
 ): Detection {
-  return { kind, type, glyph, tint, tool, slug, facts, preview: clip(preview), confidence };
+  return {
+    kind, type, glyph, tint, tool, slug, facts, preview: clip(preview), confidence,
+    previewLabel: view.previewLabel ?? "Preview",
+    rows: view.rows ?? [],
+    swatch: view.swatch,
+  };
 }
 
 const JWT_RE = /^eyJ[\w-]+\.eyJ[\w-]+\.[\w-]*$/;
@@ -218,7 +283,8 @@ const CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f�]/;
 
 function plainText(s: string): Detection {
   return make("text", "Plain text", "Aa", "faint", "Word counter", "word-counter",
-    [{ k: "Words", v: String(countWords(s)) }, { k: "Characters", v: String(s.length) }], s.slice(0, 400), "Guess");
+    [{ k: "Words", v: String(countWords(s)) }, { k: "Characters", v: String(s.length) }], s.slice(0, 400), "Guess",
+    { previewLabel: "Text" });
 }
 
 /**
@@ -255,7 +321,8 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
             facts.push({ k: "Expires", v: `${isoMinute(ex)} UTC${ex.getTime() < now ? " · expired" : ""}` });
           }
         }
-        return make("jwt", "JWT", "JWT", "teal", "JWT decoder", "jwt-decoder", facts, JSON.stringify(payload, null, 2));
+        return make("jwt", "JWT", "JWT", "teal", "JWT decoder", "jwt-decoder", facts, JSON.stringify(payload, null, 2), "Sure",
+          { previewLabel: "Payload", rows: recordRows(payload) });
       }
     } catch {
       /* not a decodable JWT — fall through */
@@ -270,11 +337,13 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
       else if (isRecord(v)) top = `object · ${Object.keys(v).length} keys`;
       return make("json", "JSON", "{}", "clay", "JSON formatter", "json-formatter",
         [{ k: "Top level", v: top }, { k: "Depth", v: String(jsonDepth(v)) }, { k: "Size", v: `${s.length} chars` }],
-        JSON.stringify(v, null, 2));
+        JSON.stringify(v, null, 2), "Sure",
+        jsonView(v));
     } catch (e) {
       const msg = e instanceof Error ? e.message.replace(/ \(line.*$/, "") : "Invalid JSON";
       return make("json-error", "JSON (with errors)", "{}", "error", "JSON formatter", "json-formatter",
-        [{ k: "Problem", v: msg }], s, "Likely");
+        [{ k: "Problem", v: msg }],
+        "Open the formatter to see the exact spot and fix it in one click.", "Likely", { previewLabel: "What to do" });
     }
   }
 
@@ -286,7 +355,15 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
       const trk = ps.filter((p) => /^(utm_|fbclid|gclid)/.test(p)).length;
       return make("url", "URL", "://", "rose", "URL parser", "url-parser",
         [{ k: "Host", v: u.host }, { k: "Path", v: u.pathname }, { k: "Parameters", v: ps.length + (trk ? ` · ${trk} tracking` : "") }],
-        ps.join("\n") || "(no query parameters)");
+        ps.join("\n") || "(no query parameters)", "Sure",
+        {
+          previewLabel: ps.length ? "Query parameters" : "Preview",
+          rows: [...u.searchParams].slice(0, PREVIEW_ROWS).map(([k, val]) => ({
+            k,
+            v: val,
+            tone: /^(utm_|fbclid|gclid)/.test(k) ? "muted" : "string",
+          })),
+        });
     } catch {
       /* invalid URL — fall through */
     }
@@ -296,12 +373,22 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
     const isMs = s.length === 13;
     const d = new Date(isMs ? +s : +s * 1000);
     return make("timestamp", "Unix timestamp", "⏱", "sage", "Timestamp converter", "timestamp-converter",
-      [{ k: "Unit", v: isMs ? "milliseconds" : "seconds" }, { k: "UTC", v: isoSecond(d) }, { k: "Local", v: localStamp(d) }],
-      d.toUTCString());
+      [{ k: "Unit", v: isMs ? "milliseconds" : "seconds" }, { k: "UTC", v: isoSecond(d) }],
+      d.toUTCString(), "Sure",
+      {
+        previewLabel: "Same moment",
+        rows: [
+          { k: "ISO 8601", v: d.toISOString(), tone: "string" },
+          { k: "Your time", v: localStamp(d), tone: "plain" },
+          { k: "Relative", v: relativeDays(d.getTime(), now), tone: "plain" },
+          { k: "Milliseconds", v: String(d.getTime()), tone: "number" },
+        ],
+      });
   }
 
   if (UUID_RE.test(s)) {
-    return make("uuid", "UUID", "id", "sage", "UUID generator", "uuid-generator", [{ k: "Version", v: `v${s.charAt(14)}` }], s.toLowerCase());
+    return make("uuid", "UUID", "id", "sage", "UUID generator", "uuid-generator", [{ k: "Version", v: `v${s.charAt(14)}` }], s.toLowerCase(),
+      "Sure", { previewLabel: "Normalised" });
   }
 
   if (s.length <= 64) {
@@ -314,7 +401,7 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
         ? [{ k: "RGB", v: rgb }, { k: "HEX", v: hex }, { k: "HSL", v: rgbToHsl(r, g, b) }]
         : [{ k: "HEX", v: hex }, { k: "RGB", v: rgb }, { k: "HSL", v: rgbToHsl(r, g, b) }];
       return make("color", "Colour", "#", "plum", "Colour converter", "color-converter", facts,
-        `color: ${hex};\ncolor: rgb(${r} ${g} ${b});`);
+        `color: ${hex};\ncolor: rgb(${r} ${g} ${b});`, "Sure", { previewLabel: "Swatch", swatch: hex });
     }
   }
 
@@ -322,7 +409,8 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
     const cf = s.split(/\s+/);
     if (cf.length === 5 && cf.every((x) => CRON_FIELD_RE.test(x))) {
       return make("cron", "Cron expression", "*/", "sage", "Cron parser", "cron-parser",
-        [{ k: "Fields", v: "min · hour · day · month · weekday" }], cronWords(cf));
+        [{ k: "Fields", v: "min · hour · day · month · weekday" }], cronWords(cf),
+        "Sure", { previewLabel: "In plain words" });
     }
   }
 
@@ -330,7 +418,8 @@ export function detect(raw: string, now: number = Date.now()): Detection | null 
     try {
       const txt = b64ToText(s);
       if (txt && !CONTROL_RE.test(txt)) {
-        return make("base64", "Base64", "64", "plum", "Base64 decoder", "base64", [{ k: "Decoded", v: `${txt.length} chars` }], txt, "Likely");
+        return make("base64", "Base64", "64", "plum", "Base64 decoder", "base64", [{ k: "Decoded", v: `${txt.length} chars` }], txt, "Likely",
+          { previewLabel: "Decoded" });
       }
     } catch {
       /* not base64 text — fall through */

@@ -152,9 +152,6 @@ importers:
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.0(supports-color@7.2.0))(@types/node@20.19.39)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -2430,12 +2427,6 @@ packages:
   nearley@2.20.1:
     resolution: {integrity: sha512-+Mc8UaAebFzgV+KpI5n7DasuuQCHA89dmwm7JXw3TV43ukfNQ9DnBH3Mdb2g/I4Fdxc26pwimBWvjIw0UAILSQ==}
     hasBin: true
-
-  next-themes@0.4.6:
-    resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
-    peerDependencies:
-      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
   next@16.4.6:
     resolution: {integrity: sha512-QZJiYhaZLJMo2KpkQGQIwvmd79WVsAWeYIU554a8d7zArS3si/IRy3lBNV/rtYhE70oLwdLYhPAXLPx8HwcwtA==}
@@ -5388,11 +5379,6 @@ snapshots:
       moo: 0.5.3
       railroad-diagrams: 1.0.0
       randexp: 0.4.6
-
-  next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
-    dependencies:
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
 
   next@16.4.6(@babel/core@7.29.0(supports-color@7.2.0))(@types/node@20.19.39)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:

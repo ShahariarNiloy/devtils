@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { runBatch, type BatchRow } from "../batch-client";
+import { Dropdown } from "@/components/primitives/select";
 
 const RENDER_CAP = 500;
 
@@ -62,21 +63,16 @@ export function BatchMode() {
         />
         <div className="flex flex-wrap items-center gap-2">
           {isCsv && (
-            <select
-              value={column ?? ""}
-              onChange={(e) =>
-                setColumn(e.target.value === "" ? null : Number(e.target.value))
-              }
+            <Dropdown
               aria-label="Timestamp column"
-              className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-text-muted outline-none"
-            >
-              <option value="">Whole line</option>
-              {firstCols.map((c, i) => (
-                <option key={`${i}-${c}`} value={i}>
-                  Column {i + 1}: {c.slice(0, 20)}
-                </option>
-              ))}
-            </select>
+              value={column === null ? "line" : String(column)}
+              onChange={(v) => setColumn(v === "line" ? null : Number(v))}
+              options={[
+                { value: "line", label: "Whole line" },
+                ...firstCols.map((c, i) => ({ value: String(i), label: `Column ${i + 1}: ${c.slice(0, 20)}` })),
+              ]}
+              className="h-9 bg-surface px-2 text-text-muted"
+            />
           )}
           <button
             type="button"

@@ -18,6 +18,7 @@ import { post as hreflangPost } from "./articles/hreflang-mistakes";
 import { post as timestampsPost } from "./articles/unix-timestamps-time-zones";
 import { post as urlPost } from "./articles/url-encoding-explained";
 import { post as uuidPost } from "./articles/uuid-v4-v7-ulid";
+import { post as curlPost } from "./articles/curl-to-code-gotchas";
 
 const strong = (v: string): Span => ({ t: "strong", v });
 const em = (v: string): Span => ({ t: "em", v });
@@ -849,6 +850,7 @@ const CRON_BLOCKS: Block[] = [
 
 /** Newest first; the first entry is the featured post on /blog. */
 export const POSTS: readonly BlogPost[] = [
+  curlPost,
   blurPost,
   avifPost,
   keysPost,

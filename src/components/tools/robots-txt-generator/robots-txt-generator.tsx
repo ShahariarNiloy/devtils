@@ -33,6 +33,7 @@ import {
   testPath,
   type RobotsRule,
 } from "./robots-txt-generator.lib";
+import { Dropdown } from "@/components/primitives/select";
 
 const COLUMNS: readonly SeoRowColumn<keyof RobotsRule>[] = [
   { key: "ua", label: "User-agent", flex: "1 1 110px" },
@@ -99,20 +100,16 @@ export function RobotsTxtGenerator({ tool }: { tool: Tool }) {
                     className="min-w-0 grow border-0 bg-transparent font-mono text-[13px] text-text outline-none"
                   />
                 </label>
-                <label className={cn(TESTER_BOX, "flex-[1_1_140px]")}>
-                  <span className="sr-only">User agent</span>
-                  <select
+                <div className={cn(TESTER_BOX, "flex-[1_1_140px]")}>
+                  <Dropdown
+                    bare
+                    aria-label="User agent"
                     value={testUa}
-                    onChange={(e) => setTestUa(e.target.value)}
-                    className="min-w-0 grow cursor-pointer border-0 bg-transparent text-[13px] text-text outline-none"
-                  >
-                    {TEST_AGENTS.map((a) => (
-                      <option key={a.value} value={a.value} className="bg-surface text-text">
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={setTestUa}
+                    options={TEST_AGENTS}
+                    className="min-h-10 grow text-[13px] text-text"
+                  />
+                </div>
               </div>
               <span
                 aria-live="polite"

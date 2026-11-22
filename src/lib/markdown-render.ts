@@ -78,7 +78,7 @@ export function renderToolMarkdown(slug: string): string | null {
     lines.push("## Common use cases");
     lines.push("");
     for (const u of seo.useCases) {
-      lines.push(`### ${u.title}`);
+      lines.push(`### ${u.title || u.tag}`);
       lines.push("");
       lines.push(u.description);
       lines.push("");

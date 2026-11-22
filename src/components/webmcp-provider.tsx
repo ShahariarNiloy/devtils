@@ -1,6 +1,5 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import type { WebMcpTool } from "@/lib/webmcp/types";
@@ -17,7 +16,7 @@ import { TOOLS } from "@/lib/tools-registry";
  *      don't have outbound HTTP can still invoke them.
  *   2. UI-affecting tools — actions a remote MCP server cannot perform
  *      because they require the user's browser context: navigating to a
- *      tool page, flipping the theme, listing what's available.
+ *      tool page, listing what's available.
  *
  * The WebMCP API (https://webmachinelearning.github.io/webmcp/) is not in
  * any shipping browser yet. Without `navigator.modelContext`, we silently
@@ -31,9 +30,8 @@ import { TOOLS } from "@/lib/tools-registry";
  */
 export function WebMcpProvider() {
   const router = useRouter();
-  const { setTheme } = useTheme();
 
-  // Build the tool list once per (router, setTheme) pair. Both are stable
+  // Build the tool list once per router. It's stable
   // for the lifetime of the component in practice, so this runs once.
   const uiTools = useMemo<WebMcpTool[]>(() => {
     const list: WebMcpTool[] = [
@@ -81,35 +79,10 @@ export function WebMcpProvider() {
           return `Navigated to ${tool.name} (/tools/${tool.slug}).`;
         },
       },
-      {
-        name: "utilyx_set_theme",
-        description:
-          "Set the site theme. Accepts 'light', 'dark', or 'system' (follow OS preference).",
-        inputSchema: {
-          type: "object",
-          required: ["theme"],
-          properties: {
-            theme: {
-              type: "string",
-              enum: ["light", "dark", "system"],
-            },
-          },
-        },
-        execute: (args) => {
-          const theme = args.theme;
-          if (theme !== "light" && theme !== "dark" && theme !== "system") {
-            throw new Error(
-              `theme must be 'light', 'dark', or 'system' (got ${JSON.stringify(theme)})`,
-            );
-          }
-          setTheme(theme);
-          return `Theme set to ${theme}.`;
-        },
-      },
     ];
 
     return list;
-  }, [router, setTheme]);
+  }, [router]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") return;

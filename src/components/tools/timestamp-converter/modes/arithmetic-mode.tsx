@@ -6,6 +6,9 @@ import { HOLIDAY_CALENDARS, type HolidayCalendarId } from "../holidays";
 import { DurationBetweenPanel } from "./duration-between-panel";
 import { AddSubtractPanel } from "./add-subtract-panel";
 import type { UseTimestampConverter } from "../useTimestampConverter";
+import { Dropdown } from "@/components/primitives/select";
+
+const CALENDAR_OPTIONS = HOLIDAY_CALENDARS.map((c) => ({ value: c.id, label: c.label }));
 
 export function ArithmeticMode({ s }: { s: UseTimestampConverter }) {
   const [sub, setSub] = useState<"between" | "addsub">("between");
@@ -27,18 +30,14 @@ export function ArithmeticMode({ s }: { s: UseTimestampConverter }) {
             {m === "between" ? "Duration between" : "Add / subtract"}
           </button>
         ))}
-        <select
-          value={cal}
-          onChange={(e) => setCal(e.target.value as HolidayCalendarId)}
+        <Dropdown
+          bare
           aria-label="Holiday calendar"
-          className="ml-2 bg-transparent text-sm text-text-muted outline-none"
-        >
-          {HOLIDAY_CALENDARS.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+          value={cal}
+          onChange={setCal}
+          options={CALENDAR_OPTIONS}
+          className="ml-2 text-sm text-text-muted hover:text-text"
+        />
       </div>
 
       {sub === "between" ? (

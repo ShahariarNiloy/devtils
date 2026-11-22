@@ -54,6 +54,13 @@ const LIVE = [
   "meta-preview",
   "json-ld-generator",
   "blur-placeholder",
+  "curl-to-code",
+  "curl-generator",
+  "curl-to-fetch",
+  "curl-to-axios",
+  "curl-to-python",
+  "curl-to-go",
+  "curl-to-php",
 ] as const;
 
 export type LiveSlug = (typeof LIVE)[number];

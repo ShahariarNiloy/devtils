@@ -75,7 +75,13 @@ console.log("timestamp");
 const ts = detect("1795196384");
 check("seconds", fact(ts, "Unit") === "seconds");
 check("utc", fact(ts, "UTC") === "2026-11-20 17:39:44", fact(ts, "UTC"));
-check("local present", /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC/.test(fact(ts, "Local") ?? ""), fact(ts, "Local"));
+const yourTime = ts?.rows.find((r) => r.k === "Your time")?.v ?? "";
+check("local time in preview rows", /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC/.test(yourTime), yourTime);
+check("timestamp rows: ISO + ms", ts?.rows.some((r) => r.k === "ISO 8601") === true && ts?.rows.some((r) => r.k === "Milliseconds") === true);
+const objRows = detect('{"user":{"id":1},"tags":["a"],"ok":true,"n":null}');
+check("JSON rows summarise values", objRows?.previewLabel === "Top-level keys" &&
+  objRows.rows.map((r) => `${r.k}=${r.v}:${r.tone}`).join(",") === "user={1 keys}:plain,tags=[1 items]:plain,ok=true:boolean,n=null:null", objRows?.rows);
+check("colour gets a swatch", detect("#e0a072")?.swatch === "#e0a072");
 check("milliseconds", fact(detect("1795196384000"), "Unit") === "milliseconds");
 
 console.log("uuid");

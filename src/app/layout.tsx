@@ -1,5 +1,4 @@
 import { ShortcutsOverlay } from "@/components/shared/shortcuts-overlay";
-import { ThemeProvider } from "@/components/theme-provider";
 import { WebMcpProvider } from "@/components/webmcp-provider";
 import { OG_DEFAULT_PATH, OG_HEIGHT, OG_WIDTH } from "@/lib/og/url";
 import {
@@ -92,23 +91,21 @@ export default function RootLayout({
         <a href="#main" className="skip-link">
           Skip to main content
         </a>
-        <ThemeProvider>
-          {children}
-          <WebMcpProvider />
-          <ShortcutsOverlay />
-          <Toaster
-            position="bottom-right"
-            theme="dark"
-            toastOptions={{
-              classNames: {
-                toast:
-                  "!bg-surface !border !border-border !text-text !font-sans !rounded-xl !shadow-float",
-                description: "!text-text-muted",
-                actionButton: "!bg-brand !text-on-brand",
-              },
-            }}
-          />
-        </ThemeProvider>
+        {children}
+        <WebMcpProvider />
+        <ShortcutsOverlay />
+        <Toaster
+          position="bottom-right"
+          theme="dark"
+          toastOptions={{
+            classNames: {
+              toast:
+                "!bg-surface !border !border-border !text-text !font-sans !rounded-xl !shadow-float",
+              description: "!text-text-muted",
+              actionButton: "!bg-brand !text-on-brand",
+            },
+          }}
+        />
 
         {process.env.NEXT_PUBLIC_CF_BEACON_TOKEN && (
           <Script

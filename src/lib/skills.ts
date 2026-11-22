@@ -161,7 +161,7 @@ function renderDocSkill(slug: string): string {
   if (seo?.useCases?.length) {
     lines.push("## Common use cases");
     lines.push("");
-    for (const u of seo.useCases) lines.push(`- **${u.title}** — ${u.description}`);
+    for (const u of seo.useCases) lines.push(`- **${u.title || u.tag}** — ${u.description}`);
     lines.push("");
   }
   return lines.join("\n");

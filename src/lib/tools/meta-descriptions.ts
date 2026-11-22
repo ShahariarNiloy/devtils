@@ -39,6 +39,20 @@ export const META_DESCRIPTIONS: Record<string, string> = {
     "Paste an XML sitemap to catch format, URL, date and limit errors, with line numbers and counts. Handles large sitemaps. Free, runs in your browser.",
   "open-graph-generator":
     "Write Open Graph and Twitter card tags and preview how your link will look when shared on social sites and chat apps. Free, runs in your browser.",
+  "curl-to-code":
+    "Paste a curl command and get fetch, axios, Python requests, Go or PHP code. Secrets become env variables; browser headers are dropped. In your browser.",
+  "curl-generator":
+    "Build a request in a form and copy a correctly quoted curl command for bash, Windows cmd or PowerShell. Import and edit existing commands. Free.",
+  "curl-to-fetch":
+    "Convert a curl command to JavaScript fetch() for the browser or Node 18+: headers, JSON, forms, uploads, auth and timeouts. Free, runs in your browser.",
+  "curl-to-axios":
+    "Convert a curl command to an axios request with params, data, auth and timeout options. Secrets become env variables. Free, runs in your browser.",
+  "curl-to-python":
+    "Convert a curl command to Python requests code: params, headers, json=, files=, auth= and timeout=. Secrets stay out of the code. Free, in your browser.",
+  "curl-to-go":
+    "Convert a curl command to Go net/http code that compiles: headers, JSON and form bodies, multipart uploads, basic auth and timeouts. Free, in your browser.",
+  "curl-to-php":
+    "Convert a curl command to PHP Guzzle code: headers, query, json, form_params, multipart, auth and timeout options. Free, runs in your browser.",
   "meta-preview":
     "See how your page title and meta description will look in search results, with pixel-width checks for truncation. Free, runs in your browser.",
 };

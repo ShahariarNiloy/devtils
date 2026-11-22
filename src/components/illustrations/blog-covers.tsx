@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { CoverKey } from "@/lib/blog/types";
 import { coverBlur } from "./blog-cover-blur";
+import { coverCurl } from "./blog-cover-curl";
 import { coverFormats } from "./blog-cover-formats";
 import { coverKeys } from "./blog-cover-keys";
 import { coverPng } from "./blog-cover-png";
@@ -167,6 +168,7 @@ const COVERS: Record<CoverKey, ReactNode> = {
   blur: coverBlur,
   formats: coverFormats,
   keys: coverKeys,
+  curl: coverCurl,
 };
 
 export function BlogCover({ cover, className }: { cover: CoverKey; className?: string }) {
