@@ -13,6 +13,67 @@ export interface RGB {
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
 
+// ── CSS Color 4 argument parsing ─────────────────────────────────────────────
+// Shared by the functional notations: legacy comma syntax (`rgb(255, 0, 0)`,
+// `hsla(120, 50%, 50%, .5)`) and modern space syntax with a slash alpha
+// (`hsl(120deg 50% 50% / 50%)`). `none` resolves to 0 for any component.
+
+const NUM_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
+
+function toNumber(tok: string): number | null {
+  if (tok.toLowerCase() === "none") return 0;
+  return NUM_RE.test(tok) ? Number(tok) : null;
+}
+
+/** `<hue>`: bare number (degrees) or deg / rad / grad / turn. */
+export function parseHue(tok: string): number | null {
+  const m = /^(.*?)(deg|rad|grad|turn)?$/i.exec(tok.trim());
+  if (!m) return null;
+  const n = toNumber(m[1] ?? "");
+  if (n === null || (m[1] ?? "").toLowerCase() === "none" && m[2]) return null;
+  switch ((m[2] ?? "deg").toLowerCase()) {
+    case "rad":  return (n * 180) / Math.PI;
+    case "grad": return n * 0.9;
+    case "turn": return n * 360;
+    default:     return n;
+  }
+}
+
+/** `<percentage>` (or a bare number, read as a percentage) → 0..100. */
+function parsePercent(tok: string): number | null {
+  return toNumber(tok.endsWith("%") ? tok.slice(0, -1) : tok);
+}
+
+/** `<alpha-value>`: number 0..1 or percentage. Clamped. */
+function parseAlpha(tok: string | undefined): number | null {
+  if (tok === undefined) return 1;
+  const n = tok.endsWith("%") ? toNumber(tok.slice(0, -1)) : toNumber(tok);
+  if (n === null) return null;
+  return clamp(tok.endsWith("%") ? n / 100 : n, 0, 1);
+}
+
+/**
+ * Split a colour function body into its channels and optional alpha.
+ * Returns null for a malformed body (mixed separators are tolerated, but
+ * the channel count must be exactly `count`).
+ */
+function splitColorArgs(body: string, count: number): { channels: string[]; alpha?: string } | null {
+  const slash = body.split("/");
+  if (slash.length > 2) return null;
+  const channels = (slash[0] ?? "").split(/[\s,]+/).filter(Boolean);
+  let alpha = slash.length === 2 ? (slash[1] ?? "").trim() : undefined;
+  // Legacy `rgba(r, g, b, a)` puts alpha in the comma list.
+  if (alpha === undefined && channels.length === count + 1) alpha = channels.pop();
+  if (channels.length !== count || alpha === "") return null;
+  return { channels, alpha };
+}
+
+/** Body of `name(...)` for any of the given function names, or null. */
+function fnBody(input: string, names: string): string | null {
+  const m = new RegExp(`(?<![\\w-])(?:${names})\\(([^)]*)\\)`, "i").exec(input);
+  return m ? (m[1] ?? "") : null;
+}
+
 export function rgbToHex({ r, g, b, a }: RGB): string {
   const hex = (n: number) => clamp(Math.round(n), 0, 255).toString(16).padStart(2, "0");
   const base = `#${hex(r)}${hex(g)}${hex(b)}`;
@@ -40,20 +101,38 @@ export function rgbToString({ r, g, b, a }: RGB): string {
   return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a.toFixed(3)})`;
 }
 
+/** rgb()/rgba(): channels as 0..255 numbers or percentages, CSS Color 4. */
 export function parseRgb(input: string): RGB | null {
-  const m = input.match(/rgba?\(([^)]+)\)/i);
-  if (!m) return null;
-  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
-  if (parts.length < 3) return null;
-  const [r, g, b, alpha] = parts;
-  const rN = Number(r), gN = Number(g), bN = Number(b);
-  if ([rN, gN, bN].some(Number.isNaN)) return null;
-  let a = 1;
-  if (alpha !== undefined) {
-    a = alpha.endsWith("%") ? Number(alpha.slice(0, -1)) / 100 : Number(alpha);
-    if (Number.isNaN(a)) a = 1;
-  }
-  return { r: clamp(rN, 0, 255), g: clamp(gN, 0, 255), b: clamp(bN, 0, 255), a: clamp(a, 0, 1) };
+  const body = fnBody(input, "rgba?");
+  if (body === null) return null;
+  const args = splitColorArgs(body, 3);
+  if (!args) return null;
+  const ch = args.channels.map((t) => {
+    if (t.endsWith("%")) {
+      const n = toNumber(t.slice(0, -1));
+      return n === null ? null : (n / 100) * 255;
+    }
+    return toNumber(t);
+  });
+  const a = parseAlpha(args.alpha);
+  const [r, g, b] = ch;
+  if (r == null || g == null || b == null || a === null) return null;
+  return { r: clamp(r, 0, 255), g: clamp(g, 0, 255), b: clamp(b, 0, 255), a };
+}
+
+/** `<hue> <pct> <pct> [/ alpha]` — the shape shared by hsl, hsb/hsv and hwb. */
+function parseHueTriplet(input: string, names: string): { h: number; x: number; y: number; a: number } | null {
+  const body = fnBody(input, names);
+  if (body === null) return null;
+  const args = splitColorArgs(body, 3);
+  if (!args) return null;
+  const [ht, xt, yt] = args.channels;
+  const h = parseHue(ht ?? "");
+  const x = parsePercent(xt ?? "");
+  const y = parsePercent(yt ?? "");
+  const a = parseAlpha(args.alpha);
+  if (h === null || x === null || y === null || a === null) return null;
+  return { h, x: clamp(x, 0, 100), y: clamp(y, 0, 100), a };
 }
 
 interface HSL {
@@ -125,20 +204,8 @@ export function hslToString({ h, s, l, a }: HSL): string {
 }
 
 export function parseHsl(input: string): RGB | null {
-  const m = input.match(/hsla?\(([^)]+)\)/i);
-  if (!m) return null;
-  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
-  if (parts.length < 3) return null;
-  const h = Number(parts[0]);
-  const s = Number(parts[1].replace("%", ""));
-  const l = Number(parts[2].replace("%", ""));
-  if ([h, s, l].some(Number.isNaN)) return null;
-  let a = 1;
-  if (parts[3]) {
-    a = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
-    if (Number.isNaN(a)) a = 1;
-  }
-  return hslToRgb({ h, s, l, a: clamp(a, 0, 1) });
+  const t = parseHueTriplet(input, "hsla?");
+  return t ? hslToRgb({ h: t.h, s: t.x, l: t.y, a: t.a }) : null;
 }
 
 interface HSB {
@@ -172,32 +239,8 @@ export function hsbToString({ h, s, b, a }: HSB): string {
 }
 
 export function parseHsb(input: string): RGB | null {
-  const m = input.match(/hsba?\(([^)]+)\)/i) || input.match(/hsv\(([^)]+)\)/i);
-  if (!m) return null;
-  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
-  if (parts.length < 3) return null;
-  const h = Number(parts[0]);
-  const s = Number(parts[1].replace("%", "")) / 100;
-  const v = Number(parts[2].replace("%", "")) / 100;
-  if ([h, s, v].some(Number.isNaN)) return null;
-  // HSB → RGB
-  const c = v * s;
-  const hh = (((h % 360) + 360) % 360) / 60;
-  const x = c * (1 - Math.abs((hh % 2) - 1));
-  let rN = 0, gN = 0, bN = 0;
-  if (hh < 1) [rN, gN, bN] = [c, x, 0];
-  else if (hh < 2) [rN, gN, bN] = [x, c, 0];
-  else if (hh < 3) [rN, gN, bN] = [0, c, x];
-  else if (hh < 4) [rN, gN, bN] = [0, x, c];
-  else if (hh < 5) [rN, gN, bN] = [x, 0, c];
-  else [rN, gN, bN] = [c, 0, x];
-  const offset = v - c;
-  return {
-    r: (rN + offset) * 255,
-    g: (gN + offset) * 255,
-    b: (bN + offset) * 255,
-    a: 1,
-  };
+  const t = parseHueTriplet(input, "hsba?|hsva?");
+  return t ? hsbToRgb(t.h, t.x, t.y, t.a) : null;
 }
 
 // OKLCH (via OKLab) — formulas from https://bottosson.github.io/posts/oklab/
@@ -263,7 +306,7 @@ export function parseOklch(input: string): RGB | null {
   if (parts.length < 3) return null;
   const l = Number(parts[0].replace("%", "")) * (parts[0].includes("%") ? 0.01 : 1);
   const c = Number(parts[1]);
-  const h = Number(parts[2]);
+  const h = parseHue(parts[2]) ?? NaN;
   if ([l, c, h].some(Number.isNaN)) return null;
   let a = 1;
   if (parts[3]) {
@@ -381,7 +424,7 @@ export function parseLch(input: string): RGB | null {
   if (parts.length < 3) return null;
   const l = Number(parts[0].replace("%", ""));
   const c = Number(parts[1]);
-  const h = Number(parts[2]);
+  const h = parseHue(parts[2]) ?? NaN;
   if ([l, c, h].some(Number.isNaN)) return null;
   let alpha = 1;
   if (parts[3]) {
@@ -416,19 +459,11 @@ export function hwbToString({ h, w, b, a }: HWB): string {
 }
 
 export function parseHwb(input: string): RGB | null {
-  const m = input.match(/hwb\(([^)]+)\)/i);
-  if (!m) return null;
-  const parts = m[1].split(/[,\s/]+/).filter(Boolean);
-  if (parts.length < 3) return null;
-  const h = Number(parts[0]);
-  const w = Number(parts[1].replace("%", "")) / 100;
-  const bk = Number(parts[2].replace("%", "")) / 100;
-  if ([h, w, bk].some(Number.isNaN)) return null;
-  let a = 1;
-  if (parts[3]) {
-    a = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
-    if (Number.isNaN(a)) a = 1;
-  }
+  const t = parseHueTriplet(input, "hwba?");
+  if (!t) return null;
+  const { h, a } = t;
+  const w = t.x / 100;
+  const bk = t.y / 100;
   if (w + bk >= 1) {
     const g = (w / (w + bk)) * 255;
     return { r: g, g, b: g, a };

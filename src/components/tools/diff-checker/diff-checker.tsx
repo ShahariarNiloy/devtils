@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TriangleAlert } from "lucide-react";
 import { ToolShell } from "@/components/layout/tool-shell";
 import { useShortcut } from "@/lib/keyboard";
 import type { Tool } from "@/lib/tools-registry";
@@ -10,7 +11,7 @@ import { differenceLabel } from "./diff-checker.lib";
 import { DiffStatusBar, useBelowSm, type StatusTone } from "./parts/chrome";
 import { SplitView, UnifiedView } from "./parts/diff-view";
 import { DropOverlay } from "./parts/drop-overlay";
-import { InputsPanel, InputsStrip } from "./parts/inputs";
+import { focusInput, InputsPanel, InputsStrip } from "./parts/inputs";
 import { Toolbar } from "./parts/toolbar";
 import { useDiffChecker } from "./use-diff-checker";
 
@@ -26,8 +27,8 @@ export function DiffChecker({ tool }: { tool: Tool }) {
   // Phones get unified only (mockup): split would leave ~150px per side.
   // The stored preference is untouched, so it returns on wider screens.
   const view = isPhone ? "unified" : s.view;
-  const leftRef = useRef<HTMLTextAreaElement>(null);
-  const rightRef = useRef<HTMLTextAreaElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
   const changeRefs = useRef<Array<HTMLDivElement | null>>([]);
   const dragDepth = useRef(0);
   const [dragOver, setDragOver] = useState(false);
@@ -65,8 +66,8 @@ export function DiffChecker({ tool }: { tool: Tool }) {
   useShortcut({ key: "/", ignoreInEditable: true, label: "Edit inputs" }, (e) => {
     e.preventDefault();
     s.setEditing(true);
-    // Defer focus to the next tick so the textarea is mounted.
-    queueMicrotask(() => leftRef.current?.focus());
+    // Focuses once the inputs (and the lazy editor) have mounted.
+    focusInput(() => leftRef.current);
   });
 
   // ── Actions ─────────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ export function DiffChecker({ tool }: { tool: Tool }) {
           {bothEmpty && (
             <p className="m-0 px-4 py-10 text-center text-[13px] text-text-faint">Paste text on both sides — or drop two files — to compare.</p>
           )}
+          {!bothEmpty && <LimitsNotice approximate={s.limits.approximate} coarseRows={view === "side-by-side" ? s.limits.coarseRows : 0} />}
           {!bothEmpty && view === "unified" && (
             <UnifiedView ops={s.ops} changeStarts={s.opChangeStarts} activeChange={s.activeChange} changeRefs={changeRefs} />
           )}
@@ -204,5 +206,29 @@ export function DiffChecker({ tool }: { tool: Tool }) {
 
       <DiffCheckerContent />
     </ToolShell>
+  );
+}
+
+/**
+ * Honest-limits notice: very large inputs are aligned on a budget, and the
+ * user should know when what they see is coarser than a normal diff.
+ */
+function LimitsNotice({ approximate, coarseRows }: { approximate: boolean; coarseRows: number }) {
+  if (!approximate && coarseRows === 0) return null;
+  const parts: string[] = [];
+  if (approximate)
+    parts.push("These inputs are too different to align line-by-line, so part of the diff is shown as a full replace — still correct, just not the smallest diff.");
+  if (coarseRows > 0)
+    parts.push(
+      `${coarseRows.toLocaleString()} changed line${coarseRows === 1 ? " is" : "s are"} too long to compare word-by-word and ${coarseRows === 1 ? "is" : "are"} highlighted whole.`,
+    );
+  return (
+    <p
+      role="note"
+      className="m-0 flex items-start gap-2 border-b border-warning-border bg-warning-bg px-4 py-2 text-[12.5px] text-warning-text"
+    >
+      <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
+      <span>Large diff — {parts.join(" ")}</span>
+    </p>
   );
 }

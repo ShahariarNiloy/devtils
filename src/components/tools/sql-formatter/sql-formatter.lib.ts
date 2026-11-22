@@ -150,7 +150,7 @@ export async function format(
     // start with a comma after the standard format pass.
     return {
       ok: true,
-      output: options.leadingComma ? toLeadingComma(output) : output,
+      output: options.leadingComma ? toLeadingComma(output, dialectId) : output,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -170,52 +170,76 @@ export async function format(
 /**
  * Convert trailing-comma SQL to leading-comma. Two-pass:
  *
- *   1. Annotate each line with paren depth at its start (so commas
- *      inside `VALUES (...)` tuples or `f(a, b)` calls stay put).
- *   2. For each non-empty line: drop its own trailing structural comma
- *      and, if the previous non-empty line had one, prepend `", "` at
- *      that line's indent.
+ *   1. Lex the output once (`classifySql`) and, per line, find the last
+ *      *code* character (ignoring trailing whitespace and comments). It's a
+ *      structural comma when it is `,` at paren depth 0 — depth measured at
+ *      the comma itself, so `) AS m,` closing a multi-line subquery counts,
+ *      while commas inside `VALUES (...)` tuples, `f(a, b)` calls, string
+ *      literals and quoted identifiers stay put.
+ *   2. For each non-empty line: drop its own structural comma and, if the
+ *      previous non-empty line had one, prepend `", "` at that line's
+ *      indent.
  *
  * Both pieces fire independently — consecutive comma-ending lines all
  * have their trailing comma stripped AND get a leading comma prepended,
  * which is what makes `a, b, c, d` → `a / , b / , c / , d` come out
  * correctly.
  */
-function toLeadingComma(input: string): string {
+function toLeadingComma(input: string, dialect: DialectId): string {
+  const kinds = classifySql(input, dialect);
   const lines = input.split("\n");
 
+  // Absolute offset of each structural trailing comma within its line, or -1.
+  const commaAt: number[] = [];
+  // Lines with no code/quoted text (blank or comment-only) are skipped when
+  // looking for the previous line, so `a,` / `-- note` / `b` still works.
+  const hasText: boolean[] = [];
   let depth = 0;
-  const depthAtStart: number[] = [];
+  let offset = 0;
   for (const line of lines) {
-    depthAtStart.push(depth);
+    let lastCode = -1;
+    let lastCodeDepth = 0;
+    let lastCodeSeen = false;
     for (let i = 0; i < line.length; i++) {
+      if (kinds[offset + i] === SqlCharKind.Comment) continue;
       const c = line.charCodeAt(i);
-      if (c === 40) depth++;
-      else if (c === 41) depth--;
+      if (kinds[offset + i] === SqlCharKind.Code) {
+        if (c === 40) depth++;
+        else if (c === 41) depth = Math.max(0, depth - 1);
+      }
+      if (c !== 32 && c !== 9 && c !== 13) {
+        lastCodeSeen = true;
+        lastCode = kinds[offset + i] === SqlCharKind.Code ? i : -1;
+        lastCodeDepth = depth;
+      }
     }
+    hasText.push(lastCodeSeen);
+    commaAt.push(lastCode >= 0 && line.charCodeAt(lastCode) === 44 && lastCodeDepth === 0 ? lastCode : -1);
+    offset += line.length + 1;
   }
-
-  const endsWithStructComma = lines.map(
-    (line, i) => depthAtStart[i] === 0 && line.trimEnd().endsWith(","),
-  );
 
   const out: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.trim() === "") {
+    if (!hasText[i]) {
       out.push(line);
       continue;
     }
 
-    // Previous *non-empty* line — that's whose trailing comma (if any)
+    // Previous line with content — that's whose trailing comma (if any)
     // becomes our leading comma.
     let prev = i - 1;
-    while (prev >= 0 && lines[prev].trim() === "") prev--;
-    const shouldPrepend = prev >= 0 && endsWithStructComma[prev];
+    while (prev >= 0 && !hasText[prev]) prev--;
+    const shouldPrepend = prev >= 0 && commaAt[prev] >= 0;
 
-    let processed = endsWithStructComma[i]
-      ? line.trimEnd().slice(0, -1)
-      : line;
+    let processed = line;
+    if (commaAt[i] >= 0) {
+      // Remove the comma (and whitespace before it), keeping anything after
+      // it — e.g. a trailing `-- comment`.
+      const before = line.slice(0, commaAt[i]).trimEnd();
+      const after = line.slice(commaAt[i] + 1);
+      processed = (before + (after.trim() ? after : "")).trimEnd();
+    }
 
     if (shouldPrepend) {
       const indentMatch = processed.match(/^(\s*)/);
@@ -247,7 +271,14 @@ function toLeadingComma(input: string): string {
  * No attempt to tighten `a , b , c` to `a,b,c` — single-space is safer
  * across edge cases (e.g. positional numeric `0.5` followed by `e10`).
  */
-export function minify(sql: string): string {
+/** Dialects where `#` starts a line comment (elsewhere it's an operator or a temp-table prefix). */
+const HASH_COMMENT_DIALECTS: ReadonlySet<DialectId> = new Set<DialectId>(["mysql", "mariadb", "bigquery"]);
+/** Dialects where a backslash escapes the next character inside '…' strings. */
+const BACKSLASH_ESCAPE_DIALECTS: ReadonlySet<DialectId> = new Set<DialectId>(["mysql", "mariadb", "bigquery"]);
+
+export function minify(sql: string, dialect: DialectId = "sql"): string {
+  const hashComments = HASH_COMMENT_DIALECTS.has(dialect);
+  const backslashEscapes = BACKSLASH_ESCAPE_DIALECTS.has(dialect);
   if (!sql || !sql.trim()) return "";
   const len = sql.length;
   const out: string[] = [];
@@ -282,25 +313,17 @@ export function minify(sql: string): string {
       pendingWs = true;
       continue;
     }
-    // Hash comment (MySQL).
-    if (c === 35) {
+    // Hash comment — MySQL / MariaDB / BigQuery only. In Postgres `#>>` is
+    // an operator and in T-SQL `#temp` is a table name.
+    if (c === 35 && hashComments) {
       while (i < len && sql.charCodeAt(i) !== 10) i++;
       pendingWs = true;
       continue;
     }
     // Block comment `/​* … *​/`.
     if (c === 47 && sql.charCodeAt(i + 1) === 42) {
-      i += 2;
-      while (i + 1 < len) {
-        if (sql.charCodeAt(i) === 42 && sql.charCodeAt(i + 1) === 47) {
-          i += 2;
-          break;
-        }
-        i++;
-      }
-      if (i + 1 >= len && (sql.charCodeAt(len - 2) !== 42 || sql.charCodeAt(len - 1) !== 47)) {
-        i = len; // unterminated — bail
-      }
+      const close = sql.indexOf("*/", i + 2);
+      i = close === -1 ? len : close + 2; // unterminated → swallow the rest
       pendingWs = true;
       continue;
     }
@@ -312,7 +335,7 @@ export function minify(sql: string): string {
       while (i < len) {
         const cc = sql.charCodeAt(i);
         if (cc === 39 && sql.charCodeAt(i + 1) === 39) { i += 2; continue; }
-        if (cc === 92 && i + 1 < len) { i += 2; continue; }
+        if (backslashEscapes && cc === 92 && i + 1 < len) { i += 2; continue; }
         if (cc === 39) { i++; break; }
         i++;
       }
@@ -369,6 +392,81 @@ export function minify(sql: string): string {
   return out.join("").trim();
 }
 
+// ── Lexical scan (strings / comments) ───────────────────────────────────
+
+/** What a character of SQL source belongs to. */
+export const SqlCharKind = {
+  Code: 0,
+  /** String literal or quoted identifier — opaque text. */
+  Quoted: 1,
+  Comment: 2,
+} as const;
+export type SqlCharKind = (typeof SqlCharKind)[keyof typeof SqlCharKind];
+
+/**
+ * Classify every UTF-16 unit of `sql` as code, quoted text or comment, using
+ * the same lexical rules as `minify` (dialect-aware `#` comments and `\'`
+ * escapes, Postgres dollar quotes, `"…"` / `` `…` `` / `[…]` identifiers).
+ * Structural scans — statement counting, paren depth, comma placement — read
+ * only `Code` positions, so `'a;b'` or `"a("` can't skew them.
+ */
+export function classifySql(sql: string, dialect: DialectId = "sql"): Uint8Array {
+  const hashComments = HASH_COMMENT_DIALECTS.has(dialect);
+  const backslashEscapes = BACKSLASH_ESCAPE_DIALECTS.has(dialect);
+  const len = sql.length;
+  const kinds = new Uint8Array(len); // zero-filled = Code
+  const mark = (from: number, to: number, kind: SqlCharKind) => kinds.fill(kind, from, Math.min(to, len));
+  let i = 0;
+  while (i < len) {
+    const c = sql.charCodeAt(i);
+    const start = i;
+    if ((c === 45 && sql.charCodeAt(i + 1) === 45) || (c === 35 && hashComments)) {
+      while (i < len && sql.charCodeAt(i) !== 10) i++;
+      mark(start, i, SqlCharKind.Comment);
+      continue;
+    }
+    if (c === 47 && sql.charCodeAt(i + 1) === 42) {
+      const close = sql.indexOf("*/", i + 2);
+      i = close === -1 ? len : close + 2;
+      mark(start, i, SqlCharKind.Comment);
+      continue;
+    }
+    if (c === 39) {
+      i++;
+      while (i < len) {
+        const cc = sql.charCodeAt(i);
+        if (cc === 39 && sql.charCodeAt(i + 1) === 39) { i += 2; continue; }
+        if (backslashEscapes && cc === 92 && i + 1 < len) { i += 2; continue; }
+        i++;
+        if (cc === 39) break;
+      }
+      mark(start, i, SqlCharKind.Quoted);
+      continue;
+    }
+    if (c === 36) {
+      let j = i + 1;
+      while (j < len && /[A-Za-z0-9_]/.test(sql[j])) j++;
+      if (sql.charCodeAt(j) === 36) {
+        const tag = sql.slice(i, j + 1);
+        const close = sql.indexOf(tag, j + 1);
+        i = close >= 0 ? close + tag.length : len;
+        mark(start, i, SqlCharKind.Quoted);
+        continue;
+      }
+    }
+    if (c === 96 || c === 34 || c === 91) {
+      const close = c === 91 ? 93 : c;
+      i++;
+      while (i < len && sql.charCodeAt(i) !== close) i++;
+      if (i < len) i++;
+      mark(start, i, SqlCharKind.Quoted);
+      continue;
+    }
+    i++;
+  }
+  return kinds;
+}
+
 // ── Copy-as: host-language string literals ─────────────────────────────
 
 /** Host-language wrappers we offer in the Copy-as menu. */
@@ -397,8 +495,17 @@ export const COPY_AS_OPTIONS: ReadonlyArray<CopyAsOption> = [
   { id: "curl-psql", label: "cURL (psql -c)", hint: "shell command" },
 ];
 
-/** Convert formatted SQL into the chosen host-language string literal. */
-export function copyAs(sql: string, format: CopyAsFormat): string {
+/** POSIX shell single-quoting: nothing inside '…' is special, `'` → `'\\''`. */
+export function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
+/**
+ * Convert formatted SQL into the chosen host-language string literal.
+ * `dialect` matters for the shell snippet, which minifies (comment rules
+ * are dialect-specific) before flattening to one line.
+ */
+export function copyAs(sql: string, format: CopyAsFormat, dialect: DialectId = "sql"): string {
   switch (format) {
     case "js-template": {
       // Backticks, ${…} interpolation, and backslashes need escaping.
@@ -417,14 +524,21 @@ export function copyAs(sql: string, format: CopyAsFormat): string {
       return `[\n${lines},\n].join("\\n")`;
     }
     case "python-triple": {
-      // Triple double-quote. Escape any embedded `"""` runs.
-      const safe = sql.replace(/"""/g, '\\"\\"\\"');
+      // Backslashes first (Python would read `\n` as a newline), then any
+      // run of 3+ quotes, and quotes at the very end — `…"` + `"""` would
+      // otherwise close the literal early.
+      const safe = sql
+        .replace(/\\/g, "\\\\")
+        .replace(/"{3,}|"+$/g, (run) => run.replace(/"/g, '\\"'));
       return `"""${safe}"""`;
     }
     case "java-text-block": {
       // Java 15+ text block. Indent uniformly so the closing `"""`
       // controls the de-indent baseline.
+      // Escape `\` (escape sequences are live in text blocks) and `"""`.
       const indented = sql
+        .replace(/\\/g, "\\\\")
+        .replace(/"""/g, '\\"""')
         .split("\n")
         .map((l) => "    " + l)
         .join("\n");
@@ -439,12 +553,12 @@ export function copyAs(sql: string, format: CopyAsFormat): string {
       return "`" + sql + "`";
     }
     case "curl-psql": {
-      // Shell single-line. Escape `"` and `$`; flatten newlines.
-      const escaped = sql
-        .replace(/"/g, '\\"')
-        .replace(/\$/g, '\\$')
-        .replace(/\s*\n\s*/g, " ");
-      return `psql -h DB_HOST -U USER -d DB -c "${escaped}"`;
+      // One shell line. Minify first: it drops `--` / `#` / `/* */`
+      // comments (a joined `-- …` would comment out the rest of the query)
+      // and collapses whitespace without touching string literals. Then
+      // POSIX single-quote it — inside '…' nothing (`$`, backticks, `\`)
+      // is interpreted, so the SQL can't trigger command substitution.
+      return `psql -h DB_HOST -U USER -d DB -c ${shellQuote(minify(sql, dialect))}`;
     }
   }
 }
@@ -494,27 +608,32 @@ export interface SqlStats {
   statementCount: number;
 }
 
-export function statsFor(input: string, output: string): SqlStats {
+export function statsFor(input: string, output: string, dialect: DialectId = "sql"): SqlStats {
   const inputLines = input ? input.split(/\r\n|\r|\n/).length : 0;
   const outputLines = output ? output.split(/\r\n|\r|\n/).length : 0;
   // Statement count = count of top-level semicolons in the OUTPUT. We use
   // output because input semicolons could be split across many lines /
-  // hidden by extra whitespace; the formatter normalises.
+  // hidden by extra whitespace; the formatter normalises. Only code
+  // positions count — `;` / `(` inside strings, quoted identifiers and
+  // comments are text, and a comment alone isn't a statement.
+  const kinds = classifySql(output, dialect);
   let depth = 0;
   let count = 0;
-  let sawNonWsSinceLastSemi = false;
+  let sawCodeSinceLastSemi = false;
   for (let i = 0; i < output.length; i++) {
+    const kind = kinds[i];
+    if (kind === SqlCharKind.Comment) continue;
     const c = output.charCodeAt(i);
-    if (c === 40) depth++;
-    else if (c === 41) depth--;
-    else if (c === 59 && depth === 0) {
-      if (sawNonWsSinceLastSemi) count++;
-      sawNonWsSinceLastSemi = false;
-    } else if (c !== 32 && c !== 9 && c !== 10 && c !== 13) {
-      sawNonWsSinceLastSemi = true;
+    if (kind === SqlCharKind.Code && c === 40) depth++;
+    else if (kind === SqlCharKind.Code && c === 41) depth = Math.max(0, depth - 1);
+    else if (kind === SqlCharKind.Code && c === 59 && depth === 0) {
+      if (sawCodeSinceLastSemi) count++;
+      sawCodeSinceLastSemi = false;
+      continue;
     }
+    if (c !== 32 && c !== 9 && c !== 10 && c !== 13) sawCodeSinceLastSemi = true;
   }
-  if (sawNonWsSinceLastSemi) count++;
+  if (sawCodeSinceLastSemi) count++;
   return {
     inputLines,
     outputLines,

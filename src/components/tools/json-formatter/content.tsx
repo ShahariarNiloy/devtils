@@ -1,7 +1,7 @@
 import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
-  intro: "A full JSON workspace: format, minify, validate, sort, repair, and explore. The editor supports overlay-style syntax highlighting that stays sub-frame for inputs up to ~100KB, then degrades gracefully for multi-MB pastes. Four view modes — Code, Tree, Table, Graph — let you pick the right lens for the document at hand. JSONPath queries, fuzzy search, structural diff, and ten output formats round out the tool.",
+  intro: "A full JSON workspace: format, minify, validate, sort, repair, and explore. The editor draws only the lines on screen, so typing stays instant even in multi-megabyte documents. Five view modes — Code, Tree, Table, Graph, Path — let you pick the right lens for the document at hand. JSONPath queries, fuzzy search, structural diff, and ten output formats round out the tool.",
   usesTitle: "What people use it for",
   usesNote: "Five jobs it does better than a text editor.",
   useCases: [
@@ -45,12 +45,12 @@ export const seoData = {
         {
           question: "Does my JSON leave my browser?",
           answer:
-            "No. The entire tool runs client-side. No network calls, no telemetry on input contents, nothing leaves your device. Safe to use with sensitive payloads, internal API responses, or production data.",
+            "No. Formatting, validation and repair run in your browser, and what you paste is processed there, not uploaded to us. The one network request is one you start yourself: Fetch from URL loads that endpoint straight from your browser. Safe to use with sensitive payloads, internal API responses, or production data.",
         },
         {
-          question: "Why does the formatter feel slow on huge inputs?",
+          question: "How large a JSON file can it handle?",
           answer:
-            "Above ~100KB the syntax highlighter degrades to plain text to keep keystrokes responsive. Above ~1MB the parser also runs in a Web Worker. You may still see a moment of pause on the initial load — but typing should stay smooth.",
+            "Paste any size; uploaded files can be up to 50 MB. The editor only draws the lines on screen, so typing stays instant even on a 20 MB document, and parsing above ~250 KB runs in a background worker so the page never freezes. Above 1 MB, syntax colouring switches off (like VS Code does for huge files) to keep keystrokes fast. Some extras scale back on very large documents: drafts over 1 MB aren't autosaved, and share links are limited to about 256 KB compressed.",
         },
         {
           question: "What does the Repair feature do?",

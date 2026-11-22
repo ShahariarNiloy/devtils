@@ -1,10 +1,12 @@
 "use client";
 
-import React, { memo, useRef, useState } from "react";
+import React, { memo, useMemo, useRef, useState } from "react";
+
+const EMPTY_LINES: readonly number[] = [];
 import { Globe, Trash2, Upload, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Tooltip } from "@/components/primitives/tooltip";
-import { CodeView } from "../views/code-view";
+import { LazyJsonEditor } from "../views/json-editor-lazy";
 import { TRANSFORM_LABELS } from "../js-to-json.lib";
 import type { JsonFormatterState } from "../use-json-formatter";
 
@@ -41,6 +43,10 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl, problemCount, probl
 
   const v = state.validation;
   const errorLine = v.status === "invalid" ? v.line : undefined;
+  // Stable array identity so the editor only re-marks the gutter when lines change.
+  let errorKey = errorLine ? String(errorLine) : "";
+  if (problemLines?.length) errorKey = problemLines.join(",");
+  const editorErrorLines = useMemo(() => (errorKey ? errorKey.split(",").map(Number) : EMPTY_LINES), [errorKey]);
 
   let status: { text: string; tone: string; dot: string };
   if (v.status === "valid") status = { text: "Valid JSON", tone: "text-success", dot: "bg-success" };
@@ -141,21 +147,15 @@ function InputPanelImpl({ state, onLoadFile, onOpenFetchUrl, problemCount, probl
 
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
-        <CodeView
-          variant="v2"
+        <LazyJsonEditor
           placeholder="Paste JSON here, or press ⌘V anywhere…"
-          errorLines={problemLines}
+          errorLines={editorErrorLines}
           value={state.input}
           onChange={state.setInput}
           indent={state.indent}
           onCursorChange={state.setInputCursor}
-          errorLine={errorLine}
-          jumpToError={
-            v.status === "invalid"
-              ? { line: v.line, col: v.col, nonce: 0 }
-              : undefined
-          }
           onPasteFormatted={state.formatFrom}
+          formatPaste={state.formatPaste}
         />
       </div>
     </div>

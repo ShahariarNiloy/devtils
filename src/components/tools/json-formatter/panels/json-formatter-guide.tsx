@@ -178,9 +178,9 @@ export function GuideDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 count and byte size for the current document.
               </Row>
               <Row label="Recent">
-                Anything you load (sample, file, URL) is remembered in your
-                browser. Restore from the empty state&apos;s <Strong>Recent</Strong>{" "}
-                card. Nothing leaves the device.
+                Anything you load (sample, file, URL) is remembered in this
+                browser only, never synced. Restore from the empty state&apos;s{" "}
+                <Strong>Recent</Strong> card.
               </Row>
             </div>
           </Section>

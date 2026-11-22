@@ -1,64 +1,42 @@
 /// <reference lib="webworker" />
 
-import { tryJsToJson, type Transform } from "./js-to-json.lib";
+import { tryJsToJson } from "./js-to-json.lib";
+import { byteLength, formatJsonText, minifyJson, validateJson } from "./json-formatter.lib";
+import { scanJsonText } from "./json-lossless";
+import { RepairError, repairJson } from "./json-repair";
+import { splitForTransfer } from "./json-transfer";
+import type {
+  ActionRequest,
+  ActionResult,
+  ActionResponse,
+  FormatResponse,
+  ParsePartResponse,
+  ParseResponse,
+  ScanResponse,
+  TransformResponse,
+  WorkerRequest,
+} from "./json-worker-protocol";
 
 /**
- * Off-main-thread JSON.parse + validation, plus JS-object → JSON conversion.
- * The worker owns heavy synchronous work so the main thread stays paint-able
- * — that's what makes the "Analysing…" spinner in the JS→JSON banner real.
+ * Off-main-thread JSON work. The worker owns heavy synchronous work so the
+ * main thread stays paint-able (typing, spinners, the busy labels).
  *
- * Two request shapes share the one worker (one channel, fewer singletons):
- *   - `parse`     — JSON.parse + validation for big inputs
- *   - `transform` — tryJsToJson + JSON.stringify, returns formatted JSON
- *
- * Responses carry the same `kind` so a listener can filter by request type
- * before checking the request id.
+ * Channels (see json-worker-protocol.ts):
+ *   - `parse`     — JSON.parse + validation for big inputs (the tree value)
+ *   - `transform` — tryJsToJson for the JS → JSON banner
+ *   - `scan`      — the lossless-number precision scan
+ *   - `format`    — read-only pretty-print (Code view, tool handoff)
+ *   - `action`    — Format / Minify / Sort / Validate / Repair on big inputs.
+ *     These run the exact same lib functions as the synchronous path, so the
+ *     output bytes and error messages are identical; only strings go back.
+ *     Actions run in a second instance of this script (json-worker-client),
+ *     so a click never queues behind background analysis, and a superseded
+ *     action can be terminated mid-run.
  */
-
-interface ParseRequest {
-  kind: "parse";
-  id: number;
-  src: string;
-}
-interface TransformRequest {
-  kind: "transform";
-  id: number;
-  src: string;
-}
-type WorkerRequest = ParseRequest | TransformRequest;
-
-type ParseResponse =
-  | {
-      kind: "parse";
-      id: number;
-      ok: true;
-      value: unknown;
-      bytes: number;
-      lines: number;
-    }
-  | {
-      kind: "parse";
-      id: number;
-      ok: false;
-      message: string;
-      line: number;
-      col: number;
-    };
-type TransformResponse =
-  | {
-      kind: "transform";
-      id: number;
-      ok: true;
-      output: string;
-      transforms: Transform[];
-    }
-  | { kind: "transform"; id: number; ok: false };
 
 // Worker globals collide with the DOM lib in this project's tsconfig; this
 // single cast narrows `self` to the worker scope so the message API is typed.
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
-
-const encoder = new TextEncoder();
 
 function countLines(s: string): number {
   let n = 1;
@@ -66,8 +44,8 @@ function countLines(s: string): number {
   return n;
 }
 
-// Inlined (no app imports — keeps the worker bundle tiny). Mirrors
-// json-formatter.lib's parseErrorPosition.
+// Mirrors json-formatter.lib's parseErrorPosition (the parse channel reports
+// bytes/lines from its own single pass).
 function errorPos(
   message: string,
   raw: string,
@@ -90,8 +68,91 @@ function errorPos(
   return { message, line: 1, col: 1 };
 }
 
+// ── Actions ─────────────────────────────────────────────────────────────────
+
+function runAction(req: ActionRequest): ActionResult {
+  switch (req.op) {
+    case "format": {
+      if (req.validate) {
+        const v = validateJson(req.src);
+        if (v.status === "invalid") return { status: "invalid", validation: v };
+      }
+      try {
+        return { status: "formatted", output: formatJsonText(req.src, req.indent, req.sort) };
+      } catch (err) {
+        return { status: "error", message: err instanceof Error ? err.message : "Format failed" };
+      }
+    }
+    case "minify":
+      try {
+        const r = minifyJson(req.src);
+        return { status: "minified", output: r.output, before: r.before, after: r.after, savedPct: r.savedPct };
+      } catch (err) {
+        return { status: "error", message: err instanceof Error ? err.message : "Minify failed" };
+      }
+    case "validate":
+      return { status: "validated", validation: validateJson(req.src) };
+    case "repair":
+      try {
+        const result = repairJson(req.src);
+        if (result.wasValid) return { status: "repaired", result: { ...result, fixed: "" } };
+        if (result.events.some((e) => e.risk !== "safe")) return { status: "repaired", result };
+        // All-safe repairs apply straight away and then format — do that
+        // format here too, saving a second round trip of the fixed text.
+        // repairJson already proved the fixed text parses, so the main
+        // thread's pre-format validate can't fail and is skipped.
+        try {
+          const formatted = formatJsonText(result.fixed, req.indent, req.sort);
+          // The repair serializer already pretty-prints with 2 spaces, so
+          // with the default indent and key order the format is a no-op —
+          // say so instead of copying the same 50+ MB string back twice.
+          if (formatted === result.fixed) return { status: "repaired", result, formattedIsFixed: true };
+          return { status: "repaired", result, formatted };
+        } catch (err) {
+          return { status: "repaired", result, formatError: err instanceof Error ? err.message : "Format failed" };
+        }
+      } catch (err) {
+        if (err instanceof RepairError) {
+          return {
+            status: "repair-failed",
+            parseError: err.parseError,
+            partialFixed: err.partialFixed,
+            partialChanges: err.partialChanges,
+            partialEvents: err.partialEvents,
+          };
+        }
+        return { status: "error", message: err instanceof Error ? err.message : "Repair failed" };
+      }
+  }
+}
+
 ctx.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+
+  if (req.kind === "action") {
+    ctx.postMessage({ kind: "action", id: req.id, ...runAction(req) } satisfies ActionResponse);
+    return;
+  }
+
+  if (req.kind === "scan") {
+    ctx.postMessage({
+      kind: "scan",
+      id: req.id,
+      impreciseNumbers: scanJsonText(req.src).impreciseNumbers,
+    } satisfies ScanResponse);
+    return;
+  }
+
+  if (req.kind === "format") {
+    let res: FormatResponse;
+    try {
+      res = { kind: "format", id: req.id, ok: true, output: formatJsonText(req.src, req.indent, "none") };
+    } catch {
+      res = { kind: "format", id: req.id, ok: false };
+    }
+    ctx.postMessage(res);
+    return;
+  }
 
   if (req.kind === "transform") {
     const { id, src } = req;
@@ -117,14 +178,19 @@ ctx.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const { id, src } = req;
   try {
     const value: unknown = JSON.parse(src);
+    // A big tree goes in slices so the main thread deserializes it in many
+    // short tasks instead of one ~400 ms one (see json-transfer.ts).
+    const { skeleton, parts } = splitForTransfer(value, src.length);
     ctx.postMessage({
       kind: "parse",
       id,
       ok: true,
-      value,
-      bytes: encoder.encode(src).length,
+      value: skeleton,
+      bytes: byteLength(src),
       lines: countLines(src),
+      parts: parts.length,
     } satisfies ParseResponse);
+    for (const part of parts) ctx.postMessage({ kind: "parse-part", id, ...part } satisfies ParsePartResponse);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const { message, line, col } = errorPos(msg, src);

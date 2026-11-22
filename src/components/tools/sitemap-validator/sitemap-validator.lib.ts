@@ -7,7 +7,7 @@
  * changefreq, priority and the 50,000-URL / 50 MB limits. Nothing is fetched.
  */
 
-import { decodeEntities, isAbsUrl, type Check, type CheckLevel } from "@/components/tools/seo-shared/seo.lib";
+import { decodeEntities, isAbsUrl, isRealDate, type Check, type CheckLevel } from "@/components/tools/seo-shared/seo.lib";
 
 /** Same shape as the shared SeoTable row. */
 export interface SitemapRow {
@@ -80,12 +80,49 @@ export interface SitemapReport {
   summary: string;
 }
 
-/** Text content of the first <tag>…</tag> in an entry body (entities decoded). */
-function child(body: string, tag: string): string | null {
+/** & that doesn't start one of XML's entity or character references. */
+const BAD_AMP = /&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-f]+;)/i;
+
+interface ChildValue {
+  /** Text content: entities decoded in text, CDATA sections taken literally. */
+  value: string;
+  /** A raw & outside CDATA (invalid XML). */
+  badAmp: boolean;
+}
+
+/** Text content of the first <tag>…</tag> in an entry body. */
+function child(body: string, tag: string): ChildValue | null {
   const m = new RegExp(`<${tag}(?:\\s[^>]*)?>\\s*([\\s\\S]*?)\\s*</${tag}>`).exec(body);
   if (!m) return null;
-  const cdata = /^<!\[CDATA\[([\s\S]*)\]\]>$/.exec(m[1]);
-  return cdata ? cdata[1] : m[1];
+  let value = "";
+  let badAmp = false;
+  const text = (t: string) => {
+    if (BAD_AMP.test(t)) badAmp = true;
+    value += decodeEntities(t);
+  };
+  const re = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+  let last = 0;
+  let c: RegExpExecArray | null;
+  while ((c = re.exec(m[1])) !== null) {
+    text(m[1].slice(last, c.index));
+    value += c[1];
+    last = re.lastIndex;
+  }
+  text(m[1].slice(last));
+  return { value, badAmp };
+}
+
+/** Blank out a match but keep its newlines, so offsets and line numbers stay put. */
+const blank = (s: string) => s.replace(/[^\n]/g, " ");
+
+/**
+ * The XML with comments and processing instructions (the <?xml?> declaration
+ * included) blanked out, so commented-out entries are never scanned.
+ * `withCdata: false` also blanks CDATA sections (for counting tags).
+ */
+function maskInert(xml: string, withCdata = true): string {
+  const re = withCdata ? /<!--[\s\S]*?(?:-->|$)|<\?[\s\S]*?(?:\?>|$)/g : /<!--[\s\S]*?(?:-->|$)|<\?[\s\S]*?(?:\?>|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)/g;
+  return xml.replace(re, blank);
 }
 
 function lineAt(text: string, index: number): number {
@@ -95,17 +132,34 @@ function lineAt(text: string, index: number): number {
 }
 
 /**
- * Minimal well-formedness check: every start tag is closed in order.
- * Skips comments, CDATA, processing instructions and the doctype.
- * Returns an error message or null.
+ * Minimal well-formedness check: every start tag is closed in order, there's
+ * exactly one root element, and no text sits outside it. Skips comments,
+ * CDATA, processing instructions and the doctype. Returns an error message or null.
  */
 export function wellFormedError(xml: string): string | null {
   const stack: { name: string; at: number }[] = [];
   const re = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<(\/?)([A-Za-z_][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g;
+  let root: string | null = null;
+  let last = 0;
+  const outside = (from: number, to: number) => {
+    const i = xml.slice(from, to).search(/\S/); // \s covers the BOM too
+    return i === -1 ? null : from + i;
+  };
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml)) !== null) {
+    if (!stack.length) {
+      const at = outside(last, m.index) ?? (m[0].startsWith("<![CDATA[") ? m.index : null);
+      if (at !== null) return `Line ${lineAt(xml, at)}: text outside the root element.`;
+    }
+    last = re.lastIndex;
     if (!m[2]) continue;
     const [, close, name, , selfClose] = m;
+    if (!close && !stack.length) {
+      if (root !== null) {
+        return `Line ${lineAt(xml, m.index)}: a second root element <${name}>. An XML file has exactly one root (<${root}>).`;
+      }
+      root = name;
+    }
     if (selfClose) continue;
     if (!close) {
       stack.push({ name, at: m.index });
@@ -119,6 +173,10 @@ export function wellFormedError(xml: string): string | null {
   }
   const open = stack.pop();
   if (open) return `Line ${lineAt(xml, open.at)}: <${open.name}> is never closed.`;
+  const tail = outside(last, xml.length);
+  if (tail !== null) return `Line ${lineAt(xml, tail)}: text outside the root element.`;
+  const unclosed = /<!--(?![\s\S]*?-->)/.exec(xml);
+  if (unclosed) return `Line ${lineAt(xml, unclosed.index)}: a comment is never closed (missing -->).`;
   return null;
 }
 
@@ -127,10 +185,10 @@ function checkLastmod(lm: string, now: Date): Issue | null {
   if (!m) {
     return { level: "err", kind: "lastmod-format", text: `lastmod “${lm}” isn't W3C datetime (YYYY-MM-DD).` };
   }
-  const [, , mo, d, hh, mi, ss] = m;
+  const [, y, mo, d, hh, mi, ss] = m;
   const bad =
     (mo && (+mo < 1 || +mo > 12)) ||
-    (d && (+d < 1 || +d > 31)) ||
+    (mo && d && !isRealDate(+y, +mo, +d)) ||
     (hh && +hh > 23) ||
     (mi && +mi > 59) ||
     (ss && +ss > 59);
@@ -150,21 +208,25 @@ function entryIssues(
   now: Date,
 ): { loc: string | null; lastmod: string | null; issues: Issue[] } {
   const rawLoc = child(body, "loc");
-  const lastmod = child(body, "lastmod");
-  const cf = child(body, "changefreq");
-  const pr = child(body, "priority");
+  const lastmod = child(body, "lastmod")?.value ?? null;
+  const cf = child(body, "changefreq")?.value ?? null;
+  const pr = child(body, "priority")?.value ?? null;
   const issues: Issue[] = [];
   let loc: string | null = null;
 
-  if (rawLoc === null || rawLoc === "") {
+  if (rawLoc === null || rawLoc.value === "") {
     issues.push({ level: "err", kind: "no-loc", text: "Missing <loc>." });
   } else {
-    if (/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-f]+;)/i.test(rawLoc)) {
+    if (rawLoc.badAmp) {
       issues.push({ level: "err", kind: "amp", text: "Unescaped & — write &amp;." });
     }
-    loc = decodeEntities(rawLoc);
+    loc = rawLoc.value;
     if (!isAbsUrl(loc)) {
-      issues.push({ level: "err", kind: "relative", text: "Not an absolute URL." });
+      issues.push(
+        /^https?:\/\//i.test(loc)
+          ? { level: "err", kind: "bad-url", text: /\s/.test(loc) ? "URL contains whitespace — encode spaces as %20." : "Not a valid URL." }
+          : { level: "err", kind: "relative", text: "Not an absolute URL." },
+      );
     } else {
       let host: string | null = null;
       try {
@@ -231,7 +293,11 @@ export function validateSitemap(xml: string, now: Date = new Date()): SitemapRep
     };
   }
 
-  const isIndex = /<sitemapindex[\s>]/i.test(xml);
+  // Scan with comments and PIs blanked (same offsets), so commented-out
+  // markup never counts as entries, roots or tags.
+  const scan = maskInert(xml);
+  const bare = maskInert(xml, false);
+  const isIndex = /<sitemapindex[\s>/]/i.test(bare);
   const kind = isIndex ? "sitemapindex" : "urlset";
   const tag = isIndex ? "sitemap" : "url";
   let errors = 0;
@@ -243,9 +309,9 @@ export function validateSitemap(xml: string, now: Date = new Date()): SitemapRep
   };
 
   if (!/^\uFEFF?\s*<\?xml\b/.test(xml)) doc("warn", 'Missing the <?xml version="1.0" encoding="UTF-8"?> declaration.');
-  else if (/^\uFEFF?\s+<\?xml/.test(xml)) doc("warn", "Remove the whitespace before <?xml …?>. Strict XML parsers reject anything before the declaration.");
+  else if (/^\s+<\?xml/.test(xml.replace(/^\uFEFF/, ""))) doc("warn", "Remove the whitespace before <?xml …?>. Strict XML parsers reject anything before the declaration.");
 
-  const root = /<(urlset|sitemapindex)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/i.exec(xml);
+  const root = /<(urlset|sitemapindex)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/i.exec(bare);
   if (!root) doc("err", "No <urlset> or <sitemapindex> root element.");
   else {
     const ns = /\sxmlns\s*=\s*["']([^"']*)["']/.exec(root[2]);
@@ -254,27 +320,27 @@ export function validateSitemap(xml: string, now: Date = new Date()): SitemapRep
     const declared = new Set<string>();
     for (const d of root[2].matchAll(/\sxmlns:([\w.-]+)\s*=/g)) declared.add(d[1]);
     const used = new Set<string>();
-    for (const u of xml.matchAll(/<\/?([A-Za-z_][\w.-]*):[\w.-]+/g)) used.add(u[1]);
+    for (const u of bare.matchAll(/<\/?([A-Za-z_][\w.-]*):[\w.-]+/g)) used.add(u[1]);
     for (const p of used) {
       if (p !== "xml" && !declared.has(p)) doc("err", `<${p}:…> tags are used but xmlns:${p} isn't declared on the root element.`);
     }
   }
 
-  const opens = (xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>`, "g")) ?? []).length;
-  const closes = (xml.match(new RegExp(`</${tag}>`, "g")) ?? []).length;
-  if (opens !== closes) doc("err", `Unbalanced tags: ${opens} <${tag}> vs ${closes} </${tag}>.`);
-  else {
-    const wf = wellFormedError(xml);
-    if (wf) doc("err", `XML isn't well-formed. ${wf}`);
-  }
+  const opens = (bare.match(new RegExp(`<${tag}(?:\\s[^>]*)?>`, "g")) ?? []).filter((t) => !t.endsWith("/>")).length;
+  const closes = (bare.match(new RegExp(`</${tag}\\s*>`, "g")) ?? []).length;
+  const wf = wellFormedError(xml);
+  if (wf) {
+    doc("err", `XML isn't well-formed. ${wf}${opens !== closes ? ` (${opens} <${tag}> vs ${closes} </${tag}>.)` : ""}`);
+  } else if (opens !== closes) doc("err", `Unbalanced tags: ${opens} <${tag}> vs ${closes} </${tag}>.`);
 
   const entries: SitemapEntry[] = [];
   const seen = new Set<string>();
   const hostRef: { host: string | null } = { host: null };
-  const reE = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g");
+  // An empty self-closing <url/> is an entry too (one with no <loc>).
+  const reE = new RegExp(`<${tag}(?:\\s[^>]*?)?(?:/>|>([\\s\\S]*?)</${tag}\\s*>)`, "g");
   let mE: RegExpExecArray | null;
-  while ((mE = reE.exec(xml)) !== null) {
-    const r = entryIssues(mE[1], seen, hostRef, now);
+  while ((mE = reE.exec(scan)) !== null) {
+    const r = entryIssues(mE[1] ?? "", seen, hostRef, now);
     entries.push({ index: entries.length + 1, ...r });
   }
 
@@ -310,7 +376,7 @@ export function validateSitemap(xml: string, now: Date = new Date()): SitemapRep
     "info",
     `${isIndex ? "Sitemap index" : "URL set"} · ${entries.length.toLocaleString("en-US")} ${entries.length === 1 ? "entry" : "entries"} · ${formatBytes(bytes)} of 50 MB allowed.`,
   );
-  if (/<priority[\s>]|<changefreq[\s>]/.test(xml)) {
+  if (/<priority[\s>]|<changefreq[\s>]/.test(bare)) {
     chk("info", "Google ignores priority and changefreq. lastmod is used when it's accurate.");
   }
   if (entries.length > TABLE_LIMIT) {

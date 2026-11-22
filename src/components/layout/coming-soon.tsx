@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/static-components */
 import { ToolCard } from '@/components/shared/tool-card';
-import { ToolIcon } from '@/components/shared/tool-icon';
+import { iconForTool } from '@/components/shared/key-icon';
+import type { ToolCategory } from '@/lib/tools/types';
+import { createElement } from 'react';
 import { getDoodle } from "@/lib/doodle-registry";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import {
@@ -80,11 +82,7 @@ export function ComingSoon({ tool }: Props) {
                 className="flex h-11 w-11 items-center justify-center rounded-button"
                 style={{ background: meta.iconBg }}
               >
-                <ToolIcon
-                  name={tool.icon}
-                  size={18}
-                  style={{ color: meta.iconColor }}
-                />
+                <ToolIconFor tool={tool} size={18} color={meta.iconColor} />
               </div>
               <span className="rounded-full px-2.5 py-1 text-sm font-semibold uppercase tracking-eyebrow bg-mist-sage text-olive-ink">
                 Coming soon
@@ -172,4 +170,9 @@ export function ComingSoon({ tool }: Props) {
       )}
     </>
   );
+}
+
+/** Curated, tree-shaken icon (the name-based resolver pulled in every Lucide icon). */
+function ToolIconFor({ tool, size, color }: { tool: { slug: string; category: ToolCategory }; size: number; color: string }) {
+  return createElement(iconForTool(tool), { size, style: { color }, "aria-hidden": true });
 }

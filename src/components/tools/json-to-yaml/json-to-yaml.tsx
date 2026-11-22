@@ -11,10 +11,12 @@ import {
   MenuCheck,
   MenuChoice,
   parseYaml,
+  precisionWarning,
   Segmented,
   ToggleChip,
   useConverter,
   useUrlState,
+  yamlSpelling,
 } from "@/components/json-converter";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/primitives/dropdown-menu";
 import { byteLength } from "@/components/tools/json-formatter/json-formatter.lib";
@@ -130,6 +132,7 @@ export function JsonToYaml({ tool }: { tool: Tool }) {
       downloadMime={forward ? "text/yaml" : "application/json"}
       downloadName={forward ? "config" : "data"}
       conversionError={c.conversionError}
+      warning={precisionWarning(c.parse.lossy, forward ? yamlSpelling : undefined)}
       isComputing={c.isComputing}
       content={<JsonToYamlContent />}
       toolbar={

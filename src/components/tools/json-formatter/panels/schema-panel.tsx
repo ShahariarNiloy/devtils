@@ -1,11 +1,10 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
-import { CircleCheck, CircleX, Wand2, X } from "lucide-react";
+import { CircleCheck, CircleX, Wand2 } from "lucide-react";
 import { Button } from "@/components/primitives/button";
-import { Textarea } from "@/components/primitives/textarea";
+import { flushPendingEdits, LazyCodeEditor } from "@/components/primitives/code-editor";
 import { inferJsonSchema } from "../schema-infer";
-import { checkAgainstSchema, type SchemaCheckResult } from "../schema-check";
+import type { SchemaCheckResult } from "../schema-check";
 
 interface SchemaPanelProps {
   /** The parsed input document. */
@@ -14,78 +13,53 @@ interface SchemaPanelProps {
   isValid: boolean;
   schemaText: string;
   onSchemaTextChange: (text: string) => void;
-  onClose: () => void;
+  /** Latest check (from useSchemaCheck), or null while checking / no schema. */
+  result: SchemaCheckResult | null;
 }
 
-interface CheckedResult {
-  schema: string;
-  value: unknown;
-  result: SchemaCheckResult;
-}
-
-export function SchemaPanel({ value, isValid, schemaText, onSchemaTextChange, onClose }: SchemaPanelProps) {
-  const deferredSchema = useDeferredValue(schemaText);
-  const [checked, setChecked] = useState<CheckedResult | null>(null);
-
-  // Ajv is lazy-loaded and async, so validation lives in an effect. Results
-  // are tagged with their inputs and only shown while those still match —
-  // a stale answer never flashes for newer text.
-  useEffect(() => {
-    if (!deferredSchema.trim() || !isValid) return;
-    let cancelled = false;
-    void checkAgainstSchema(value, deferredSchema).then((result) => {
-      if (!cancelled) setChecked({ schema: deferredSchema, value, result });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [deferredSchema, value, isValid]);
-
-  const current =
-    checked && checked.schema === deferredSchema && checked.value === value ? checked.result : null;
+/**
+ * Body of the Schema side sheet: schema editor on top, live result below.
+ * The check itself runs in useSchemaCheck (owned by the formatter) so the
+ * toolbar can show the outcome while the sheet is closed.
+ */
+export function SchemaPanel({ value, isValid, schemaText, onSchemaTextChange, result }: SchemaPanelProps) {
+  const current = result;
 
   const inferFromInput = () => {
     if (!isValid) return;
+    // Replacing the schema: deliver any still-debounced keystrokes first so
+    // a late flush can't overwrite the inferred schema.
+    flushPendingEdits();
     onSchemaTextChange(JSON.stringify(inferJsonSchema(value), null, 2));
   };
 
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-card">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-4">
-        <span className="flex-1 text-sm font-semibold text-text">Validate against JSON Schema</span>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={inferFromInput}
-          disabled={!isValid}
-          className="gap-1.5 shrink-0"
-        >
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 px-5 pt-3 pb-3">
+        <span className="text-xs text-text-faint">Draft-07, 2019-09 and 2020-12 · checks as you type</span>
+        <span className="grow" />
+        <Button variant="secondary" size="sm" onClick={inferFromInput} disabled={!isValid} className="shrink-0 gap-1.5">
           <Wand2 size={12} />
           Infer from input
         </Button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-surface-soft hover:text-text transition-colors shrink-0"
-          aria-label="Close schema panel"
-        >
-          <X size={14} />
-        </button>
       </div>
-
-      <div className="grid gap-px bg-border-subtle md:grid-cols-2">
-        <div className="bg-surface p-3">
-          <Textarea
+      <div className="shrink-0 px-5 pb-4">
+        <div className="h-[min(42vh,360px)] overflow-hidden rounded-lg border-1.5 border-border bg-surface transition-[border-color,box-shadow] focus-within:border-brand focus-within:shadow-focus hover:border-border-strong">
+          <LazyCodeEditor
+            language="json"
             value={schemaText}
-            onChange={(e) => onSchemaTextChange(e.target.value)}
-            placeholder={'Paste a JSON Schema, e.g.\n{\n  "type": "object",\n  "required": ["id"]\n}'}
-            aria-label="JSON Schema"
-            className="h-48 rounded-lg px-3 py-2 text-[12.5px] leading-[1.65]"
+            onChange={onSchemaTextChange}
+            placeholder={'Paste a JSON Schema, e.g. { "type": "object", "required": ["id"] }'}
+            ariaLabel="JSON Schema"
+            lineNumbers={false}
+            lineHeight={1.65}
+            padding="8px 12px"
+            className="h-full text-[12.5px]"
           />
         </div>
-        <div className="bg-surface p-3 max-h-[14.5rem] overflow-auto text-[13px]">
-          <SchemaResult hasSchema={schemaText.trim().length > 0} isValid={isValid} result={current} />
-        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto border-t border-border-subtle px-5 py-4 text-[13px]">
+        <SchemaResult hasSchema={schemaText.trim().length > 0} isValid={isValid} result={current} />
       </div>
     </div>
   );

@@ -80,7 +80,7 @@ export function XmlFormatter({ tool }: { tool: Tool }) {
   // ── Shortcuts ───────────────────────────────────────────────────────
   useShortcut({ key: "/", ignoreInEditable: true, label: "Focus input" }, (e) => {
     e.preventDefault();
-    workspaceRef.current?.querySelector("textarea")?.focus();
+    workspaceRef.current?.querySelector<HTMLElement>(".cm-content")?.focus();
   });
   useShortcut({ key: "c", meta: true, shift: true, label: "Copy output" }, (e) => {
     e.preventDefault();
@@ -226,7 +226,7 @@ export function XmlFormatter({ tool }: { tool: Tool }) {
               <DropdownMenuItem disabled={!output} onSelect={onDownload}>
                 Download .{ext}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void pasteInto(s.setInput)}>Paste from clipboard</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void pasteInto(s.replaceInput)}>Paste from clipboard</DropdownMenuItem>
               <DropdownMenuItem onSelect={s.loadSample}>Load sample</DropdownMenuItem>
               <DropdownMenuItem disabled={!s.input} onSelect={s.clear}>
                 Clear input
@@ -240,6 +240,7 @@ export function XmlFormatter({ tool }: { tool: Tool }) {
                 value={s.input}
                 onChange={s.setInput}
                 lang="xml"
+                errorLine={s.error ? s.errorLine : undefined}
                 ariaLabel="XML input"
                 placeholder="Paste any XML — SOAP envelope, RSS feed, SVG, Maven POM, Android layout…"
               />

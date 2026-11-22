@@ -4,6 +4,7 @@ import { Check, Download, FileCode2, MoreHorizontal, RotateCcw, Trash2 } from "l
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { flushPendingEdits, LazyCodeEditor } from "@/components/primitives/code-editor";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +56,23 @@ function download(text: string, name: string, type: string) {
 }
 
 export function MarkdownPreview({ tool }: { tool: Tool }) {
-  const [input, setInput] = useState(SAMPLE_MARKDOWN);
+  const [input, setInputState] = useState(SAMPLE_MARKDOWN);
+  // Latest text, updated synchronously: big documents reach React debounced,
+  // so actions call `flushPendingEdits()` and read this instead of `input`.
+  const latest = useRef(SAMPLE_MARKDOWN);
+  const setInput = (v: string) => {
+    latest.current = v;
+    setInputState(v);
+  };
+  const readInput = () => {
+    flushPendingEdits();
+    return latest.current;
+  };
+  /** Replace the document (sample / clear) after any pending edit has landed. */
+  const replaceInput = (v: string) => {
+    flushPendingEdits();
+    setInput(v);
+  };
   const [view, setView] = useState<View>("preview");
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,10 +87,18 @@ export function MarkdownPreview({ tool }: { tool: Tool }) {
   const hasInput = input.trim().length > 0;
   const statsText = `${stats.words.toLocaleString("en")} ${stats.words === 1 ? "word" : "words"} · ${stats.readMinutes} min read`;
 
+  /** Blocks of the document as it is now (the rendered ones follow the deferred text). */
+  const blocksNow = () => {
+    const text = readInput();
+    return text === source ? blocks : parseMarkdown(text);
+  };
+
   const copyHtml = async () => {
-    if (!html) return;
+    const b = blocksNow();
+    const out = b === blocks ? html : renderHtml(b);
+    if (!out) return;
     try {
-      await navigator.clipboard.writeText(html);
+      await navigator.clipboard.writeText(out);
       setCopied(true);
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopied(false), 1600);
@@ -83,9 +108,13 @@ export function MarkdownPreview({ tool }: { tool: Tool }) {
     }
   };
 
-  const docTitle = () => {
-    const h = blocks.find((b) => b.kind === "heading");
-    return h && h.kind === "heading" ? inlineToText(h.inline) || "Document" : "Document";
+  const downloadHtml = () => {
+    const b = blocksNow();
+    const out = b === blocks ? html : renderHtml(b);
+    if (!out) return;
+    const h = b.find((x) => x.kind === "heading");
+    const title = h && h.kind === "heading" ? inlineToText(h.inline) || "Document" : "Document";
+    download(htmlDocument(out, title), "document.html", "text/html");
   };
 
   return (
@@ -126,17 +155,17 @@ export function MarkdownPreview({ tool }: { tool: Tool }) {
               </DropdownMenuTrigger>
             </Tooltip>
             <DropdownMenuContent align="end" className="min-w-52">
-              <DropdownMenuItem disabled={!html} onSelect={() => download(htmlDocument(html, docTitle()), "document.html", "text/html")}>
+              <DropdownMenuItem disabled={!html} onSelect={downloadHtml}>
                 <FileCode2 size={14} aria-hidden /> Download .html
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={!hasInput} onSelect={() => download(input, "document.md", "text/markdown")}>
+              <DropdownMenuItem disabled={!hasInput} onSelect={() => download(readInput(), "document.md", "text/markdown")}>
                 <Download size={14} aria-hidden /> Download .md
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setInput(SAMPLE_MARKDOWN)}>
+              <DropdownMenuItem onSelect={() => replaceInput(SAMPLE_MARKDOWN)}>
                 <RotateCcw size={14} aria-hidden /> Load sample
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={!input} onSelect={() => setInput("")}>
+              <DropdownMenuItem disabled={!input} onSelect={() => replaceInput("")}>
                 <Trash2 size={14} aria-hidden /> Clear
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -156,16 +185,18 @@ export function MarkdownPreview({ tool }: { tool: Tool }) {
         {/* Desktop: no wrap, so both panes take the window height and scroll inside. */}
         <div className="flex min-h-[480px] flex-wrap md:min-h-0 md:flex-1 md:flex-nowrap md:[&>*]:min-h-0 md:[&>*]:overflow-hidden">
           <div className="flex min-w-0 flex-[1_1_340px] flex-col border-r border-border-subtle">
-            <label htmlFor="md-in" className="flex min-h-11 items-center border-b border-border-subtle px-4 text-[13px] font-bold">
-              Markdown
-            </label>
-            <textarea
-              id="md-in"
+            <div className="flex min-h-11 items-center border-b border-border-subtle px-4 text-[13px] font-bold">Markdown</div>
+            {/* Lazy CodeMirror: renders only visible lines, so long documents type instantly. */}
+            <LazyCodeEditor
+              language="markdown"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              spellCheck={false}
+              onChange={setInput}
+              wrap
+              lineNumbers={false}
+              padding="16px"
+              ariaLabel="Markdown"
               placeholder="# Start typing Markdown…"
-              className="m-0 min-h-[360px] grow resize-none border-0 md:min-h-0 bg-transparent p-4 font-mono text-[12.5px] leading-[1.75] text-syntax-plain outline-none placeholder:text-placeholder sm:text-[13px]"
+              className="h-[360px] text-[12.5px] sm:text-[13px] md:h-auto md:min-h-0 md:flex-1"
             />
           </div>
           <div className="flex min-w-0 flex-[1_1_340px] flex-col">

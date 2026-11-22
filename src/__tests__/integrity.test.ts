@@ -5,16 +5,16 @@
  *  - `IMPLEMENTED_TOOL_SLUGS` keys all exist in the tools registry.
  *  - Every live tool has a `seoData` export wired in `tool-seo.ts`.
  *  - Every tool's `relatedSlugs` point at a real registry slug.
- *  - `LIVE_TOOL_COUNT` lines up with `COMPONENT_MAP.size`.
+ *  - every live slug has a loader in components/tool-loaders.tsx.
  *
  * Run: npx tsx src/__tests__/integrity.test.ts
  */
 
 /* eslint-disable no-console */
 
+import { readFileSync } from "node:fs";
 import { TOOLS, getToolBySlug } from "../lib/tools-registry";
 import {
-  COMPONENT_MAP,
   IMPLEMENTED_TOOL_SLUGS,
   LIVE_TOOL_COUNT,
 } from "../lib/implemented-tools";
@@ -47,9 +47,9 @@ section("Registry ↔ component map");
   const registrySlugs = new Set(TOOLS.map((t) => t.slug));
   for (const slug of IMPLEMENTED_TOOL_SLUGS) {
     check(
-      `COMPONENT_MAP slug \`${slug}\` exists in registry`,
+      `Live slug \`${slug}\` exists in registry`,
       registrySlugs.has(slug),
-      `add the tool to src/lib/tools-registry.ts or remove from COMPONENT_MAP`,
+      `add the tool to src/lib/tools-registry.ts or remove it from src/lib/tools/live.ts`,
     );
   }
 }
@@ -60,11 +60,15 @@ section("Registry ↔ component map");
     LIVE_TOOL_COUNT === IMPLEMENTED_TOOL_SLUGS.size,
     `live count ${LIVE_TOOL_COUNT}, set size ${IMPLEMENTED_TOOL_SLUGS.size}`,
   );
-  check(
-    "IMPLEMENTED_TOOL_SLUGS matches Object.keys(COMPONENT_MAP)",
-    IMPLEMENTED_TOOL_SLUGS.size === Object.keys(COMPONENT_MAP).length,
-    `slug-set size ${IMPLEMENTED_TOOL_SLUGS.size}, map keys ${Object.keys(COMPONENT_MAP).length}`,
-  );
+  // Every live slug has a loader (also enforced by the Record<LiveSlug, …> type).
+  const loaders = readFileSync(new URL("../components/tool-loaders.tsx", import.meta.url), "utf8");
+  for (const slug of IMPLEMENTED_TOOL_SLUGS) {
+    check(
+      `tool-loaders has a loader for \`${slug}\``,
+      new RegExp(`(^|\\s)"?${slug.replace(/-/g, "\\-")}"?:`, "m").test(loaders),
+      "add it to LOADERS in src/components/tool-loaders.tsx",
+    );
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

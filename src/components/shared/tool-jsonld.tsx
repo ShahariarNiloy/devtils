@@ -1,4 +1,5 @@
 import { safeJsonLd } from "@/lib/safe-json-ld";
+import { categoryAnchor } from "@/lib/tools/category-url";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getToolSeoData } from "@/lib/tool-seo";
 import type { Tool } from "@/lib/tools-registry";
@@ -66,7 +67,7 @@ export function ToolJsonLd({ tool, isLive }: ToolJsonLdProps) {
         "@type": "ListItem",
         position: 2,
         name: tool.category,
-        item: `${SITE_URL}/tools?cat=${encodeURIComponent(tool.category)}`,
+        item: `${SITE_URL}${categoryAnchor(tool.category)}`,
       },
       {
         "@type": "ListItem",

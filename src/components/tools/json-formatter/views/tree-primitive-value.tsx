@@ -4,6 +4,7 @@ import { memo, useCallback, useMemo } from "react";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { detectValueHint, type ValueHint } from "./value-detectors";
+import { clipText, compactCount, DISPLAY_CHARS } from "./clip-text";
 
 /**
  * Renders a primitive leaf value in the Tree view. Strings get an extra
@@ -66,14 +67,22 @@ function PrimitiveValueImpl({ value }: { value: unknown }) {
     );
   }
   if (typeof value === "string") {
+    // Clip huge strings: laying out millions of characters in a row is what
+    // freezes the page. Click still copies the whole value.
+    const { text, rest } = clipText(value, DISPLAY_CHARS);
     return (
       <span className="inline-flex items-baseline gap-1.5 min-w-0">
         <span
           className="text-syntax-string cursor-pointer hover:opacity-70 transition-opacity break-all"
           onClick={handleCopy}
-          title="Click to copy"
+          title={rest ? `Click to copy all ${value.length.toLocaleString("en")} characters` : "Click to copy"}
         >
-          {`"${value}"`}
+          {rest ? `"${text}…` : `"${text}"`}
+          {rest > 0 && (
+            <span className="ml-1.5 rounded bg-white/5 px-1.5 py-px font-sans text-[11px] whitespace-nowrap text-text-faint">
+              +{compactCount(rest)} more chars
+            </span>
+          )}
         </span>
         {hint && <Hint hint={hint} />}
       </span>

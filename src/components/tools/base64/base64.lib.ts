@@ -14,6 +14,7 @@ import type {
   EncodeResult,
   HexRow,
   PresetItem,
+  ValidationError,
   ValidationResult,
 } from "./base64.types";
 
@@ -176,12 +177,88 @@ export function decode(input: string, options: DecodeOptions): DecodeResult {
 
 export function decodeToBytes(input: string, variant: Base64Variant): Uint8Array {
   if (!input) return new Uint8Array();
-  let cleaned = stripWhitespace(input);
+  const body = variant === "pem" ? maskPemArmor(input) : input;
+  const padError = paddingError(body);
+  if (padError) throw new Error(padError.message);
+  let cleaned = stripWhitespace(body);
   if (variant === "url-safe") {
     cleaned = cleaned.replace(/-/g, "+").replace(/_/g, "/");
   }
-  cleaned = autoPadding(cleaned);
-  return base64ToBytes(cleaned, STD_LOOKUP);
+  // Padding is now known to be trailing-only; re-derive it from the data
+  // length so "QQ", "QQ=" and "QQ==" all decode the same way.
+  const data = cleaned.replace(/=+$/, "");
+  if (data.length % 4 === 1) {
+    throw new Error("Truncated Base64: the last group has a single character, which can't encode a byte");
+  }
+  return base64ToBytes(autoPadding(data), STD_LOOKUP);
+}
+
+// ── PEM armor ────────────────────────────────────────────────────────────────
+
+const PEM_BOUNDARY_LINE_RE = /^[ \t]*-----(?:BEGIN|END) [^\r\n-]*-----[ \t]*$/;
+const PEM_HEADER_LINE_RE = /^[A-Za-z0-9][A-Za-z0-9-]*:/; // RFC 1421: Proc-Type:, DEK-Info:, …
+const PEM_ARMOR_RE = /-----BEGIN [^\r\n-]*-----/;
+
+/** True when the text carries PEM armor (`-----BEGIN …-----`). */
+export function looksLikePemArmor(input: string): boolean {
+  return PEM_ARMOR_RE.test(input);
+}
+
+/**
+ * Blank out PEM armor so only the Base64 body is left: `-----BEGIN/END …-----`
+ * boundary lines, RFC 1421 header lines (`Proc-Type: 4,ENCRYPTED`) and their
+ * indented continuation lines. Characters are replaced with spaces (newlines
+ * kept), so positions in the result still index the original input.
+ */
+export function maskPemArmor(input: string): string {
+  // Odd indices hold the captured line breaks; even indices are lines.
+  const lines = input.split(/(\r?\n)/);
+  let afterHeader = false;
+  for (let i = 0; i < lines.length; i += 2) {
+    const line = lines[i] ?? "";
+    // Base64 bodies never contain ":", so a `Name:` line is always a header.
+    const isHeader = PEM_HEADER_LINE_RE.test(line);
+    const isContinuation: boolean = afterHeader && /^[ \t]+\S/.test(line);
+    if (PEM_BOUNDARY_LINE_RE.test(line) || isHeader || isContinuation) {
+      lines[i] = " ".repeat(line.length);
+    }
+    afterHeader = isHeader || isContinuation;
+  }
+  return lines.join("");
+}
+
+/**
+ * `=` is only legal as 1–2 trailing padding characters. Anything after a
+ * padding `=` (e.g. `QQ==QQ==`, two concatenated chunks) would otherwise be
+ * decoded into stray NUL bytes, so it's reported with its position.
+ */
+function paddingError(input: string): ValidationError | null {
+  const first = input.indexOf("=");
+  if (first < 0) return null;
+  let count = 0;
+  for (let i = first; i < input.length; i++) {
+    const ch = input[i]!;
+    if (ch === "=") {
+      count++;
+      continue;
+    }
+    if (/\s/.test(ch)) continue;
+    return {
+      message: `Padding "=" at position ${first} is followed by more data at position ${i}. "=" is only allowed at the very end — this looks like several Base64 chunks joined together`,
+      position: first,
+      char: "=",
+      hint: "Decode each chunk separately, or remove the padding between them.",
+    };
+  }
+  if (count > 2) {
+    return {
+      message: `Too much padding: ${count} "=" at position ${first}. Base64 ends with at most two`,
+      position: first,
+      char: "=",
+      hint: "Remove the extra = characters.",
+    };
+  }
+  return null;
 }
 
 export function encodeFile(bytes: Uint8Array, _mime: string, variant: Base64Variant): string {
@@ -261,8 +338,9 @@ export function looksLikeBase64Lax(input: string, variant: Base64Variant): boole
 export function detectVariant(input: string): Base64Variant | null {
   const cleaned = stripWhitespace(input);
   if (cleaned.length < 4) return null;
+  // Armor first: its dashes would otherwise read as URL-safe characters.
+  if (looksLikePemArmor(input)) return "pem";
   if (/[-_]/.test(cleaned)) return "url-safe";
-  if (/-----BEGIN/.test(input)) return "pem";
   if (/\r?\n/.test(input) && cleaned.length > MIME_LINE_LEN) {
     // PEM line len is 64; MIME is 76. Choose by line length.
     const firstLine = input.split(/\r?\n/, 1)[0] ?? "";
@@ -275,8 +353,25 @@ export function detectVariant(input: string): Base64Variant | null {
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
-export function validateBase64(input: string, variant: Base64Variant): ValidationResult {
-  if (input.length === 0) return { valid: true };
+export function validateBase64(rawInput: string, variant: Base64Variant): ValidationResult {
+  if (rawInput.length === 0) return { valid: true };
+  const hasArmor = looksLikePemArmor(rawInput);
+  // Outside PEM mode, armor is never valid Base64 — even in URL-safe mode,
+  // where "-" and the header letters would otherwise slip through.
+  if (hasArmor && variant !== "pem") {
+    const position = rawInput.search(PEM_ARMOR_RE);
+    return {
+      valid: false,
+      error: {
+        message: `PEM armor ("-----BEGIN …-----") at position ${position} isn't Base64`,
+        position,
+        char: "-",
+        hint: "This looks like a PEM block. Switch to the PEM variant to strip the BEGIN/END lines.",
+      },
+    };
+  }
+  // PEM mode: armor lines are blanked (positions preserved) before checking.
+  const input = variant === "pem" ? maskPemArmor(rawInput) : rawInput;
   const allowed = variant === "url-safe"
     ? /[A-Za-z0-9\-_=\s]/
     : /[A-Za-z0-9+/=\s]/;
@@ -310,6 +405,9 @@ export function validateBase64(input: string, variant: Base64Variant): Validatio
       },
     };
   }
+
+  const padError = paddingError(input);
+  if (padError) return { valid: false, error: padError };
 
   return { valid: true };
 }

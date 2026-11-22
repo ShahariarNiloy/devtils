@@ -48,16 +48,22 @@ ship something that looks like every other Next.js + shadcn site.
 
 - `src/lib/tools-registry.ts` — every tool is registered here. The homepage,
   sidebar counts, command palette, and dynamic route all read from this list.
-- `src/lib/implemented-tools.ts` — the `COMPONENT_MAP` (slug → component) that
-  wires registry slugs to their actual implementations. A registered tool with
-  no entry here renders the `ComingSoon` placeholder.
+- `src/lib/tools/live.ts` — `LIVE_SLUGS`, the tools that are built. A
+  registered tool not listed here renders the `ComingSoon` placeholder.
+- `src/components/tool-loaders.tsx` — slug → `next/dynamic` loader, one code
+  chunk per tool, so a tool page downloads only its own tool. Typed
+  `Record<LiveSlug, …>`, so it must list exactly the slugs in `live.ts`. Never
+  import tool components from a server component (that ships every tool to
+  every page).
 - `src/components/primitives/` — styled Radix wrappers. If a new tool needs a
   primitive that's not here yet, add it here, don't inline the Radix import in
   the tool component.
 - `src/components/layout/tool-shell.tsx` — the per-tool shell. New tools should
   render inside `<ToolShell tool={tool}>`.
-- `src/components/shared/tool-icon.tsx` — `<ToolIcon name="kebab-case">`
-  resolves any Lucide icon at render time. No registration step.
+- `src/components/shared/key-icon.tsx` — the curated per-tool and per-category
+  Lucide icons (`toolIcon`, `categoryIcon`, `iconForTool`) and `<KeyIcon>`,
+  which sizes an icon to its keycap box. Add a new tool's icon to
+  `TOOL_ICONS` (named import, so only used icons are bundled).
 - `src/components/shared/tool-content.tsx` — `<ToolContent>` SEO block
   (intro + use cases + FAQ + related tools) rendered below each tool.
 - `src/components/json-converter/` — shared converter shell + primitives
@@ -71,12 +77,14 @@ ship something that looks like every other Next.js + shadcn site.
 3. Create `src/components/tools/<slug>/<slug>.tsx` — `"use client"`,
    takes `{ tool }: { tool: Tool }`, wraps in `<ToolShell>`.
 4. Create `src/components/tools/<slug>/index.ts` — `export { … } from "./<slug>";`
-5. Add the slug + component to `COMPONENT_MAP` in `src/lib/implemented-tools.ts`.
+5. Add the slug to `LIVE_SLUGS` in `src/lib/tools/live.ts` and a loader to
+   `LOADERS` in `src/components/tool-loaders.tsx`.
 6. (Optional but recommended) Add a `content.tsx` exporting `seoData` so the
    tool's FAQ + use cases appear under the editor and feed JSON-LD.
 
 `generateStaticParams` picks up the slug from the registry; no route file edits
-needed. Icons resolve from `<ToolIcon name="kebab-case">` — no icon registry.
+needed. Give the tool an icon in `TOOL_ICONS` (`shared/key-icon.tsx`); without
+one it falls back to its category's icon.
 
 ## Style conventions worth keeping
 
@@ -100,6 +108,10 @@ needed. Icons resolve from `<ToolIcon name="kebab-case">` — no icon registry.
 - Don't add a feature flag or environment variable for tool-level concerns.
   Tools are static-renderable client components.
 - Don't break the registry-driven flow by hard-coding tools in two places.
+- Don't `import * as` from `lucide-react` (it bundles all ~1,600 icons); use
+  named imports or `toolIcon` / `iconForTool` from `shared/key-icon.tsx`.
+- Keep heavy libraries (code generators, js-yaml, Ajv, CodeMirror…) out of a
+  tool's first load: `import()` them when the feature is first used.
 
 ## UX principles (no-compromise)
 

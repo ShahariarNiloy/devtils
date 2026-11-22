@@ -8,7 +8,7 @@
  */
 
 import { CATEGORIES, getToolBySlug, TOOL_COUNT, TOOLS } from "@/lib/tools-registry";
-import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { DISTINCT_LIVE_TOOL_COUNT, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import type { ToolCategory } from "@/lib/tools-registry";
 
 export type { Tint } from "@/lib/tools/presentation";
@@ -75,7 +75,7 @@ export const SHOWCASE_TOOLS_V2: readonly ShowcaseTool[] = SHOWCASE;
  * tools, so they're excluded by keeping only showcase registry entries.
  */
 const liveTools = TOOLS.filter((t) => t.showcase && IMPLEMENTED_TOOL_SLUGS.has(t.slug));
-export const LIVE_COUNT = liveTools.length;
+export const LIVE_COUNT = DISTINCT_LIVE_TOOL_COUNT;
 export const CATALOGUE_COUNT = TOOL_COUNT;
 export const CATEGORY_COUNT = CATEGORIES.length;
 
@@ -112,39 +112,5 @@ export const LANDING_FAQ: { q: string; a: string }[] = [
     a: "That's what it's built for. Processing happens locally, so secrets stay on your machine.",
   },
 ];
-
-/** Deterministic glyph field behind the hero (16 rows × 36 cols). */
-export interface Glyph {
-  ch: string;
-  color: string;
-  shadow: string;
-}
-export function heroGlyphs(glow = 0.85): Glyph[] {
-  const set = ["{", "}", "[", "]", ":", '"', ",", "0", "1", "=", "<", "/", ">", "#", ".", "*", "0", "1"];
-  const out: Glyph[] = [];
-  for (let r = 0; r < 16; r++) {
-    for (let c = 0; c < 36; c++) {
-      const h = ((r * 73856093) ^ (c * 19349663)) >>> 0;
-      const ch = set[h % set.length];
-      const dx = (c - 17.5) / 18;
-      const dy = (r - 6.5) / 7.5;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      const ring = Math.exp(-Math.pow(d - 0.66, 2) / 0.035);
-      const spark = h % 29 === 0 && d > 0.5 ? 0.45 : 0;
-      let k = Math.min(1, (ring * 0.85 + spark) * glow);
-      if (d < 0.46) k = 0.04;
-      let color: string;
-      let shadow = "none";
-      if (k > 0.32) {
-        color = `rgba(224,160,114,${k.toFixed(2)})`;
-        if (k > 0.6) shadow = "0 0 14px rgba(224,160,114,.55)";
-      } else {
-        color = `rgba(246,242,234,${Math.max(0.05, k * 0.55).toFixed(2)})`;
-      }
-      out.push({ ch, color, shadow });
-    }
-  }
-  return out;
-}
 
 export const GHOST_KEYS = ["esc", "1", "2", "3", "4", "5", "⇥", "Q", "W", "E", "R", "T", "⇪", "A", "S", "D", "F", "G", "⇧", "Z", "X", "C", "V", "B"];

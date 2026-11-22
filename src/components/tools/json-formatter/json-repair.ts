@@ -56,8 +56,13 @@ function summarize(events: RepairEvent[]): { changes: string[]; tally: RepairCha
  */
 export function repairJson(raw: string): RepairResult {
   try {
-    JSON.parse(raw);
-    return { fixed: raw, changes: [], events: [], wasValid: true };
+    const value: unknown = JSON.parse(raw);
+    // A valid JSON *string* that itself holds JSON (`"{\"a\":1}"`) is almost
+    // always double-encoded by mistake — offer to decode it (reviewed, since
+    // it changes the value's type). Anything else valid is left alone.
+    if (!(typeof value === "string" && /^\s*[{[]/.test(value))) {
+      return { fixed: raw, changes: [], events: [], wasValid: true };
+    }
   } catch {
     /* fall through to repair */
   }

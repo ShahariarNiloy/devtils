@@ -54,6 +54,18 @@ const PHRASES: [RegExp, string][] = [
   [/^Collapsed CSV doubled quotes/, "doubled quotes inside a string"],
   [/^Expanded \\/, "non-JSON escape sequence"],
   [/^Decoded HTML entities/, "HTML entities inside a string"],
+  [/^Escaped unescaped quote/, "unescaped quote inside a string"],
+  [/^Closed unterminated string before the next key/, "string missing its closing quote"],
+  [/^Kept backslashes literally/, "unescaped backslashes (Windows path?)"],
+  [/^Added missing opening \{/, "missing opening {"],
+  [/^Dropped incomplete key/, "key cut off at the end"],
+  [/^Removed truncation marker/, "… where data was left out"],
+  [/^Unwrapped /, "constructor call like ObjectId(…)"],
+  [/^Converted tuple/, "Python tuple ( … )"],
+  [/^Decoded URL-encoded/, "URL-encoded JSON"],
+  [/^Decoded HTML-escaped JSON/, "HTML-escaped JSON (&quot;)"],
+  [/^Extracted JSON from a Markdown|^Removed Markdown code fence/, "Markdown code fence around the JSON"],
+  [/^Decoded double-encoded/, "JSON wrapped in a string (double-encoded)"],
 ];
 
 function phrase(e: RepairEvent): string {

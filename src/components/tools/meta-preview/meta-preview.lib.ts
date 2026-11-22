@@ -16,6 +16,7 @@ export const DEVICES: readonly { id: Device; label: string }[] = [
   { id: "mobile", label: "Mobile" },
 ];
 
+/** Desktop title font; use `titleFont(device)` for the size actually shown. */
 export const TITLE_FONT = "20px Arial";
 export const DESC_FONT = "14px Arial";
 export const TITLE_MAX = 600;
@@ -25,6 +26,9 @@ export const CARD: Record<Device, { width: number; titleSize: number }> = {
   desktop: { width: 640, titleSize: 20 },
   mobile: { width: 390, titleSize: 18 },
 };
+
+/** The title font as the SERP card renders it on `device` (20px desktop, 18px mobile). */
+export const titleFont = (device: Device) => `${CARD[device].titleSize}px Arial`;
 
 export interface MetaFields {
   title: string;
@@ -66,15 +70,20 @@ export function estimateWidth(text: string, font: string): number {
 export function cutToWidth(text: string, font: string, max: number, measure: Measure): string {
   if (measure(text, font) <= max) return text;
   const chars = Array.from(text);
+  const withEllipsis = (n: number) => `${chars.slice(0, n).join("").trimEnd()} …`;
+  // Longest prefix whose displayed form (prefix + " …") still fits.
   let lo = 0;
   let hi = chars.length;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
-    if (measure(`${chars.slice(0, mid).join("")}…`, font) <= max) lo = mid;
+    if (measure(withEllipsis(mid), font) <= max) lo = mid;
     else hi = mid - 1;
   }
   const head = chars.slice(0, lo).join("");
-  const atWord = head.replace(/\s+\S*$/, "");
+  // A cut that lands on a word boundary keeps the whole last word; otherwise
+  // drop the partial word.
+  const atBoundary = lo >= chars.length || /\s/.test(chars[lo]) || /\s$/.test(head);
+  const atWord = atBoundary ? head : head.replace(/\s+\S*$/, "");
   return `${(atWord || head).trimEnd()} …`;
 }
 
@@ -109,7 +118,8 @@ export function buildMeta(f: MetaFields, device: Device, measure: Measure): Meta
   const title = f.title.trim();
   const desc = f.desc.trim();
   const url = f.url.trim();
-  const tW = title ? measure(title, TITLE_FONT) : 0;
+  const tFont = titleFont(device);
+  const tW = title ? measure(title, tFont) : 0;
   const dW = desc ? measure(desc, DESC_FONT) : 0;
   const dMax = DESC_MAX[device];
   const tLen = Array.from(title).length;
@@ -153,7 +163,7 @@ export function buildMeta(f: MetaFields, device: Device, measure: Measure): Meta
       initial: host.charAt(0).toUpperCase(),
       site: first.charAt(0).toUpperCase() + first.slice(1),
       crumb,
-      title: title ? cutToWidth(title, TITLE_FONT, TITLE_MAX, measure) : "Your page title",
+      title: title ? cutToWidth(title, tFont, TITLE_MAX, measure) : "Your page title",
       desc: desc ? cutToWidth(desc, DESC_FONT, dMax, measure) : "Add a meta description to control this text.",
     },
     html: lines.join("\n"),

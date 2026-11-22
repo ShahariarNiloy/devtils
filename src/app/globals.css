@@ -114,7 +114,9 @@
   /* ── Typography: families ─────────────────────────── */
   --font-sans: var(--font-sans-noto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-jetbrains), ui-monospace, "SF Mono", monospace;
-  --font-display: var(--font-display-fredoka), var(--font-sans-noto), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-display-fredoka), var(--font-sans-noto), ui-sans-serif,
+    system-ui, sans-serif;
 
   /* ── Typography: sizes ────────────────────────────── */
   /* Minimum size is 14px (text-sm). text-base (16px) is the default. */
@@ -190,26 +192,33 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 12px 30px -12px rgba(0, 0, 0, 0.8);
   --shadow-search:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 30px 60px -20px rgba(0, 0, 0, 0.8);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.08), 0 30px 60px -20px rgba(0, 0, 0, 0.8);
   /* Tool workspace window (tool pages). */
   --shadow-window-tool:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 0 80px -10px rgba(197, 142, 94, 0.28), 0 40px 80px -40px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 80px -10px rgba(197, 142, 94, 0.28),
+    0 40px 80px -40px rgba(0, 0, 0, 0.9);
   /* Search box with a faint clay halo (catalogue). */
   --shadow-search-glow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 60px -18px rgba(197, 142, 94, 0.22), 0 24px 50px -20px rgba(0, 0, 0, 0.8);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 60px -18px rgba(197, 142, 94, 0.22),
+    0 24px 50px -20px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 3px rgba(246, 242, 234, 0.22);
   --shadow-btn-primary:
-    0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 30px -8px rgba(246, 242, 234, 0.35);
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 8px 30px -8px rgba(246, 242, 234, 0.35);
   /* keycap: inset highlight + 2px "travel" edge + soft drop */
   --shadow-key:
     inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 2px 0 #050505,
     0 10px 24px -8px rgba(0, 0, 0, 0.7);
   --shadow-window:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 0 80px -10px rgba(197, 142, 94, 0.28), 0 60px 120px -40px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 80px -10px rgba(197, 142, 94, 0.28),
+    0 60px 120px -40px rgba(0, 0, 0, 0.9);
 
   /* ── Line heights (unitless ratios) ───────────────── */
   --leading-hero: 1.04; /* landing hero headline */
@@ -296,17 +305,9 @@ h3,
   color: var(--color-text);
 }
 
-*:focus-visible {
-  outline: 2px solid var(--color-brand);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-button:focus,
-a:focus,
-input:focus,
-textarea:focus,
-[role="button"]:focus {
+/* Hide the ring only for pointer focus. (A plain `button:focus { outline:
+   none }` out-ranks `*:focus-visible` and removed keyboard rings too.) */
+:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -351,14 +352,47 @@ textarea:focus,
   .surface-tint {
     border: 1px solid rgb(var(--tint-line, var(--tint)) / var(--tint-border-a));
     background:
-      radial-gradient(120% 90% at 0% 0%, rgb(var(--tint) / var(--tint-bg-a)), rgb(var(--tint-deep) / 0.6) 55%),
+      radial-gradient(
+        120% 90% at 0% 0%,
+        rgb(var(--tint) / var(--tint-bg-a)),
+        rgb(var(--tint-deep) / 0.6) 55%
+      ),
       var(--tint-base);
     box-shadow: 0 0 60px -20px rgb(var(--tint) / var(--tint-glow-a));
   }
-  .tint-clay { --tint: 197 142 94; --tint-line: 224 160 114; --tint-deep: 26 22 18; --tint-base: #141311; --tint-bg-a: 0.3; --tint-border-a: 0.28; --tint-glow-a: 0.45; }
-  .tint-teal { --tint: 111 166 175; --tint-deep: 16 22 23; --tint-base: #111413; --tint-bg-a: 0.28; --tint-border-a: 0.26; --tint-glow-a: 0.4; }
-  .tint-sage { --tint: 173 185 154; --tint-deep: 20 22 17; --tint-base: #121311; --tint-bg-a: 0.26; --tint-border-a: 0.26; --tint-glow-a: 0.38; }
-  .tint-rose { --tint: 208 128 112; --tint-deep: 24 17 15; --tint-base: #141110; --tint-bg-a: 0.28; --tint-border-a: 0.26; --tint-glow-a: 0.4; }
+  .tint-clay {
+    --tint: 197 142 94;
+    --tint-line: 224 160 114;
+    --tint-deep: 26 22 18;
+    --tint-base: #141311;
+    --tint-bg-a: 0.3;
+    --tint-border-a: 0.28;
+    --tint-glow-a: 0.45;
+  }
+  .tint-teal {
+    --tint: 111 166 175;
+    --tint-deep: 16 22 23;
+    --tint-base: #111413;
+    --tint-bg-a: 0.28;
+    --tint-border-a: 0.26;
+    --tint-glow-a: 0.4;
+  }
+  .tint-sage {
+    --tint: 173 185 154;
+    --tint-deep: 20 22 17;
+    --tint-base: #121311;
+    --tint-bg-a: 0.26;
+    --tint-border-a: 0.26;
+    --tint-glow-a: 0.38;
+  }
+  .tint-rose {
+    --tint: 208 128 112;
+    --tint-deep: 24 17 15;
+    --tint-base: #141110;
+    --tint-bg-a: 0.28;
+    --tint-border-a: 0.26;
+    --tint-glow-a: 0.4;
+  }
   /* Catalogue panel (category groups, empty state). */
   .surface-panel {
     background: var(--color-surface);
@@ -369,13 +403,37 @@ textarea:focus,
   .surface-feat {
     border: 1px solid rgb(var(--tint-line, var(--tint)) / var(--feat-border-a));
     background:
-      radial-gradient(120% 120% at 0% 0%, rgb(var(--tint) / var(--feat-bg-a)), rgb(var(--feat-deep) / 0.6) 60%),
+      radial-gradient(
+        120% 120% at 0% 0%,
+        rgb(var(--tint) / var(--feat-bg-a)),
+        rgb(var(--feat-deep) / 0.6) 60%
+      ),
       var(--feat-base);
   }
-  .tint-clay { --feat-deep: 20 18 15; --feat-base: #131210; --feat-bg-a: 0.22; --feat-border-a: 0.28; }
-  .tint-teal { --feat-deep: 16 20 21; --feat-base: #111312; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
-  .tint-sage { --feat-deep: 18 20 16; --feat-base: #121311; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
-  .tint-rose { --feat-deep: 22 16 15; --feat-base: #131110; --feat-bg-a: 0.2; --feat-border-a: 0.26; }
+  .tint-clay {
+    --feat-deep: 20 18 15;
+    --feat-base: #131210;
+    --feat-bg-a: 0.22;
+    --feat-border-a: 0.28;
+  }
+  .tint-teal {
+    --feat-deep: 16 20 21;
+    --feat-base: #111312;
+    --feat-bg-a: 0.2;
+    --feat-border-a: 0.26;
+  }
+  .tint-sage {
+    --feat-deep: 18 20 16;
+    --feat-base: #121311;
+    --feat-bg-a: 0.2;
+    --feat-border-a: 0.26;
+  }
+  .tint-rose {
+    --feat-deep: 22 16 15;
+    --feat-base: #131110;
+    --feat-bg-a: 0.2;
+    --feat-border-a: 0.26;
+  }
   /* Cream primary action. */
   .btn-action {
     background: var(--color-brand);
@@ -478,6 +536,29 @@ textarea:focus,
   100% {
     transform: translateX(400%);
   }
+}
+
+/* Image-compressor queue cards: rise in when added, fade up and out when
+   removed. CSS rather than JS motion so a busy batch's per-file re-renders
+   cost nothing here (the reduced-motion block at the bottom collapses both). */
+@keyframes queue-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes queue-row-out {
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+.queue-row-in {
+  animation: queue-row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+.queue-row-out {
+  animation: queue-row-out 220ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  pointer-events: none;
 }
 
 /* Right-edge sheet drawer (e.g. settings panel). Uses the iOS-style
@@ -1118,4 +1199,79 @@ a {
   flex-shrink: 1;
   flex-basis: 0;
   overflow: hidden;
+}
+
+/* ── Line illustrations (brand board "Illustration library") ──────────────
+   Hairline drawings for empty / waiting / explaining moments only: empty
+   states, 404, category headers, blog covers, landing pillars — never in
+   tool workspaces, toolbars, errors, FAQ answers or legal text.
+   1.5px non-scaling strokes; cream at three opacities + one clay accent. */
+:root {
+  --illus-strong: rgba(246, 242, 234, 0.55);
+  --illus-mid: rgba(246, 242, 234, 0.28);
+  --illus-faint: rgba(246, 242, 234, 0.14);
+  --illus-text: rgba(246, 242, 234, 0.6);
+  --illus-accent: #e0a072;
+}
+.line-art {
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.line-art :is(path, rect, circle, ellipse, line, polyline, polygon) {
+  vector-effect: non-scaling-stroke;
+}
+.line-art text {
+  stroke: none;
+  font-family: var(--font-mono);
+}
+/* The only motion: a slow dash flow on connector lines. Paused for reduced
+   motion (the global override would otherwise run it once). */
+@keyframes illus-flow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+.illus-flow {
+  stroke-dasharray: 3 5;
+  animation: illus-flow 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .illus-flow {
+    animation: none;
+  }
+}
+
+/* Hero keyboard floor: one clay key that pulses and wanders (see
+   home/hero-lit-key.tsx). Reduced motion: a steady half glow, no wandering. */
+@keyframes hero-key-lit {
+  /* Fully dark at the cycle boundary, where the key hops to a new spot. */
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45%,
+  55% {
+    opacity: 0.95;
+  }
+}
+.hero-key-lit {
+  animation: hero-key-lit 6s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-key-lit {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* See shared/pause-offscreen.tsx: no animation ticks while out of view. */
+[data-offscreen] *,
+[data-offscreen] *::before,
+[data-offscreen] *::after {
+  animation-play-state: paused !important;
 }

@@ -26,7 +26,7 @@ export function generateSnippet(
   jwt: ParsedJwt,
   language: SnippetLanguage,
 ): string {
-  const alg = jwt.header.alg;
+  const alg = jwt.alg.name;
   const isHmac = alg.startsWith("HS");
   const jwks = jwksFor(jwt);
 

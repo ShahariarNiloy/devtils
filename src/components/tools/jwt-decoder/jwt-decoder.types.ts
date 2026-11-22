@@ -5,61 +5,63 @@ export type Algorithm =
   | "PS256" | "PS384" | "PS512"
   | "none";
 
+/** An algorithm this tool can verify (and sign) with WebCrypto. */
+export type VerifiableAlgorithm = Exclude<Algorithm, "none">;
+
+/**
+ * What the header's `alg` means for verification. The header itself is kept
+ * verbatim — an unfamiliar alg is never rewritten to "none".
+ *  - `supported`: one of the HS/RS/ES/PS algorithms verified here.
+ *  - `none`: the literal, case-sensitive "none" (RFC 7518 §3.6) — unsigned.
+ *  - `unsupported`: anything else (EdDSA, ES256K, "hs256", missing, …).
+ *    `nonStandardNone` flags "None"/"NONE": not RFC "none", but some
+ *    libraries have historically treated it as unsigned.
+ */
+export type AlgInfo =
+  | { kind: "supported"; name: VerifiableAlgorithm }
+  | { kind: "none"; name: "none" }
+  | { kind: "unsupported"; name: string; nonStandardNone: boolean };
+
 export interface ParsedJwt {
   raw: string;
   segments: { header: string; payload: string; signature: string };
-  header: Record<string, unknown> & {
-    alg: Algorithm;
-    typ?: string;
-    kid?: string;
-  };
+  /** The decoded header exactly as sent (alg included, untouched). */
+  header: Record<string, unknown>;
+  /** Interpretation of `header.alg`; `name` is the display string. */
+  alg: AlgInfo;
   payload: Record<string, unknown>;
+  /** The payload's JSON text as sent — keeps big integers exact. */
+  payloadJson: string;
+  /** The header's JSON text as sent. */
+  headerJson: string;
   signatureBytes: Uint8Array;
 }
 
 export interface JwtParseError {
-  segment: "header" | "payload" | "signature" | "structure";
+  segment: "header" | "payload" | "signature" | "structure" | "empty";
   message: string;
-  position?: number;
 }
 
+/**
+ * Outcome of one signature check.
+ *  - `valid` / `invalid`: subtle.verify ran and said yes / no.
+ *  - `keyerror`: the key couldn't be used (unreadable, wrong type for the
+ *    alg, no JWKS match…). Never reported as a mismatch.
+ */
 export type VerificationResult =
-  | { status: "valid" }
-  | { status: "invalid"; reason: string }
-  | { status: "unsupported"; reason: string };
-
-export interface ClaimMeta {
-  label: string;
-  rfcSection: string;
-  description: string;
-  isDate?: boolean;
-}
+  | { status: "valid"; note: string | null }
+  | { status: "invalid"; reason: string | null; note: string | null }
+  | { status: "keyerror"; reason: string };
 
 export type KnownIssuer =
   | "auth0" | "clerk" | "cognito" | "firebase" | "keycloak"
   | "okta" | "supabase" | "aws" | "entra";
-
-export interface SecurityWarning {
-  severity: "info" | "warning" | "critical";
-  title: string;
-  description: string;
-}
 
 export type SnippetLanguage =
   | "node-jsonwebtoken" | "node-jose" | "python-pyjwt"
   | "go-jwt" | "rust-jsonwebtoken";
 
 export type Mode = "decode" | "encode" | "diff";
-
-/** Key material for verification — discriminated by the token's algorithm. */
-export interface VerificationKey {
-  /** HMAC secret for HS algorithms, or a PEM / JWK JSON string otherwise. */
-  material: string;
-}
-
-export interface SigningKey {
-  material: string;
-}
 
 export interface JwksKey {
   kid?: string;
@@ -78,5 +80,5 @@ export interface JwksKey {
 export function isParseError(
   v: ParsedJwt | JwtParseError,
 ): v is JwtParseError {
-  return (v as JwtParseError).segment !== undefined;
+  return "segment" in v;
 }

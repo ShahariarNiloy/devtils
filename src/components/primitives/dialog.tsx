@@ -106,10 +106,46 @@ const DialogSheetContent = forwardRef<HTMLDivElement, Radix.DialogContentProps>(
 );
 DialogSheetContent.displayName = "DialogSheetContent";
 
+/**
+ * Right-hand side sheet for a tool panel you work *alongside* the page
+ * (e.g. editing a schema while fixing the input). No backdrop, and clicks
+ * outside don't close it — use it with `<Dialog modal={false}>` so the page
+ * stays usable. Full width on phones. Esc and the close button dismiss it.
+ */
+const DialogSideSheetContent = forwardRef<HTMLDivElement, Radix.DialogContentProps>(
+  ({ className, children, onInteractOutside, ...rest }, ref) => (
+    <DialogPortal>
+      <Radix.Content
+        ref={ref}
+        onInteractOutside={(e) => {
+          onInteractOutside?.(e);
+          e.preventDefault();
+        }}
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 flex w-[min(560px,100vw)] flex-col border-l border-white/[.08] bg-[rgba(22,22,21,.98)] shadow-[-30px_0_80px_-30px_rgba(0,0,0,.9)]",
+          "data-[state=open]:animate-[sheet-right-in_220ms_cubic-bezier(0.2,0.9,0.4,1)] data-[state=closed]:animate-[sheet-right-out_160ms_ease-in]",
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+        <Radix.Close
+          className="surface-key absolute right-4 top-3.5 inline-flex size-9 items-center justify-center rounded-[9px] text-text-muted hover:text-text"
+          aria-label="Close panel"
+        >
+          <X size={16} />
+        </Radix.Close>
+      </Radix.Content>
+    </DialogPortal>
+  ),
+);
+DialogSideSheetContent.displayName = "DialogSideSheetContent";
+
 export {
   DialogOverlay,
   DialogContent,
   DialogSheetContent,
+  DialogSideSheetContent,
   DialogTitle,
   DialogDescription,
   DialogHeader,

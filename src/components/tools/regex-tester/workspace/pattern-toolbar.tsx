@@ -42,7 +42,10 @@ export function PatternToolbar({ state, onOpenLibrary, onOpenHistory }: PatternT
   if (invalid) count = { label: "Invalid pattern", tone: "bg-error/14 text-error-text" };
   else if (matches.length) {
     const capped = matches.length >= MATCH_CAP ? `${MATCH_CAP}+` : String(matches.length);
-    count = { label: `${capped} ${matches.length === 1 ? "match" : "matches"}`, tone: "bg-success/14 text-success-text" };
+    // Without `g`, JS stops at the first match — say so, so "1 match" isn't
+    // mistaken for the total.
+    const suffix = flags.includes("g") ? "" : " · first only";
+    count = { label: `${capped} ${matches.length === 1 ? "match" : "matches"}${suffix}`, tone: "bg-success/14 text-success-text" };
   } else count = { label: "0 matches", tone: "bg-white/6 text-text-tertiary" };
 
   const sticky = flags.includes("y");

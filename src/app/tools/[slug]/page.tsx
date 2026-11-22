@@ -5,7 +5,8 @@ import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
 import { ComingSoon } from "@/components/layout/coming-soon";
 import { ToolJsonLd } from "@/components/shared/tool-jsonld";
-import { getToolComponent, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { ToolRenderer } from "@/components/tool-loaders";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "@/lib/og/url";
@@ -84,15 +85,14 @@ export default async function ToolPage({
   const { slug } = await params;
   const tool = getToolBySlug(slug);
   if (!tool) notFound();
-  const Comp = getToolComponent(slug);
-  const isLive = Boolean(Comp);
+  const isLive = IMPLEMENTED_TOOL_SLUGS.has(slug);
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip text-base leading-[1.55]">
       <ToolJsonLd tool={tool} isLive={isLive} />
       <Header variant="tool" />
       <main id="main" className="flex-1">
-        {Comp ? <Comp tool={tool} /> : <ComingSoon tool={tool} />}
+        {isLive ? <ToolRenderer slug={slug} tool={tool} /> : <ComingSoon tool={tool} />}
       </main>
       <HomeFooter variant="compact" wide />
     </div>

@@ -97,8 +97,20 @@ export function checkRobots({ rules, sitemap, delay }: RobotsInput): Check[] {
   const groups = groupRules(rules);
   if (!rules.length) push("warn", "No rules. An empty robots.txt allows everything.");
   const star = groups.find((g) => g.ua === "*");
-  if (star && star.rules.some((r) => isDisallow(r.type) && r.path.trim() === "/") && !star.rules.some((r) => isAllow(r.type))) {
-    push("err", "Disallow: / for * blocks your whole site from every search engine.");
+  const blocksAll = (r: RobotsRule) => isDisallow(r.type) && ["/", "/*", "*"].includes(r.path.trim());
+  if (star && star.rules.some(blocksAll)) {
+    // Allow wins a same-length tie, so only an Allow of "/" (or "/*") undoes Disallow: /.
+    const allows = star.rules.filter((r) => isAllow(r.type) && r.path.trim());
+    if (!allows.some((r) => ["/", "/*", "*"].includes(r.path.trim()))) {
+      if (!allows.length) push("err", "Disallow: / for * blocks your whole site from every search engine.");
+      else {
+        const list = allows.slice(0, 3).map((r) => r.path.trim()).join(", ");
+        push(
+          "warn",
+          `Disallow: / for * blocks your whole site from every search engine except ${list}${allows.length > 3 ? "…" : ""}. Make sure that's intended.`,
+        );
+      }
+    }
   }
   rules.forEach((r, i) => {
     if (!isAllow(r.type) && !isDisallow(r.type)) push("err", `Rule ${i + 1}: type must be allow or disallow.`);
@@ -130,9 +142,33 @@ export const TEST_AGENTS: readonly { value: string; label: string }[] = [
   { value: "*", label: "Any other bot" },
 ];
 
+/**
+ * Normalise percent-encoding so equivalent paths compare equal (RFC 9309
+ * §2.2.2): non-ASCII and whitespace become UTF-8 %XX, hex is uppercased, and
+ * escapes of unreserved characters (A–Z a–z 0–9 - . _ ~) are decoded.
+ * Reserved escapes like %2F stay encoded, so /a%2Fb never matches /a/b.
+ */
+export function normalizePercent(s: string): string {
+  const enc = new TextEncoder();
+  let out = "";
+  for (const ch of s) {
+    const cp = ch.codePointAt(0) ?? 0;
+    out +=
+      cp > 0x7e || cp <= 0x20
+        ? Array.from(enc.encode(ch), (b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("")
+        : ch;
+  }
+  return out.replace(/%([0-9a-fA-F]{2})/g, (_, h: string) => {
+    const c = String.fromCharCode(parseInt(h, 16));
+    return /[A-Za-z0-9\-._~]/.test(c) ? c : `%${h.toUpperCase()}`;
+  });
+}
+
 /** Does a rule path (with `*` wildcards and a `$` end anchor) match a URL path? */
-export function pathMatches(pattern: string, path: string): boolean {
-  if (!pattern) return false;
+export function pathMatches(rawPattern: string, rawPath: string): boolean {
+  if (!rawPattern) return false;
+  const pattern = normalizePercent(rawPattern);
+  const path = normalizePercent(rawPath);
   const anchored = pattern.endsWith("$");
   const body = anchored ? pattern.slice(0, -1) : pattern;
   const re = body
@@ -179,8 +215,10 @@ export function testPath(rules: readonly RobotsRule[], agent: string, input: str
     const p = r.path.trim();
     if (!isAllow(r.type) && !isDisallow(r.type)) continue;
     if (!pathMatches(p, path)) continue;
-    const bp = best?.path.trim() ?? "";
-    if (!best || p.length > bp.length || (p.length === bp.length && isAllow(r.type) && !isAllow(best.type))) best = r;
+    // Longest match in octets (after normalising), so /caf%C3%A9 and /café weigh the same.
+    const len = normalizePercent(p).length;
+    const bl = best ? normalizePercent(best.path.trim()).length : -1;
+    if (!best || len > bl || (len === bl && isAllow(r.type) && !isAllow(best.type))) best = r;
   }
   return { allowed: !best || isAllow(best.type), rule: best, group: g.ua };
 }

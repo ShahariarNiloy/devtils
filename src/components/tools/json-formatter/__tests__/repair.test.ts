@@ -249,6 +249,109 @@ section("Risk classification");
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+section("Real-world inputs (logs, Python, Mongo, AI replies, encodings)");
+
+{
+  const cases: [string, string, unknown][] = [
+    ["unescaped inner quotes", '{"msg": "He said "hi" to me", "n": 1}', { msg: 'He said "hi" to me', n: 1 }],
+    ["missing closing quote", '{"a": "x, "b": 2}', { a: "x", b: 2 }],
+    ["missing comma between lines", '[\n {"a":1}\n {"a":2}\n]', [{ a: 1 }, { a: 2 }]],
+    ["truncated deep", '{"a":[1,2,{"b":"c', { a: [1, 2, { b: "c" }] }],
+    ["python dict", "{'a': True, 'b': None, 'c': (1, 2)}", { a: true, b: null, c: [1, 2] }],
+    ["js undefined/Date", '{a: undefined, b: 1}', { a: null, b: 1 }],
+    ["raw newline in string", '{"a": "line1\nline2"}', { a: "line1\nline2" }],
+    ["double-encoded JSON string", '"{\\"a\\":1,\\"b\\":[true]}"', { a: 1, b: [true] }],
+    ["markdown fence", "Here you go:\n```json\n{\"a\": 1}\n```\nHope it helps", { a: 1 }],
+    ["log prefix", '2024-01-01T10:00:00Z INFO payload={"a":1,"b":"x"}', { a: 1, b: "x" }],
+    ["missing colon", '{"a" 1, "b" "x"}', { a: 1, b: "x" }],
+    ["extra closing brace", '{"a":1}}', { a: 1 }],
+    ["mismatched bracket", '{"a":[1,2}', { a: [1, 2] }],
+    ["unquoted key with space", '{first name: "x"}', { "first name": "x" }],
+    ["apostrophe in single-quoted", "{'name': 'O'Brien', 'age': 3}", { name: "O'Brien", age: 3 }],
+    ["NaN / Infinity", '{"a": NaN, "b": Infinity}', { a: null, b: null }],
+    ["windows path", '{"path": "C:\\Users\\new\\temp"}', { path: "C:\\Users\\new\\temp" }],
+    ["unquoted value with spaces", '{status: in progress, n: 2}', { status: "in progress", n: 2 }],
+    ["JS assignment", 'const data = {"a": 1};', { a: 1 }],
+    ["ellipsis truncation", '[1, 2, 3, ...]', [1, 2, 3]],
+    ["object ellipsis", '{"a": 1, "b": 2, …}', { a: 1, b: 2 }],
+    ["html-escaped", '{&quot;a&quot;: 1}', { a: 1 }],
+    ["url-encoded", '%7B%22a%22%3A1%7D', { a: 1 }],
+    ["missing opening brace", '"a": 1, "b": 2}', { a: 1, b: 2 }],
+    ["mongo shell", '{"_id": ObjectId("507f1f77bcf86cd799439011"), "at": ISODate("2024-01-01T00:00:00Z")}', { _id: "507f1f77bcf86cd799439011", at: "2024-01-01T00:00:00Z" }],
+    ["comments + trailing commas", '{\n // c\n "a": 1, /* b */\n "b": [1,2,],\n}', { a: 1, b: [1, 2] }],
+    ["ndjson", '{"a":1}\n{"a":2}', [{ a: 1 }, { a: 2 }]],
+    ["python repr nested", "[{'k': 'v', 'f': False}, {'k': \"it's\"}]", [{ k: "v", f: false }, { k: "it's" }]],
+    ["missing value", '{"a": , "b": 2}', { a: null, b: 2 }],
+    ["smart quotes", '{“a”: “b”}', { a: "b" }],
+    ["truncated mid-key", '{"a": 1, "lo', { a: 1 }],
+    ["unescaped tab/control", '{"a": "x\ty"}', { a: "x\ty" }],
+    ["key without value at end", '{"a": 1, "b"}', { a: 1, b: null }],
+    ["array missing commas", '[1 2 3]', [1, 2, 3]],
+    ["stringified numbers kept", '{"zip": 007}', { zip: 7 }],
+  ];
+  for (const [name, input, want] of cases) fix(name, input, want);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Heuristics don't break what already worked");
+
+{
+  const cases: [string, string, unknown][] = [
+    ["missing comma, quoted array", '["a" "b"]', ["a", "b"]],
+    ["missing comma, members", '{"a":"x" "b":"y"}', { a: "x", b: "y" }],
+    ["missing comma, bare key next", '{"a":"x" b: 1}', { a: "x", b: 1 }],
+    ["colon inside string", "{'url': 'http://x.com/a:b'}", { url: "http://x.com/a:b" }],
+    ["apostrophe in double-quoted", "{'k': \"it's\", z: 1}", { k: "it's", z: 1 }],
+    ["valid escaped quotes", '{"a": "He said \\"hi\\"", }', { a: 'He said "hi"' }],
+    ["valid double backslash path", '{"p":"C:\\\\Users\\\\x",}', { p: "C:\\Users\\x" }],
+    ["regex invalid escape", '{"re": "\\d+\\s",}', { re: "\\d+\\s" }],
+    ["escaped newline stays", '{"a": "l1\\nl2",}', { a: "l1\nl2" }],
+    ["inner quotes then array", '{"text": "a "quoted" word", "b": [1,2]}', { text: 'a "quoted" word', b: [1, 2] }],
+    ["inner number quote", '{"t": "scored "5" points", "x": 1}', { t: 'scored "5" points', x: 1 }],
+    ["truncated value", '{"a": "abc', { a: "abc" }],
+    ["unterminated before newline key", '{"a": "abc\n "c": 1}', { a: "abc", c: 1 }],
+    ["scalar ndjson", "1\n2\n3", [1, 2, 3]],
+    ["two objects in prose", 'Here: {"a":1} and {"b":2}', [{ a: 1 }, { b: 2 }]],
+    ["quoted ellipsis is data", '["...", "a"]', ["...", "a"]],
+    ["mongo big NumberLong", '{"n": NumberLong("12345678901234567890")}', { n: 12345678901234567890 }],
+    ["new Date", '{"d": new Date("2024-01-01")}', { d: "2024-01-01" }],
+    ["constructors in array", '[ObjectId("a"), ObjectId("b")]', ["a", "b"]],
+    ["phrase then newline key", "{status: in progress\n n: 2}", { status: "in progress", n: 2 }],
+    ["multiple spaced keys", '{first name: "x", last name: "y"}', { "first name": "x", "last name": "y" }],
+    ["single-quoted multi apostrophe", "{'s': 'rock 'n' roll', 'k': 1}", { s: "rock 'n' roll", k: 1 }],
+    ["python repr list of tuples", "[(1, 'a'), (2, 'b')]", [[1, "a"], [2, "b"]]],
+    ["UNC path", '{"p": "\\\\server\\share"}', { p: "\\\\server\\share" }],
+    ["console paste", 'app.js:12 {a: 1, b: [1,2,]}', { a: 1, b: [1, 2] }],
+    ["literal after space ends string", '{"a" true, "b" null}', { a: true, b: null }],
+  ];
+  for (const [name, input, want] of cases) fix(name, input, want);
+  check("valid JSON string that isn't JSON stays valid", repairJson('"just a string"').wasValid);
+  const d = repairJson('"{\\"a\\":1}"');
+  check("double-encoded JSON is decoded (and reviewed: structural)", !d.wasValid && d.events.some((e) => e.risk === "structural"));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Performance bounds (adversarial input stays linear)");
+
+{
+  const time = (input: string) => {
+    const t = performance.now();
+    try { repairJson(input); } catch { /* only timing matters */ }
+    return performance.now() - t;
+  };
+  const N = 1_000_000;
+  const adversarial: [string, string][] = [
+    ["wrong inner-quote guesses", "[" + "'a' bbbbbbbbbbbb, ".repeat(N / 18) + "1]"],
+    ["invalid escapes in every string", "[" + '"C:\\Users\\Ab\\Cd",'.repeat(N / 20) + "1]"],
+    ["unclosed 5 MB string", '{"c":"' + "x".repeat(5_000_000)],
+  ];
+  for (const [name, input] of adversarial) {
+    const ms = time(input);
+    check(`${name} (${(input.length / 1e6).toFixed(1)} MB) under 1.5 s`, ms < 1500, `${ms.toFixed(0)} ms`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 section("Hard failure (no JSON to recover)");
 
 {

@@ -6,7 +6,7 @@
  * <script type="application/ld+json"> block that's safe to paste into HTML.
  */
 
-import { isAbsUrl, type Check, type CheckLevel } from "@/components/tools/seo-shared/seo.lib";
+import { isAbsUrl, isRealDate, type Check, type CheckLevel } from "@/components/tools/seo-shared/seo.lib";
 
 export type LdType = "Article" | "Product" | "Organization" | "FAQPage" | "BreadcrumbList";
 
@@ -125,8 +125,7 @@ function isIsoDate(s: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.exec(s);
   if (!m) return false;
   const [, y, mo, d, hh, mi, ss] = m;
-  const days = new Date(Date.UTC(+y, +mo, 0)).getUTCDate();
-  return +mo >= 1 && +mo <= 12 && +d >= 1 && +d <= days && (!hh || +hh <= 23) && (!mi || +mi <= 59) && (!ss || +ss <= 59);
+  return isRealDate(+y, +mo, +d) && (!hh || +hh <= 23) && (!mi || +mi <= 59) && (!ss || +ss <= 59);
 }
 
 export interface LdResult {
@@ -235,9 +234,14 @@ export function buildJsonLd(t: LdType, f: LdFields): LdResult {
       return it;
     });
     if (named.length < 2) chk("warn", "Breadcrumbs need at least two levels.");
+    // Blank rows are ignored, so the last *named* level is the one that may omit its URL.
+    let lastNamed = -1;
+    rows.forEach((r, i) => {
+      if (r.name) lastNamed = i;
+    });
     rows.forEach((r, i) => {
       if (!r.name && r.url) chk("warn", `Level ${i + 1} has no name, so it's left out.`);
-      if (r.name && i < rows.length - 1 && !r.url) chk("err", `Level ${i + 1} needs a URL. Only the last level may omit it.`);
+      if (r.name && i < lastNamed && !r.url) chk("err", `Level ${i + 1} needs a URL. Only the last level may omit it.`);
       if (r.url && !isAbsUrl(r.url)) chk("err", `“${r.url}” isn't absolute.`);
     });
   }

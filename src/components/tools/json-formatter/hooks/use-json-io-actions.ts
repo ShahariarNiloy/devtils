@@ -1,43 +1,31 @@
 "use client";
 
-import { startTransition, useCallback } from "react";
+import { startTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import type { ConvertTarget } from "../json-formatter.types";
-import { parseJson, queryJsonPath, SAMPLE_DATA } from "../json-formatter.lib";
-import {
-  toCSV,
-  toYAML,
-  toTypeScript,
-  toXML,
-  toZod,
-  toJsonSchema,
-  toGo,
-  toPython,
-  toRust,
-} from "../json-convert";
+import { parseJson, SAMPLE_DATA } from "../json-formatter.lib";
+// Code generators + js-yaml load on the first Convert, not with the page.
+const loadConvert = () => import("../json-convert");
 import { runConversion } from "../convert-client";
+import { encodeUtf8Steps } from "../json-sliced.lib";
+import { runSliced, type SlicedJob } from "../run-sliced";
 import { WORKER_THRESHOLD } from "./use-async-parsed";
 import type { ConversionResult } from "../json-formatter.types";
 import type { JsonState } from "./use-json-state";
 
-function runForward(target: ConvertTarget, value: unknown): ConversionResult {
-  switch (target) {
-    case "csv": return toCSV(value);
-    case "yaml": return toYAML(value);
-    case "typescript": return toTypeScript(value);
-    case "xml": return toXML(value);
-    case "zod": return toZod(value);
-    case "schema": return toJsonSchema(value);
-    case "go": return toGo(value);
-    case "python": return toPython(value);
-    case "rust": return toRust(value);
-    default: throw new Error(`Unknown target: ${target as string}`);
-  }
-}
+/**
+ * Upload cap. The editor (virtualized) and the worker parse handle tens of
+ * MB; 50 MB keeps a single document well inside the tab's memory budget.
+ */
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+const formatFileSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`;
 
 export function useJsonIoActions(state: JsonState) {
   const {
-    input, setInput,
+    input, setInput, getLatestInput,
     output, setOutput,
     parsedValue, parsedOutput,
     conversionResult,
@@ -45,10 +33,8 @@ export function useJsonIoActions(state: JsonState) {
     setMinifyStats, setConversionResult,
     setRepairPreview,
     setFileName,
-    setQueryResults,
     setViewMode,
     setIsConverting,
-    queryPath,
   } = state;
 
   const applyResult = useCallback(
@@ -84,13 +70,15 @@ export function useJsonIoActions(state: JsonState) {
       // behaviour. Large inputs go to the worker so the JSON → X walk never
       // freezes the tab; only the resulting string crosses back.
       if (jsonText.length <= WORKER_THRESHOLD) {
-        try {
-          let value: unknown = parsedOutput ?? parsedValue;
-          if (value === null || value === undefined) value = parseJson(jsonText);
-          applyResult(runForward(target, value), target);
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Conversion failed");
-        }
+        let value: unknown = parsedOutput ?? parsedValue;
+        loadConvert()
+          .then(({ convertValue }) => {
+            if (value === null || value === undefined) value = parseJson(jsonText);
+            applyResult(convertValue(target, value), target);
+          })
+          .catch((err: unknown) => {
+            toast.error(err instanceof Error ? err.message : "Conversion failed");
+          });
         return;
       }
 
@@ -127,6 +115,8 @@ export function useJsonIoActions(state: JsonState) {
   }, [setInput, setOutput, setMinifyStats, setConversionResult, setRepairPreview, setFileName]);
 
   const clear = useCallback(() => {
+    // Deliver a pending debounced edit now, so it can't land after the clear.
+    flushPendingEdits();
     setInput("");
     setOutput("");
     setValidation({ status: "idle" });
@@ -136,28 +126,59 @@ export function useJsonIoActions(state: JsonState) {
     setFileName(null);
   }, [setInput, setOutput, setValidation, setMinifyStats, setConversionResult, setRepairPreview, setFileName]);
 
+  /**
+   * What Copy / Download hand out: the output, or the input when there's
+   * none. Flushes a pending editor edit first (keyboard shortcuts keep focus
+   * in the editor); if that edit changed the input, the output on screen is
+   * stale, so the live input is used.
+   */
+  const currentText = useCallback(() => {
+    flushPendingEdits();
+    const live = getLatestInput();
+    return (live === input ? output : "") || live;
+  }, [getLatestInput, input, output]);
+
   const copyOutput = useCallback(async () => {
-    const text = output || input;
+    const text = currentText();
     if (!text) return;
     await navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
-  }, [output, input]);
+  }, [currentText]);
 
+  // Latest download wins (a second click while a big one encodes replaces it).
+  const downloadJob = useRef<SlicedJob<Uint8Array<ArrayBuffer>[]> | null>(null);
   const downloadOutput = useCallback((fmt: string) => {
-    const text = output || input;
+    const text = currentText();
     if (!text) return;
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `output.${fmt}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [output, input]);
+    const save = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `output.${fmt}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    downloadJob.current?.cancel();
+    downloadJob.current = null;
+    if (text.length <= WORKER_THRESHOLD) {
+      save(new Blob([text], { type: "text/plain" }));
+      return;
+    }
+    // `new Blob([text])` UTF-8-encodes the whole string in one task (~200 ms
+    // at 50 MB); encode it in slices instead — the same bytes.
+    const job = runSliced(encodeUtf8Steps(text));
+    downloadJob.current = job;
+    void job.promise.then((parts) => {
+      if (downloadJob.current === job) downloadJob.current = null;
+      save(new Blob(parts, { type: "text/plain" }));
+    });
+  }, [currentText]);
 
   const loadFile = useCallback((file: File) => {
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File too large — maximum 5 MB");
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error("File too large — maximum 50 MB", {
+        description: `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB.`,
+      });
       return;
     }
     const reader = new FileReader();
@@ -168,19 +189,10 @@ export function useJsonIoActions(state: JsonState) {
       setMinifyStats(null);
       setConversionResult(null);
       setRepairPreview(null);
-      setFileName(`${file.name}  (${(file.size / 1024).toFixed(1)} KB)`);
+      setFileName(`${file.name}  (${formatFileSize(file.size)})`);
     };
     reader.readAsText(file);
   }, [setInput, setOutput, setMinifyStats, setConversionResult, setRepairPreview, setFileName]);
 
-  const runQuery = useCallback(() => {
-    if (!queryPath || !(parsedOutput ?? parsedValue)) return;
-    try {
-      setQueryResults(queryJsonPath(parsedOutput ?? parsedValue, queryPath));
-    } catch {
-      setQueryResults([]);
-    }
-  }, [queryPath, parsedOutput, parsedValue, setQueryResults]);
-
-  return { convert, loadSample, clear, copyOutput, downloadOutput, loadFile, runQuery };
+  return { convert, loadSample, clear, copyOutput, downloadOutput, loadFile };
 }

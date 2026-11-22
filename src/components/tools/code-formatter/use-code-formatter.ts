@@ -10,6 +10,7 @@ import {
   type FormatStats,
   type LanguageId,
 } from "./code-formatter.lib";
+import { useLiveText } from "./use-live-text";
 
 /**
  * State + debounced formatting for the code-formatter UI.
@@ -49,7 +50,10 @@ const SAMPLES: Record<LanguageId, string> = {
 
 export interface CodeFormatterState {
   input: string;
+  /** The editor's onChange. */
   setInput: (v: string) => void;
+  /** Replace the whole input (paste, dropped file) after pending edits have landed. */
+  replaceInput: (v: string) => void;
   output: string;
   error: string | null;
   errorLine: number | undefined;
@@ -65,7 +69,7 @@ export interface CodeFormatterState {
 }
 
 export function useCodeFormatter(): CodeFormatterState {
-  const [input, setInput] = useState<string>(SAMPLES.javascript);
+  const { text: input, set: setInput, read: readInput, replace: replaceInput } = useLiveText(SAMPLES.javascript);
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorLine, setErrorLine] = useState<number | undefined>(undefined);
@@ -135,18 +139,19 @@ export function useCodeFormatter(): CodeFormatterState {
   const setLanguage = useCallback(
     (id: LanguageId) => {
       setLanguageRaw(id);
-      setInput((cur) => (!cur.trim() || cur === SAMPLES[language] ? SAMPLES[id] : cur));
+      const cur = readInput();
+      if (!cur.trim() || cur === SAMPLES[language]) setInput(SAMPLES[id]);
     },
-    [language],
+    [language, readInput, setInput],
   );
 
   const loadSample = useCallback(() => {
-    setInput(SAMPLES[language] ?? "");
-  }, [language]);
+    replaceInput(SAMPLES[language] ?? "");
+  }, [language, replaceInput]);
 
   const clear = useCallback(() => {
-    setInput("");
-  }, []);
+    replaceInput("");
+  }, [replaceInput]);
 
   const stats = statsFor(input, output);
   // Surface which option groups this language honours so the UI can hide
@@ -156,6 +161,7 @@ export function useCodeFormatter(): CodeFormatterState {
   return {
     input,
     setInput,
+    replaceInput,
     output,
     error,
     errorLine,

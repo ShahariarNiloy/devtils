@@ -4,6 +4,7 @@ import {
   parseCmyk,
   parseHex,
   parseHsb,
+  parseHwb,
   parseHsl,
   parseOklch,
   parseRgb,
@@ -91,6 +92,7 @@ export function parseAnyColor(input: string): RGB | null {
   if (/^rgba?/i.test(s)) { const r = parseRgb(s); if (r) return r; }
   if (/^hsla?/i.test(s)) { const r = parseHsl(s); if (r) return r; }
   if (/^hs[bv]a?/i.test(s)) { const r = parseHsb(s); if (r) return r; }
+  if (/^hwb/i.test(s))   { const r = parseHwb(s);   if (r) return r; }
   if (/^oklch/i.test(s)) { const r = parseOklch(s); if (r) return r; }
   if (/^cmyk/i.test(s)) { const r = parseCmyk(s); if (r) return r; }
   if (/^lab/i.test(s))   { const r = parseLab(s);   if (r) return r; }

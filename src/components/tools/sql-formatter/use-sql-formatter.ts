@@ -20,6 +20,7 @@ import {
   readShareFromHash,
   shareHashFor,
 } from "./sql-share";
+import { useLiveText } from "@/components/tools/code-formatter/use-live-text";
 
 const DEBOUNCE_MS = 250;
 const STORAGE_KEY = "sql-formatter:dialect";
@@ -57,6 +58,8 @@ export type OutputMode = "format" | "minify";
 export interface SqlFormatterState {
   input: string;
   setInput: (v: string) => void;
+  /** Replace the whole input (paste) after pending edits have landed. */
+  replaceInput: (v: string) => void;
   output: string;
   error: string | null;
   errorLine: number | undefined;
@@ -95,7 +98,8 @@ export interface SqlFormatterState {
  */
 export function useSqlFormatter(): SqlFormatterState {
   const [dialect, setDialectRaw] = useState<DialectId>(DEFAULT_DIALECT);
-  const [input, setInput] = useState<string>(SAMPLES[DEFAULT_DIALECT]);
+  // `read` / `replace` flush the editor's pending (debounced) edits first.
+  const { text: input, set: setInput, read: readInput, replace: replaceInput } = useLiveText(SAMPLES[DEFAULT_DIALECT]);
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorLine, setErrorLine] = useState<number | undefined>(undefined);
@@ -159,7 +163,7 @@ export function useSqlFormatter(): SqlFormatterState {
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  }, [setInput]);
 
   // ── Persist dialect ────────────────────────────────────────────────
   // Separate from hydration so it tracks subsequent changes too.
@@ -184,7 +188,7 @@ export function useSqlFormatter(): SqlFormatterState {
       // string-aware whitespace-collapse pass, not a parser run. Format
       // mode keeps the normal Prettier-style pipeline.
       if (mode === "minify") {
-        const out = minify(input);
+        const out = minify(input, dialect);
         if (id !== requestId.current) return;
         setElapsed(Math.round(performance.now() - started));
         setOutput(out);
@@ -214,7 +218,7 @@ export function useSqlFormatter(): SqlFormatterState {
   }, [input, dialect, options, mode]);
 
   // ── Derived ────────────────────────────────────────────────────────
-  const stats = useMemo(() => statsFor(input, output), [input, output]);
+  const stats = useMemo(() => statsFor(input, output, dialect), [input, output, dialect]);
 
   // ── Actions ────────────────────────────────────────────────────────
   const setOption = useCallback(
@@ -232,16 +236,16 @@ export function useSqlFormatter(): SqlFormatterState {
   }, []);
 
   const loadSample = useCallback(() => {
-    setInput(SAMPLES[dialect] ?? "");
-  }, [dialect]);
+    replaceInput(SAMPLES[dialect] ?? "");
+  }, [dialect, replaceInput]);
 
   const clear = useCallback(() => {
-    setInput("");
-  }, []);
+    replaceInput("");
+  }, [replaceInput]);
 
   const share = useCallback(async (): Promise<string | null> => {
     try {
-      const token = await encodeShare(input, dialect);
+      const token = await encodeShare(readInput(), dialect);
       const hash = shareHashFor(token);
       const url = `${window.location.origin}${window.location.pathname}${hash}`;
       window.history.replaceState(null, "", hash);
@@ -250,7 +254,7 @@ export function useSqlFormatter(): SqlFormatterState {
     } catch {
       return null;
     }
-  }, [input, dialect]);
+  }, [readInput, dialect]);
 
   const download = useCallback((): boolean => {
     if (!output) return false;
@@ -280,28 +284,29 @@ export function useSqlFormatter(): SqlFormatterState {
     async (fmt: CopyAsFormat): Promise<boolean> => {
       if (!output) return false;
       try {
-        await navigator.clipboard.writeText(copyAsLib(output, fmt));
+        await navigator.clipboard.writeText(copyAsLib(output, fmt, dialect));
         return true;
       } catch {
         return false;
       }
     },
-    [output],
+    [output, dialect],
   );
 
   const acceptDroppedFile = useCallback(async (file: File) => {
     if (file.size > 5 * 1024 * 1024) return;
     const text = await file.text();
-    setInput(text);
+    replaceInput(text);
     // Best-effort auto-detection on drop — overrides current dialect only
     // when we're confident. Caller's previous selection wins otherwise.
     const detected = detectDialect(text);
     if (detected) setDialectRaw(detected);
-  }, []);
+  }, [replaceInput]);
 
   return {
     input,
     setInput,
+    replaceInput,
     output,
     error,
     errorLine,

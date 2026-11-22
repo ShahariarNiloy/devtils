@@ -507,6 +507,109 @@ section("JSON Schema");
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+//  Regressions — inference merge, identifiers, root names, XML, formats
+// ────────────────────────────────────────────────────────────────────────────
+section("Regressions");
+
+{
+  const ints = [{ p: 1 }, { p: 1.5 }];
+  assertIncludes("int+float merges to number (TS)", toTypeScript(ints).output, "p: number;");
+  assertIncludes("int+float merges to float64 (Go)", toGo(ints).output, "P float64");
+  assertIncludes("int+float merges to f64 (Rust)", toRust(ints).output, "pub p: f64,");
+  assertIncludes("int+float merges to float (Python)", toPython(ints).output, "p: float");
+  assertIncludes("int+float merges to z.number() (Zod)", toZod(ints).output, "p: z.number(),");
+}
+
+{
+  const sample = [{ x: "a" }, { x: null }, { x: "b", y: 1 }];
+  assertIncludes("nested oneOf flattens to nullable (TS)", toTypeScript(sample).output, "x: string | null;");
+  assertIncludes("nested oneOf flattens to nullable (Go)", toGo(sample).output, "X *string");
+  assertIncludes("nested oneOf flattens to nullable (Rust)", toRust(sample).output, "pub x: Option<String>,");
+  assertIncludes("nested oneOf flattens to nullable (Python)", toPython(sample).output, "x: Optional[str]");
+  assertIncludes("nested oneOf flattens to nullable (Zod)", toZod(sample).output, "x: z.string().nullable(),");
+  const schema = JSON.parse(toJsonSchema(sample).output) as { items: { properties: { x: unknown } } };
+  check(
+    "JSON Schema oneOf is flat and deduped",
+    JSON.stringify(schema.items.properties.x) === '{"oneOf":[{"type":"string"},{"type":"null"}]}',
+    JSON.stringify(schema.items.properties.x),
+  );
+}
+
+{
+  const sample = [{ a: 1 }, null, { a: 1, b: 2 }];
+  const ts = toTypeScript(sample).output;
+  assertIncludes("null array item → nullable item type", ts, "export type Root = (RootItem | null)[];");
+  assertIncludes("null array item keeps merged optional key", ts, "b?: number;");
+  assertNotIncludes("no orphan Variant types", ts, "Variant");
+}
+
+{
+  const keys = { userId: 1, user_id: 2, "user-id": 3 };
+  const go = toGo(keys).output;
+  assertIncludes("Go dedupes colliding field names", go, "UserId_2 int64");
+  assertIncludes("Go dedup keeps original tag", go, '`json:"user-id"`');
+  const rs = toRust(keys).output;
+  assertIncludes("Rust exact snake key keeps its name", rs, "pub user_id: i64,");
+  assertIncludes("Rust dedupes colliding field names", rs, "pub user_id_2: i64,");
+  const py = toPython(keys).output;
+  assertIncludes("Python dedupes colliding field names", py, "user_id_2: int");
+}
+
+{
+  const go = toGo({ "1st": 1, "名前": 2, "名": 3, 'a"b': 4 }).output;
+  assertIncludes("Go leading digit gets a prefix", go, "Field1st int64");
+  assertIncludes("Go non-ASCII keys get unique fallbacks", go, "Field2 int64");
+  assertIncludes("Go escapes quotes in struct tags", go, '`json:"a\\"b"`');
+  const rs = toRust({ self: 1, Self: 2, crate: 3, super: 4, "": 5, type: 6 }).output;
+  assertIncludes("Rust self → self_ (r#self is invalid)", rs, "pub self_: i64,");
+  assertIncludes("Rust crate → crate_", rs, "pub crate_: i64,");
+  assertIncludes("Rust super → super_", rs, "pub super_: i64,");
+  assertIncludes("Rust empty key → field_N", rs, "pub field_1: i64,");
+  assertNotIncludes("Rust never emits r#self / r#crate", rs, "r#self");
+  assertIncludes("Rust struct name avoids Self", toRust({ self: { a: 1 } }).output, "pub struct Self2");
+  const pyd = toPython({ class: 1, "user-id": 2 }, { classKind: "pydantic" }).output;
+  assertIncludes("Pydantic keyword field keeps key via alias", pyd, 'class_: int = Field(alias="class")');
+  assertIncludes("Pydantic imports Field", pyd, "from pydantic import BaseModel, Field");
+  const td = toPython({ "user-id": 2 }, { classKind: "typeddict" }).output;
+  assertIncludes("TypedDict with invalid keys uses functional syntax", td, '"user-id": "int",');
+}
+
+{
+  const arr = [{ id: 1 }];
+  assertIncludes("TS array root uses root name", toTypeScript(arr, { rootName: "Users" }).output, "export type Users = User[];");
+  assertIncludes("Rust array root uses root name", toRust(arr, { rootName: "Users" }).output, "pub type Users = Vec<User>;");
+  assertIncludes("Python array root uses root name", toPython(arr, { rootName: "Users" }).output, "Users = list[User]");
+  const goObj = toGo({ user: { id: 1 } }, { rootName: "User" }).output;
+  check("Go root name doesn't duplicate a nested struct", (goObj.match(/^type User struct/gm) ?? []).length === 1, goObj);
+  const goArr = toGo(arr, { rootName: "RootItem" }).output;
+  assertIncludes("Go array root alias can't collide with item struct", goArr, "type RootItem = []RootItemItem");
+}
+
+{
+  const xml = toXML({ "first name": 1, "<": 2, "a:b": 3, t: "x\u0001y" }).output;
+  assertIncludes("XML spaces in keys → _", xml, "<first_name>1</first_name>");
+  assertIncludes("XML invalid start char → _", xml, "<_>2</_>");
+  assertIncludes("XML colon in key → _ (no unbound prefix)", xml, "<a_b>3</a_b>");
+  assertNotIncludes("XML strips illegal control chars", xml, "\u0001");
+}
+
+{
+  const z = toZod({ a: "2024-01-01T10:00:00", b: "2024-01-01T10:00:00Z", c: "2024-02-30" }).output;
+  assertIncludes("offset-less timestamp is a plain string", z, "a: z.string(),");
+  assertIncludes("RFC 3339 timestamp keeps .datetime()", z, "b: z.string().datetime({ offset: true }),");
+  assertIncludes("impossible calendar date is a plain string", z, "c: z.string(),");
+}
+
+{
+  const go = toGo({ u: 10000000000000000000, big: 1e20, n: 1 }).output;
+  assertIncludes("Go uint64 for > int64", go, "U uint64");
+  assertIncludes("Go json.Number beyond uint64", go, "Big json.Number");
+  assertIncludes("Go imports encoding/json for json.Number", go, 'import "encoding/json"');
+  assertIncludes("Go small ints stay int64", go, "N int64");
+  assertNotIncludes("JSON Schema never leaks intRange", toJsonSchema({ big: 1e20 }).output, "intRange");
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 //  Summary
 // ────────────────────────────────────────────────────────────────────────────
 

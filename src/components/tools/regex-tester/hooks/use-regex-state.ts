@@ -10,7 +10,7 @@ Support: SUPPORT@utilyx.DEV`;
 export const TOOLBAR_FLAGS = ["g", "i", "m", "s", "u"] as const;
 
 export const FLAG_TITLES: Record<string, string> = {
-  g: "Global — all matches",
+  g: "Global — all matches (off: first match only, like JS)",
   i: "Ignore case",
   m: "Multiline ^ $",
   s: "Dot matches newline",

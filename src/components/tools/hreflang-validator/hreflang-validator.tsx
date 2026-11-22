@@ -3,6 +3,7 @@
 import { Eraser, RotateCcw } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import type { Tool } from "@/lib/tools-registry";
 import {
   SeoChecks,
@@ -48,6 +49,7 @@ export function HreflangValidator({ tool }: { tool: Tool }) {
                 value={html}
                 onChange={setHtml}
                 height="230px"
+                code="html"
                 placeholder={'<link rel="alternate" hreflang="en" href="https://example.com/" />'}
               />
             </SeoField>
@@ -66,6 +68,7 @@ export function HreflangValidator({ tool }: { tool: Tool }) {
                   label: "Load sample",
                   icon: <RotateCcw size={14} />,
                   onSelect: () => {
+                    flushPendingEdits();
                     setPage(SAMPLE_PAGE);
                     setHtml(SAMPLE_HTML);
                   },
@@ -74,6 +77,7 @@ export function HreflangValidator({ tool }: { tool: Tool }) {
                   label: "Clear",
                   icon: <Eraser size={14} />,
                   onSelect: () => {
+                    flushPendingEdits();
                     setPage("");
                     setHtml("");
                   },

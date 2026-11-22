@@ -13,20 +13,49 @@
  * for each compression so re-compression is unaffected.
  */
 
+import type { OutputMime } from "./image-compressor.constants";
 import { CompressionFailure } from "./image-compressor.errors";
-import type { CompressionResult, CompressionSettings } from "./image-compressor.types";
+import type { DiffResult } from "./image-compressor.lib";
+import type { CandidateSummary, CompressionResult, CompressionSettings, EstimateSampleData } from "./image-compressor.types";
 import type { WorkerRequest, WorkerResponse } from "./compress.worker";
+
+/** "high" jumps the queue (a diff the user is waiting on); "low" waits
+ *  behind everything (comparison-bar probes). */
+export type JobPriority = "high" | "normal" | "low";
+
+export interface CompressJobOptions {
+  formats?: OutputMime[];
+  partial?: boolean;
+  preview?: boolean;
+  sample?: boolean;
+  priority?: JobPriority;
+}
 
 export interface WorkerPool {
   /**
    * Enqueue a compression. Returns both the assigned job ID (for
-   * cancellation) and the result promise.
+   * cancellation) and the result promise — one merged result, or one per
+   * format with `partial`.
    */
   compress(
     buffer: ArrayBuffer,
     mime: string,
     settings: CompressionSettings,
-  ): { id: string; promise: Promise<CompressionResult> };
+    opts?: CompressJobOptions,
+  ): { id: string; promise: Promise<CompressionResult[]> };
+  /** Approximate other formats' sizes from a result's sample (low priority). */
+  estimate(
+    sample: EstimateSampleData,
+    settings: CompressionSettings,
+    formats: OutputMime[],
+  ): { id: string; promise: Promise<CandidateSummary[]> };
+  /** Render the "Show what changed" map for a result. */
+  diff(
+    buffer: ArrayBuffer,
+    mime: string,
+    settings: CompressionSettings,
+    result: { buffer: ArrayBuffer; mimeType: string },
+  ): { id: string; promise: Promise<DiffResult> };
   /**
    * Cancel a queued or in-flight job by ID. If in-flight, terminates
    * the handling worker (it gets respawned on next dispatch). The
@@ -37,10 +66,17 @@ export interface WorkerPool {
   terminate(): void;
 }
 
+type Payload =
+  | { kind: "compress"; results: CompressionResult[] }
+  | { kind: "diff"; diff: DiffResult }
+  | { kind: "estimate"; estimates: CandidateSummary[] };
+
 interface Job {
   id: string;
   request: WorkerRequest;
-  resolve: (result: CompressionResult) => void;
+  transfer: Transferable[];
+  priority: JobPriority;
+  resolve: (payload: Payload) => void;
   reject: (err: Error) => void;
 }
 
@@ -63,6 +99,8 @@ function spawnWorker(): Worker {
   });
 }
 
+const RANK: Record<JobPriority, number> = { high: 0, normal: 1, low: 2 };
+
 export function createWorkerPool(size: number): WorkerPool {
   const workers: PooledWorker[] = [];
   const pendingJobs = new Map<string, Job>();
@@ -77,14 +115,16 @@ export function createWorkerPool(size: number): WorkerPool {
     workers[slot] = p;
 
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const { id } = e.data;
-      const job = pendingJobs.get(id);
-      pendingJobs.delete(id);
+      const data = e.data;
+      const job = pendingJobs.get(data.id);
+      pendingJobs.delete(data.id);
       p.busy = false;
       p.currentJobId = null;
       if (job) {
-        if (e.data.ok) job.resolve(e.data.result);
-        else job.reject(new CompressionFailure(e.data.error));
+        if (!data.ok) job.reject(new CompressionFailure(data.error));
+        else if (data.kind === "diff") job.resolve({ kind: "diff", diff: data.diff });
+        else if (data.kind === "estimate") job.resolve({ kind: "estimate", estimates: data.estimates });
+        else job.resolve({ kind: "compress", results: data.results });
       }
       dispatch();
     };
@@ -132,32 +172,63 @@ export function createWorkerPool(size: number): WorkerPool {
       p.busy = true;
       p.currentJobId = job.id;
       pendingJobs.set(job.id, job);
-      // Transfer the input buffer into the worker (no copy).
-      p.worker.postMessage(job.request, [job.request.buffer]);
+      // Transfer the input buffer(s) into the worker (no copy).
+      p.worker.postMessage(job.request, job.transfer);
       if (queue.length === 0) return;
     }
+  }
+
+  function enqueue(request: WorkerRequest, transfer: Transferable[], priority: JobPriority): Promise<Payload> {
+    if (terminated) {
+      return Promise.reject(new CompressionFailure({ kind: "unknown", message: "Pool terminated" }));
+    }
+    return new Promise<Payload>((resolve, reject) => {
+      const job: Job = { id: request.id, request, transfer, priority, resolve, reject };
+      // Stable priority insert: after every job of equal or higher rank.
+      let at = queue.length;
+      while (at > 0 && RANK[queue[at - 1].priority] > RANK[priority]) at--;
+      queue.splice(at, 0, job);
+      dispatch();
+    });
   }
 
   function compress(
     buffer: ArrayBuffer,
     mime: string,
     settings: CompressionSettings,
-  ): { id: string; promise: Promise<CompressionResult> } {
+    opts: CompressJobOptions = {},
+  ): { id: string; promise: Promise<CompressionResult[]> } {
     const id = newJobId();
-    if (terminated) {
-      return {
-        id,
-        promise: Promise.reject(new CompressionFailure({ kind: "unknown", message: "Pool terminated" })),
-      };
-    }
-    const promise = new Promise<CompressionResult>((resolve, reject) => {
-      queue.push({
-        id,
-        request: { id, buffer, mime, settings },
-        resolve,
-        reject,
-      });
-      dispatch();
+    const promise = enqueue(
+      { kind: "compress", id, buffer, mime, settings, formats: opts.formats, partial: opts.partial, preview: opts.preview, sample: opts.sample },
+      [buffer],
+      opts.priority ?? "normal",
+    ).then((p) => (p.kind === "compress" ? p.results : []));
+    return { id, promise };
+  }
+
+  function estimate(
+    sample: EstimateSampleData,
+    settings: CompressionSettings,
+    formats: OutputMime[],
+  ): { id: string; promise: Promise<CandidateSummary[]> } {
+    const id = newJobId();
+    const promise = enqueue({ kind: "estimate", id, sample, settings, formats }, [sample.buffer], "low").then((p) =>
+      p.kind === "estimate" ? p.estimates : [],
+    );
+    return { id, promise };
+  }
+
+  function diff(
+    buffer: ArrayBuffer,
+    mime: string,
+    settings: CompressionSettings,
+    result: { buffer: ArrayBuffer; mimeType: string },
+  ): { id: string; promise: Promise<DiffResult> } {
+    const id = newJobId();
+    const promise = enqueue({ kind: "diff", id, buffer, mime, settings, result }, [buffer, result.buffer], "high").then((p) => {
+      if (p.kind !== "diff") throw new CompressionFailure({ kind: "unknown", message: "Unexpected worker reply" });
+      return p.diff;
     });
     return { id, promise };
   }
@@ -212,5 +283,5 @@ export function createWorkerPool(size: number): WorkerPool {
     queue.length = 0;
   }
 
-  return { compress, cancel, terminate };
+  return { compress, estimate, diff, cancel, terminate };
 }

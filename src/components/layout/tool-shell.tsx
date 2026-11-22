@@ -5,7 +5,7 @@ import { ToolShellHeader } from "@/components/layout/tool-shell-header";
 import { pushRecent } from "@/components/primitives/command-palette";
 import { cn } from "@/lib/cn";
 import type { Tool } from "@/lib/tools-registry";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ToolGuide } from "@/components/layout/tool-guides";
 
 interface Props {
@@ -41,6 +41,9 @@ export function ToolShell({ tool, actions, children, titleStyle, wide = true, re
 
   const [guideOpen, setGuideOpen] = useState(false);
   const [fullWindow, setFullWindow] = useState(false);
+  // Stable so the memo'd header skips the tool's own re-renders.
+  const openGuide = useCallback(() => setGuideOpen(true), []);
+  const toggleFullWindow = useCallback(() => setFullWindow((v) => !v), []);
 
   // Fit-to-window sizing: publish where the workspace starts (page-relative,
   // so it holds at scroll 0) as --chrome-top. Tools size their editors with
@@ -99,9 +102,9 @@ export function ToolShell({ tool, actions, children, titleStyle, wide = true, re
           <ToolShellHeader
             tool={tool}
             titleStyle={titleStyle}
-            onOpenGuide={() => setGuideOpen(true)}
+            onOpenGuide={openGuide}
             fullWindow={fullWindow}
-            onToggleFullWindow={() => setFullWindow((v) => !v)}
+            onToggleFullWindow={toggleFullWindow}
           />
         </div>
         <div ref={bodyRef} className="flex flex-col gap-4">

@@ -3,6 +3,7 @@
 import { Eraser, RotateCcw } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import type { Tool } from "@/lib/tools-registry";
 import { SeoChecks, SeoCodePanel, SeoField, SeoTable, SeoTextArea, SeoWorkspace, countChecks } from "../seo-shared";
 import { SAMPLE_SITEMAP, validateSitemap } from "./sitemap-validator.lib";
@@ -13,6 +14,11 @@ export function SitemapValidator({ tool }: { tool: Tool }) {
   // Large sitemaps: keep typing responsive while the report catches up.
   const deferred = useDeferredValue(xml);
   const report = useMemo(() => validateSitemap(deferred), [deferred]);
+  // Deliver a pending (debounced) edit first so it can't land after the replacement.
+  const replaceXml = (v: string) => {
+    flushPendingEdits();
+    setXml(v);
+  };
 
   return (
     <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
@@ -26,6 +32,8 @@ export function SitemapValidator({ tool }: { tool: Tool }) {
               value={xml}
               onChange={setXml}
               height="300px"
+              // Sitemaps run to several MB: the code editor keeps typing instant.
+              code="xml"
               placeholder={'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'}
             />
           </SeoField>
@@ -40,8 +48,8 @@ export function SitemapValidator({ tool }: { tool: Tool }) {
               label="Summary"
               emptyText="Paste a sitemap to see the summary."
               menu={[
-                { label: "Load sample", icon: <RotateCcw size={14} />, onSelect: () => setXml(SAMPLE_SITEMAP) },
-                { label: "Clear", icon: <Eraser size={14} />, onSelect: () => setXml(""), disabled: !xml },
+                { label: "Load sample", icon: <RotateCcw size={14} />, onSelect: () => replaceXml(SAMPLE_SITEMAP) },
+                { label: "Clear", icon: <Eraser size={14} />, onSelect: () => replaceXml(""), disabled: !xml },
               ]}
             />
           </>

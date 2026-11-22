@@ -1,4 +1,4 @@
-import type { ConversionResult } from "./json-formatter.types";
+import type { ConversionResult, ConvertTarget } from "./json-formatter.types";
 import { byteLength as byteSize } from "./json-formatter.lib";
 import { inferJsonSchema } from "./schema-infer";
 import { collect } from "./codegen/collect";
@@ -170,13 +170,72 @@ export interface XmlOptions {
   indent?: number;
 }
 
+// XML element names. `:` is a NameStartChar in the spec but a namespace
+// separator in practice — `a:b` with no bound prefix is rejected by
+// namespace-aware parsers — so it is treated as invalid. Non-ASCII is allowed
+// only where both XML 1.0 editions agree: BMP letters (plus marks / digits
+// after the first character) inside the 5th-edition ranges. Astral-plane
+// characters (emoji) are valid in the 5th edition but rejected by expat-era
+// parsers, so they are replaced too.
+const XML_NAME_START_RANGES: [number, number][] = [
+  [0xc0, 0xd6], [0xd8, 0xf6], [0xf8, 0x2ff], [0x370, 0x37d], [0x37f, 0x1fff],
+  [0x200c, 0x200d], [0x2070, 0x218f], [0x2c00, 0x2fef], [0x3001, 0xd7ff],
+  [0xf900, 0xfdcf], [0xfdf0, 0xfffd],
+];
+const XML_NAME_EXTRA_RANGES: [number, number][] = [[0xb7, 0xb7], [0x300, 0x36f], [0x203f, 0x2040]];
+
+function inRanges(cp: number, ranges: [number, number][]): boolean {
+  return ranges.some(([lo, hi]) => cp >= lo && cp <= hi);
+}
+
+function isXmlNameStart(ch: string): boolean {
+  if (/^[A-Za-z_]$/.test(ch)) return true;
+  const cp = ch.codePointAt(0) ?? 0;
+  return inRanges(cp, XML_NAME_START_RANGES) && /^\p{L}$/u.test(ch);
+}
+
+function isXmlNameChar(ch: string): boolean {
+  if (/^[A-Za-z0-9_.-]$/.test(ch)) return true;
+  const cp = ch.codePointAt(0) ?? 0;
+  const inSpec = inRanges(cp, XML_NAME_START_RANGES) || inRanges(cp, XML_NAME_EXTRA_RANGES);
+  return inSpec && /^[\p{L}\p{M}\p{Nd}\u00B7]$/u.test(ch);
+}
+
+/**
+ * Turn an arbitrary JSON key into a valid, namespace-free XML element name:
+ * invalid characters (spaces, `<`, `:`, emoji, …) become `_`, and a name that
+ * can't start an element (`1st`, `-x`, empty) or that starts with the
+ * reserved `xml` prefix gets a leading `_`.
+ */
+export function xmlName(key: string): string {
+  let n = "";
+  for (const ch of key) n += isXmlNameChar(ch) ? ch : "_";
+  const first = [...n][0];
+  if (first === undefined || !isXmlNameStart(first) || /^xml/i.test(n)) return `_${n}`;
+  return n;
+}
+
+/**
+ * Characters XML 1.0 forbids outright — C0 controls other than tab / LF / CR,
+ * U+FFFE / U+FFFF and lone surrogates. Not even `&#1;` is allowed, so they
+ * are replaced with U+FFFD rather than escaped.
+ */
+const XML_ILLEGAL = new RegExp(
+  "[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\uFFFE\\uFFFF]" +
+    "|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]",
+  "g",
+);
+
 function xmlEscape(s: string): string {
   return s
+    .replace(XML_ILLEGAL, "\uFFFD")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&apos;")
+    // Parsers normalise a literal CR to LF; a reference keeps it.
+    .replace(/\r/g, "&#13;");
 }
 
 function toXmlNode(
@@ -187,7 +246,6 @@ function toXmlNode(
   indentStr: string,
 ): string {
   const indent = indentStr.repeat(depth);
-
   if (value === null) return `${indent}<${tag} nil="true"/>`;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return `${indent}<${tag}>${xmlEscape(String(value))}</${tag}>`;
@@ -198,9 +256,7 @@ function toXmlNode(
   }
   if (isPlainObject(value)) {
     const children = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) =>
-        toXmlNode(v, /^[a-zA-Z_]/.test(k) ? k : `_${k}`, depth + 1, itemTag, indentStr),
-      )
+      .map(([k, v]) => toXmlNode(v, xmlName(k), depth + 1, itemTag, indentStr))
       .join("\n");
     return `${indent}<${tag}>\n${children}\n${indent}</${tag}>`;
   }
@@ -215,8 +271,8 @@ export function toXML(
   const opts: XmlOptions = typeof optsOrRootTag === "string"
     ? { rootTag: optsOrRootTag }
     : optsOrRootTag;
-  const rootTag = opts.rootTag ?? "root";
-  const itemTag = opts.itemTag ?? "item";
+  const rootTag = xmlName(opts.rootTag ?? "root");
+  const itemTag = xmlName(opts.itemTag ?? "item");
   const includeDecl = opts.declaration ?? true;
   const indentStr = " ".repeat(opts.indent ?? 2);
 
@@ -254,7 +310,10 @@ export function toJsonSchema(
 
 // ── Code generators (built on schema IR) ─────────────────────────────────────
 
-export type GoOptions = GoEmitOptions;
+export interface GoOptions extends GoEmitOptions {
+  /** Root type name (default "Root"); collisions with nested structs are resolved. */
+  rootName?: string;
+}
 export interface PythonOptions extends PythonEmitOptions {
   /** Root type name when root is not an object (default "Root"). */
   rootName?: string;
@@ -266,7 +325,8 @@ export interface RustOptions extends RustEmitOptions {
 
 /** Generate Go structs from the inferred schema. */
 export function toGo(value: unknown, opts: GoOptions = {}): ConversionResult {
-  const collected = collect(inferJsonSchema(value), "Root");
+  // `intRange`: integers past int64 need uint64 / json.Number in Go.
+  const collected = collect(inferJsonSchema(value, { intRange: true }), opts.rootName ?? "Root");
   const output = emitGo(collected, opts);
   return { output, format: "go", size: byteSize(output) };
 }
@@ -280,7 +340,24 @@ export function toPython(value: unknown, opts: PythonOptions = {}): ConversionRe
 
 /** Generate Rust serde structs from the inferred schema. */
 export function toRust(value: unknown, opts: RustOptions = {}): ConversionResult {
-  const collected = collect(inferJsonSchema(value), opts.rootName ?? "Root");
+  // `intRange`: integers past i64 need u64 / f64 in Rust.
+  const collected = collect(inferJsonSchema(value, { intRange: true }), opts.rootName ?? "Root");
   const output = emitRust(collected, opts);
   return { output, format: "rust", size: byteSize(output) };
+}
+
+/** One entry point for the formatter's Convert action (lets the UI load this module on demand). */
+export function convertValue(target: ConvertTarget, value: unknown): ConversionResult {
+  switch (target) {
+    case "csv": return toCSV(value);
+    case "yaml": return toYAML(value);
+    case "typescript": return toTypeScript(value);
+    case "xml": return toXML(value);
+    case "zod": return toZod(value);
+    case "schema": return toJsonSchema(value);
+    case "go": return toGo(value);
+    case "python": return toPython(value);
+    case "rust": return toRust(value);
+    default: throw new Error(`Unknown target: ${target as string}`);
+  }
 }

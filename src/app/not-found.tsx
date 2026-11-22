@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
+import { NotFound404 } from "@/components/illustrations/not-found-404";
 import { GlyphField } from "@/components/site/not-found/glyph-field";
 import { ToolSearch, type NotFoundTool } from "@/components/site/not-found/tool-search";
 import { SHOWCASE_TOOLS } from "@/lib/tools-registry";
@@ -43,9 +44,12 @@ export default function NotFound() {
       <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-4 pt-10 pb-[72px] sm:px-6 sm:pt-[72px] sm:pb-24">
         <div className="relative flex flex-col items-center gap-4 pt-10 pb-5 text-center">
           <GlyphField />
-          <div className="relative font-mono text-[64px] leading-none font-medium tracking-[-0.04em] sm:text-[96px]" aria-hidden="true">
-            <span className="text-text-faint">{"{"}</span> <span className="text-clay-light">404</span>{" "}
-            <span className="text-text-faint">{"}"}</span>
+          {/* Knock-out disc so the glyph field doesn't run through the drawing. */}
+          <div
+            aria-hidden="true"
+            className="relative w-full max-w-[320px] bg-[radial-gradient(closest-side,var(--color-bg)_72%,rgba(11,11,10,0))] px-6 pt-[18px] pb-2.5 sm:max-w-[460px]"
+          >
+            <NotFound404 className="mx-auto w-full max-w-[420px]" />
           </div>
           <h1 className="relative m-0 text-[36px] leading-[1.1] font-bold tracking-[-0.04em] sm:text-[clamp(40px,5vw,60px)]">
             <span className="sr-only">404: </span>This page took a wrong turn.

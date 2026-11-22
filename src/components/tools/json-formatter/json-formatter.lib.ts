@@ -13,7 +13,31 @@ import { formatLossless, scanJsonText } from "./json-lossless";
  * bar reads and recent-list writes. One module-scope instance fixes that.
  */
 export const sharedEncoder = new TextEncoder();
-export const byteLength = (s: string) => sharedEncoder.encode(s).length;
+
+/** Chars per encodeInto chunk; ≤ 3 bytes each, so a chunk fits BYTE_BUF. */
+const BYTE_CHUNK = 1 << 18;
+let byteBuf: Uint8Array | null = null;
+
+/**
+ * UTF-8 byte length. Large strings are encoded in chunks into one reused
+ * 1 MB buffer instead of allocating the whole encoding — same count, but a
+ * 76 MB document no longer allocates (and garbage-collects) 76 MB to learn
+ * its size (≈350 ms → a few ms on the main thread).
+ */
+export function byteLength(s: string): number {
+  if (s.length <= BYTE_CHUNK) return sharedEncoder.encode(s).length;
+  byteBuf ??= new Uint8Array(BYTE_CHUNK * 3 + 4);
+  let n = 0;
+  for (let i = 0; i < s.length; ) {
+    let end = Math.min(i + BYTE_CHUNK, s.length);
+    // Never split a surrogate pair across chunks (it would count as 2 × U+FFFD).
+    const last = s.charCodeAt(end - 1);
+    if (end < s.length && last >= 0xd800 && last <= 0xdbff && (s.charCodeAt(end) & 0xfc00) === 0xdc00) end++;
+    n += sharedEncoder.encodeInto(s.slice(i, end), byteBuf).written;
+    i = end;
+  }
+  return n;
+}
 
 // ── Parsing & Serialisation ───────────────────────────────────────────────────
 
@@ -130,7 +154,11 @@ export function sortJsonKeys(value: unknown, order: "asc" | "desc"): unknown {
       order === "asc" ? a.localeCompare(b) : b.localeCompare(a),
     );
     const sorted: Record<string, unknown> = {};
-    for (const k of keys) sorted[k] = sortJsonKeys(obj[k], order);
+    for (const k of keys) {
+      // defineProperty, not assignment: `sorted["__proto__"] = …` would set
+      // the prototype and silently drop the key from the output.
+      Object.defineProperty(sorted, k, { value: sortJsonKeys(obj[k], order), enumerable: true, writable: true, configurable: true });
+    }
     return sorted;
   }
   return value;
@@ -194,28 +222,37 @@ export function computeStats(value: unknown): JsonStats {
   return stats;
 }
 
-/** Get the maximum nesting depth of any node. */
-export function getDepth(value: unknown, current = 1): number {
-  if (Array.isArray(value)) {
-    if (value.length === 0) return current;
-    return Math.max(...value.map((v) => getDepth(v, current + 1)));
+/**
+ * Maximum nesting depth and total object-key count, walked iteratively so a
+ * pathologically deep document (thousands of levels) can't overflow the
+ * call stack and take the page down.
+ */
+function shapeOf(value: unknown): { depth: number; keys: number } {
+  let depth = 0;
+  let keys = 0;
+  const stack: [unknown, number][] = [[value, 1]];
+  for (let top = stack.pop(); top; top = stack.pop()) {
+    const [v, d] = top;
+    if (d > depth) depth = d;
+    if (Array.isArray(v)) {
+      for (const c of v) stack.push([c, d + 1]);
+    } else if (v !== null && typeof v === "object") {
+      const vals = Object.values(v as Record<string, unknown>);
+      keys += vals.length;
+      for (const c of vals) stack.push([c, d + 1]);
+    }
   }
-  if (value !== null && typeof value === "object") {
-    const vals = Object.values(value as Record<string, unknown>);
-    if (vals.length === 0) return current;
-    return Math.max(...vals.map((v) => getDepth(v, current + 1)));
-  }
-  return current;
+  return { depth, keys };
+}
+
+/** Get the maximum nesting depth of any node (containers count their children's level). */
+export function getDepth(value: unknown): number {
+  return shapeOf(value).depth;
 }
 
 /** Count all object keys recursively. */
 export function countKeys(value: unknown): number {
-  if (Array.isArray(value)) return value.reduce((acc: number, v) => acc + countKeys(v), 0);
-  if (value !== null && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    return Object.keys(obj).length + Object.values(obj).reduce((acc: number, v) => acc + countKeys(v), 0);
-  }
-  return 0;
+  return shapeOf(value).keys;
 }
 
 // ── Path utilities ───────────────────────────────────────────────────────────

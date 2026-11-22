@@ -25,6 +25,7 @@ import {
   FingerprintPattern,
   GitCompare,
   Globe,
+  Grid3x3,
   ImageDown,
   Image as ImageIcon,
   KeyRound,
@@ -107,6 +108,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   "css-unit-converter": Ruler,
   // Image
   "image-compressor": ImageDown,
+  "blur-placeholder": Grid3x3,
   // SEO
   "hreflang-generator": Languages,
   "hreflang-validator": BadgeCheck,
@@ -138,6 +140,9 @@ const CATEGORY_ICONS: Record<ToolCategory, LucideIcon> = {
 
 export const toolIcon = (slug: string): LucideIcon => TOOL_ICONS[slug] ?? Wrench;
 export const categoryIcon = (category: ToolCategory): LucideIcon => CATEGORY_ICONS[category] ?? Wrench;
+/** A tool's own icon, falling back to its category's — for catalogue entries that aren't built yet. */
+export const iconForTool = (tool: { slug: string; category: ToolCategory }): LucideIcon =>
+  TOOL_ICONS[tool.slug] ?? CATEGORY_ICONS[tool.category] ?? Wrench;
 
 /**
  * An icon sized to its keycap box: ~half the box, one stroke weight

@@ -34,6 +34,9 @@ export interface ToolContentProps {
 }
 
 const FAQ_PREVIEW = 4;
+/** Hiding a single question behind "All 5 questions" costs a click for one
+ *  line of content, so collapse only when at least two would be hidden. */
+const collapsible = (n: number) => n > FAQ_PREVIEW + 1;
 
 const TAG_TINT = {
   clay: "text-cat-clay",
@@ -86,7 +89,7 @@ export function ToolContent({ intro, usesTitle, usesNote, useCases, faqs }: Tool
                 key={f.question}
                 open={i === 0}
                 className={
-                  !allFaqs && i >= FAQ_PREVIEW
+                  !allFaqs && collapsible(faqs.length) && i >= FAQ_PREVIEW
                     ? "hidden"
                     : "group surface-panel rounded-xl px-4"
                 }
@@ -98,7 +101,7 @@ export function ToolContent({ intro, usesTitle, usesNote, useCases, faqs }: Tool
                 <p className="m-0 mb-3.5 text-sm text-text-tertiary">{f.answer}</p>
               </details>
             ))}
-            {faqs.length > FAQ_PREVIEW && (
+            {collapsible(faqs.length) && (
               <button
                 type="button"
                 onClick={() => setAllFaqs((v) => !v)}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { flushPendingEdits, LazyCodeEditor } from "@/components/primitives/code-editor";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,7 +64,14 @@ export function BulkPanel({
   ctx: ConversionContext;
   onSetBase: (n: number) => void;
 }) {
-  const [css, setCss] = useState(SAMPLE_CSS);
+  const [css, setCssState] = useState(SAMPLE_CSS);
+  // Latest input, updated synchronously: big stylesheets reach React
+  // debounced, so actions call `flushPendingEdits()` and read this.
+  const latest = useRef(SAMPLE_CSS);
+  const setCss = useCallback((v: string) => {
+    latest.current = v;
+    setCssState(v);
+  }, []);
   const [from, setFrom] = useState<LengthUnit>("px");
   const [to, setTo] = useState<LengthUnit>("rem");
   const [scopeId, setScopeId] = useState<BulkScopeId>("all");
@@ -90,17 +98,22 @@ export function BulkPanel({
     detected.base !== null && detected.base !== ctx.baseFontSize;
 
   const copyOutput = useCallback(() => {
-    void navigator.clipboard.writeText(result.output);
+    flushPendingEdits();
+    const now = latest.current;
+    // `result` is from the last render; recompute if an edit hasn't reached it.
+    const output = now === css ? result.output : bulkRewrite(now, { from, to, scope, ctx, preserveHairlines }).output;
+    void navigator.clipboard.writeText(output);
     toast.success("Converted CSS copied");
-  }, [result.output]);
+  }, [css, result.output, from, to, scope, ctx, preserveHairlines]);
 
   const reset = useCallback(() => {
+    flushPendingEdits();
     setCss(SAMPLE_CSS);
     setFrom("px");
     setTo("rem");
     setScopeId("all");
     setPreserveHairlines(true);
-  }, []);
+  }, [setCss]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -189,16 +202,27 @@ export function BulkPanel({
 
         {/* Editors */}
         <div className="grid grid-cols-1 md:grid-cols-2">
-          <textarea
+          {/* Lazy CodeMirror both sides: only visible lines render, so big stylesheets stay instant. */}
+          <LazyCodeEditor
+            language="css"
             value={css}
-            onChange={(e) => setCss(e.target.value)}
-            spellCheck={false}
-            className="block h-[460px] w-full resize-none bg-transparent p-4 font-mono text-[12.5px] leading-[1.65] text-text outline-none placeholder:text-text-faint"
+            onChange={setCss}
+            lineNumbers={false}
+            lineHeight={1.65}
+            padding="16px"
+            ariaLabel="CSS input"
             placeholder="Paste CSS here…"
+            className="h-[460px] min-w-0 text-[12.5px]"
           />
-          <pre className="block h-[460px] w-full overflow-auto border-t border-border-subtle bg-surface-2/30 p-4 font-mono text-[12.5px] leading-[1.65] text-text md:border-l md:border-t-0">
-            {result.output}
-          </pre>
+          <LazyCodeEditor
+            language="css"
+            value={result.output}
+            lineNumbers={false}
+            lineHeight={1.65}
+            padding="16px"
+            ariaLabel="Converted CSS"
+            className="h-[460px] min-w-0 border-t border-border-subtle bg-surface-2/30 text-[12.5px] md:border-l md:border-t-0"
+          />
         </div>
 
         {/* Footer status */}

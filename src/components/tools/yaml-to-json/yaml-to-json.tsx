@@ -7,6 +7,7 @@ import {
   enumCodec,
   linesSummary,
   parseYamlStream,
+  precisionWarning,
   Segmented,
   ToggleChip,
   useConverter,
@@ -74,6 +75,7 @@ export function YamlToJson({ tool }: { tool: Tool }) {
       downloadMime="application/json"
       downloadName="data"
       conversionError={c.conversionError}
+      warning={precisionWarning(c.parse.lossy)}
       content={<YamlToJsonContent />}
       toolbar={
         <>

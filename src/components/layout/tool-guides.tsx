@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
+import { lazy, memo, Suspense, useEffect, useState, type ComponentType } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/primitives/dialog";
 import type { ToolSeoData } from "@/lib/tool-seo";
 import type { Tool } from "@/lib/tools-registry";
@@ -19,7 +19,7 @@ const CUSTOM_GUIDES: Record<string, ComponentType<GuideProps>> = {
 };
 
 /** "How to use" dialog for any tool. */
-export function ToolGuide({ tool, open, onOpenChange }: { tool: Tool } & GuideProps) {
+export const ToolGuide = memo(function ToolGuide({ tool, open, onOpenChange }: { tool: Tool } & GuideProps) {
   const Custom = CUSTOM_GUIDES[tool.slug];
   if (Custom) {
     return open ? (
@@ -29,7 +29,7 @@ export function ToolGuide({ tool, open, onOpenChange }: { tool: Tool } & GuidePr
     ) : null;
   }
   return <GenericGuide tool={tool} open={open} onOpenChange={onOpenChange} />;
-}
+});
 
 /** Built from the tool's own SEO content: what it's for + the FAQ. */
 function GenericGuide({ tool, open, onOpenChange }: { tool: Tool } & GuideProps) {

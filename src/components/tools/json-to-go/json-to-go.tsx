@@ -47,14 +47,14 @@ export function JsonToGo({ tool }: { tool: Tool }) {
   const safeRoot = useMemo(() => safeGoTypeName(rootName), [rootName]);
 
   const options = useMemo<GoOptions>(
-    () => ({ packageName: safePackage, jsonTagStyle, omitemptyOnOptional }),
-    [safePackage, jsonTagStyle, omitemptyOnOptional],
+    () => ({ rootName: safeRoot, packageName: safePackage, jsonTagStyle, omitemptyOnOptional }),
+    [safeRoot, safePackage, jsonTagStyle, omitemptyOnOptional],
   );
 
   const convert = useCallback((value: unknown) => toGo(value, options), [options]);
   const postProcess = useCallback(
-    (out: string) => postProcessGo(out, { rootName: safeRoot, packageLine }),
-    [safeRoot, packageLine],
+    (out: string) => postProcessGo(out, { packageLine }),
+    [packageLine],
   );
 
   const c = useConverter({

@@ -5,6 +5,7 @@ import { TreeRow } from "./tree-node";
 import { TreeBreadcrumb } from "./tree-breadcrumb";
 import { collectExpanded, flattenTree, type FlatRow } from "./tree-flatten";
 import { useVirtualList } from "./use-virtual-list";
+import { useMeasuredVirtualList } from "./use-measured-virtual-list";
 
 export interface TreeViewProps {
   value: unknown;
@@ -12,9 +13,8 @@ export interface TreeViewProps {
   expandAll?: number;
   collapseAll?: number;
   /**
-   * Wrap long values. Trades virtualization for wrapping (rows then have
-   * variable height, incompatible with fixed-height windowing) — opt-in,
-   * since huge docs are normally explored collapsed anyway.
+   * Wrap long values. Rows then have variable height, so wrap mode uses a
+   * measured (variable-height) window instead of the fixed-height one.
    */
   wrap?: boolean;
 }
@@ -72,8 +72,24 @@ export function TreeView({
     [value, expanded],
   );
 
-  const { scrollRef, onScroll, totalHeight, offsetY, startIndex, endIndex } =
-    useVirtualList(rows.length, ROW_HEIGHT);
+  const {
+    scrollRef: fixedRef,
+    onScroll: fixedOnScroll,
+    totalHeight: fixedTotal,
+    offsetY: fixedOffset,
+    startIndex: fixedStart,
+    endIndex: fixedEnd,
+  } = useVirtualList(rows.length, ROW_HEIGHT);
+  const rowKeys = useMemo(() => rows.map((r) => r.path), [rows]);
+  const {
+    scrollRef: wrapRef,
+    onScroll: wrapOnScroll,
+    measure,
+    totalHeight: wrapTotal,
+    offsetY: wrapOffset,
+    startIndex: wrapStart,
+    endIndex: wrapEnd,
+  } = useMeasuredVirtualList(rowKeys, ROW_HEIGHT);
 
   if (value === null || value === undefined) {
     return (
@@ -85,33 +101,38 @@ export function TreeView({
     );
   }
 
-  const slice = rows.slice(startIndex, endIndex);
+  const slice = wrap ? rows.slice(wrapStart, wrapEnd) : rows.slice(fixedStart, fixedEnd);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {focusPath !== "$" && <TreeBreadcrumb path={focusPath} />}
       {wrap ? (
-        // Wrap mode: variable-height rows ⇒ no fixed-height windowing.
-        <div className="flex-1 overflow-auto px-2 py-2.5 font-mono text-[13px]">
-          {rows.map((row) => (
-            <TreeRow
-              key={row.path}
-              row={row}
-              rowHeight={ROW_HEIGHT}
-              search={search}
-              wrap
-              onActivate={handleActivate}
-            />
-          ))}
+        // Wrap mode: variable-height rows, measured as they render.
+        <div
+          key="wrap"
+          ref={wrapRef}
+          onScroll={wrapOnScroll}
+          className="flex-1 overflow-auto px-2 py-2.5 font-mono text-[13px]"
+        >
+          <div style={{ height: wrapTotal, position: "relative" }}>
+            <div style={{ transform: `translateY(${wrapOffset}px)` }}>
+              {slice.map((row) => (
+                <div key={row.path} ref={measure} data-vkey={row.path}>
+                  <TreeRow row={row} rowHeight={ROW_HEIGHT} search={search} wrap onActivate={handleActivate} />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <div
-          ref={scrollRef}
-          onScroll={onScroll}
+          key="fixed"
+          ref={fixedRef}
+          onScroll={fixedOnScroll}
           className="flex-1 overflow-auto px-2 py-2.5 font-mono text-[13px]"
         >
-          <div style={{ height: totalHeight, position: "relative" }}>
-            <div style={{ transform: `translateY(${offsetY}px)` }}>
+          <div style={{ height: fixedTotal, position: "relative" }}>
+            <div style={{ transform: `translateY(${fixedOffset}px)` }}>
               {slice.map((row) => (
                 <TreeRow
                   key={row.path}

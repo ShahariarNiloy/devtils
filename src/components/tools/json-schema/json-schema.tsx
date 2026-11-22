@@ -58,7 +58,7 @@ export function JsonSchema({ tool }: { tool: Tool }) {
 
   // Round-trip: the schema actually shown must accept the sample.
   const validation = useMemo(() => {
-    if (c.parse.error || c.parse.parsed === null || !c.output) return null;
+    if (c.parse.error || c.parse.empty || !c.output) return null;
     try {
       const schema = JSON.parse(c.output) as JsonSchemaShape;
       const base = validateAgainstSchema(c.parse.parsed, schema);

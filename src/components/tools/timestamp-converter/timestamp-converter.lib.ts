@@ -297,11 +297,15 @@ export function formatAll(
   };
 }
 
-function toRfc2822(zdt: Temporal.ZonedDateTime): string {
+function toRfc2822(input: Temporal.ZonedDateTime): string {
+  // RFC 2822 zones are ±hhmm. Historic local-mean-time offsets carry seconds
+  // (e.g. +06:01:40), which the format can't express — fall back to UTC.
+  const zdt = input.offsetNanoseconds % 60_000_000_000 === 0 ? input : input.withTimeZone("UTC");
   const wd = WEEKDAYS[zdt.dayOfWeek - 1].slice(0, 3);
   const mon = MONTHS[zdt.month - 1].slice(0, 3);
   const off = zdt.offset.replace(":", "");
-  return `${wd}, ${pad(zdt.day)} ${mon} ${zdt.year} ${pad(zdt.hour)}:${pad(
+  const year = zdt.year < 0 ? `-${String(-zdt.year).padStart(4, "0")}` : String(zdt.year).padStart(4, "0");
+  return `${wd}, ${pad(zdt.day)} ${mon} ${year} ${pad(zdt.hour)}:${pad(
     zdt.minute,
   )}:${pad(zdt.second)} ${off}`;
 }

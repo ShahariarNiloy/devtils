@@ -57,27 +57,50 @@ export const FILE_INPUT_ACCEPT =
 
 // ── Output format ────────────────────────────────────────────────
 //
-// "auto" → keep the input's format (preserves PNG transparency, AVIF
-// efficiency, etc). Explicit formats let the user opt into a swap —
-// most commonly PNG → JPEG/WebP for big size wins on photos.
+// "auto"     → encode AVIF, WebP and JPEG (JPEG only without transparency)
+//              at equivalent quality and keep the smallest, colour-correct one.
+// "original" → keep each input's own format (GIF → PNG, HEIC → JPEG).
+// A mime     → that container for every image.
 
 export const OUTPUT_FORMATS = [
   "auto",
+  "image/avif",
+  "image/webp",
   "image/jpeg",
   "image/png",
-  "image/webp",
-  "image/avif",
+  "original",
 ] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
-export const DEFAULT_OUTPUT_FORMAT: OutputFormat = "auto";
+/** New sessions keep each upload's own format: nothing is converted until
+ *  the user picks a format (or clicks its bar). */
+export const DEFAULT_OUTPUT_FORMAT: OutputFormat = "original";
 
-/** Short labels for the per-file Format picker. */
+/** Concrete containers we can encode. */
+export type OutputMime = "image/jpeg" | "image/png" | "image/webp" | "image/avif";
+
+/**
+ * Largest side each encoder accepts. WebP's bitstream stores 14-bit sizes
+ * (16383 max); JPEG/PNG/AVIF go far higher. Memory, not geometry, is the
+ * real limit for huge frames — that surfaces as out-of-memory instead.
+ */
+export const MAX_SIDE_FOR: Record<OutputMime, number> = {
+  "image/webp": 16383,
+  "image/jpeg": 65500,
+  "image/png": 65535,
+  "image/avif": 65535,
+};
+
+/** Formats Auto compares, in tie-break order (most compatible first). */
+export const AUTO_CANDIDATES: readonly OutputMime[] = ["image/jpeg", "image/webp", "image/avif"];
+
+/** Short labels for format buttons and badges. */
 export const OUTPUT_FORMAT_LABEL: Record<OutputFormat, string> = {
   "auto": "Auto",
-  "image/jpeg": "JPG",
+  "image/jpeg": "JPEG",
   "image/png": "PNG",
   "image/webp": "WebP",
   "image/avif": "AVIF",
+  "original": "Original",
 };
 
 // Kept for the SettingsPanel's PNG-specific UI gating.
@@ -104,7 +127,20 @@ export const DEFAULT_QUALITY_MODE: QualityMode = "high";
 // Per-mode SSIM targets, quality-search bounds, PNG mapping, and display
 // copy now live together in `image-compressor.modes.ts` (QUALITY_MODE_DEFS).
 
-export const DEFAULT_CUSTOM_QUALITY = 80;
+export const DEFAULT_CUSTOM_QUALITY = 75;
+
+// ── Goal (v3) ────────────────────────────────────────────────────
+
+export const GOALS = ["quality", "budget"] as const;
+export type Goal = (typeof GOALS)[number];
+export const DEFAULT_GOAL: Goal = "quality";
+export const DEFAULT_BUDGET_KB = 150;
+export const BUDGET_KB_CHIPS = [50, 100, 150, 250, 500] as const;
+export const BUDGET_KB_MIN = 5;
+
+/** "Max width" chips; 0 = keep the original width. Never upscales. */
+export const MAX_WIDTH_CHIPS = [0, 2560, 1920, 1280, 800] as const;
+export const DEFAULT_MAX_WIDTH = 1920;
 
 // ── PNG mode (v1.1) ──────────────────────────────────────────────
 

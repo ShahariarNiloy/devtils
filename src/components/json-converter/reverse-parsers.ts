@@ -6,8 +6,9 @@
  * verbatim and `useConverter` reads the position back out of it.
  */
 
-import { CORE_SCHEMA, load, loadAll, YAMLException } from "js-yaml";
+import { CORE_SCHEMA, load, loadAll, YAMLException, type LoadOptions } from "js-yaml";
 import type { CsvOptions } from "@/components/tools/json-formatter/json-convert";
+import { numberTokenLoses, type LossyNumber } from "./number-precision";
 
 /** Rethrow js-yaml errors as `reason (line L, column C)` — 1-based. */
 function yamlError(err: unknown): Error {
@@ -65,19 +66,111 @@ function applyMergeKeys(v: unknown, done = new Map<object, unknown>()): unknown 
 }
 
 /**
+ * Alias expansion budget. js-yaml resolves `*alias` to the *same* object, so
+ * parsing a "billion laughs" document is cheap — the blow-up happens later,
+ * when JSON.stringify / dump walks every shared reference. 370 bytes of
+ * nested 10× aliases expand to ~10M nodes (≈290 MB of JSON) and freeze the
+ * tab, so documents whose aliases expand past this many nodes are rejected.
+ * Plain (alias-free) documents of any size are unaffected.
+ */
+export const MAX_ALIAS_EXPANDED_NODES = 1_000_000;
+
+interface ExpandState {
+  memo: Map<object, number>;
+  /** Set once any object is reached twice — i.e. an alias was used. */
+  shared: boolean;
+}
+
+/**
+ * Expanded node count, memoised per object so the walk is linear in the
+ * *parsed* graph (anchors counted once), not in the expanded tree.
+ */
+function expandedNodeCount(v: unknown, st: ExpandState): number {
+  if (v === null || typeof v !== "object") return 1;
+  const hit = st.memo.get(v);
+  if (hit !== undefined) {
+    st.shared = true;
+    return hit;
+  }
+  // Placeholder keeps self-referencing anchors (`&a [*a]`) finite; such a
+  // cycle fails later in JSON.stringify with its own error.
+  st.memo.set(v, 1);
+  let n = 1;
+  for (const child of Array.isArray(v) ? v : Object.values(v)) n += expandedNodeCount(child, st);
+  st.memo.set(v, n);
+  return n;
+}
+
+/** Throw when `docs` expand, through shared alias references, past the budget. */
+function assertAliasBudget(docs: readonly unknown[]): void {
+  const st: ExpandState = { memo: new Map(), shared: false };
+  let total = 0;
+  for (const d of docs) total += expandedNodeCount(d, st);
+  if (st.shared && total > MAX_ALIAS_EXPANDED_NODES) {
+    const about = total < 1e12 ? ` (about ${Math.round(total).toLocaleString("en-US")})` : "";
+    throw new Error(
+      `Too many alias expansions — this YAML expands to more than ${MAX_ALIAS_EXPANDED_NODES.toLocaleString("en-US")} nodes${about}. ` +
+        "Reduce nested *aliases before converting.",
+    );
+  }
+}
+
+/** Callback for numbers the parse can't keep exactly (see number-precision). */
+export type LossyNumberReport = (n: LossyNumber) => void;
+
+/**
+ * js-yaml event listener that compares each parsed number against the token
+ * as written. Tracks node start offsets on a stack; only number results are
+ * sliced, so the cost stays linear in the input.
+ */
+function lossyNumberListener(report: LossyNumberReport): NonNullable<LoadOptions["listener"]> {
+  const starts: number[] = [];
+  // Compact block items (`- 1`) compose as two nested nodes over the same
+  // text; remember the last reported end offset so each number counts once.
+  let lastEnd = -1;
+  return (event, state) => {
+    if (event === "open") {
+      starts.push(state.position);
+      return;
+    }
+    const start = starts.pop() ?? state.position;
+    if (typeof state.result !== "number" || state.position === lastEnd) return;
+    // Tags (`!!int`) and anchors (`&a`) precede the value; `*alias` reuses
+    // a number already checked at its anchor.
+    const tok = state.input
+      .slice(start, state.position)
+      .split(/\s+/)
+      .find((t) => t !== "" && t[0] !== "!" && t[0] !== "&");
+    if (tok === undefined || tok[0] === "*") return;
+    const written = tok.replace(/[,\]}]+$/, "");
+    if (numberTokenLoses(written, state.result)) {
+      lastEnd = state.position;
+      report({ raw: written, value: state.result });
+    }
+  };
+}
+
+/** Cheap pre-check: aliases need both an `&anchor` and a `*alias`. */
+const MAY_HAVE_ALIASES = (text: string) => /&[^\s]/.test(text) && /\*[^\s]/.test(text);
+
+/**
  * JSON-safe YAML load: CORE_SCHEMA keeps dates as the strings you wrote
  * (the default schema turns `2026-03-02` into a Date, which JSON then
  * rewrites as a timestamp) and never yields binary/set types.
  */
-function loadJsonSafe(text: string): unknown {
-  const value = load(text, { schema: CORE_SCHEMA });
-  return value === undefined ? null : applyMergeKeys(value);
+function loadDocs(text: string, stream: boolean, report?: LossyNumberReport): unknown[] {
+  const opts: LoadOptions = { schema: CORE_SCHEMA };
+  if (report) opts.listener = lossyNumberListener(report);
+  const raw = stream ? loadAll(text, null, opts) : [load(text, opts)];
+  const docs = raw.map((d) => (d === undefined ? null : applyMergeKeys(d)));
+  if (MAY_HAVE_ALIASES(text)) assertAliasBudget(docs);
+  return docs;
 }
 
 /** Parse a single YAML document. Empty input becomes `null`. */
-export function parseYaml(text: string): unknown {
+export function parseYaml(text: string, report?: LossyNumberReport): unknown {
   try {
-    return loadJsonSafe(text);
+    return loadDocs(text, false, report)[0];
   } catch (err) {
     throw yamlError(err);
   }
@@ -87,11 +180,9 @@ export function parseYaml(text: string): unknown {
  * Parse a YAML stream. One document returns its value; several documents
  * (separated by `---`) return an array, one item per document.
  */
-export function parseYamlStream(text: string): unknown {
+export function parseYamlStream(text: string, report?: LossyNumberReport): unknown {
   try {
-    const docs = loadAll(text, undefined, { schema: CORE_SCHEMA }).map((d) =>
-      d === undefined ? null : applyMergeKeys(d),
-    );
+    const docs = loadDocs(text, true, report);
     if (docs.length === 0) return null;
     return docs.length === 1 ? docs[0] : docs;
   } catch (err) {

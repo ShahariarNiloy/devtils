@@ -2,6 +2,7 @@
 
 import { Clock, X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
+import { ReadyForInput } from "@/components/illustrations/ready-for-input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,13 +66,11 @@ export function EmptyState({
           }
         }}
       />
-      <span aria-hidden="true" className="surface-key flex size-[52px] items-center justify-center rounded-[14px] font-mono text-lg text-clay-light">
-        {"{}"}
-      </span>
+      <ReadyForInput className="w-[150px]" />
       <div>
         <div className="text-lg font-bold">Paste JSON to get started</div>
         <div className="max-w-[360px] text-sm text-text-tertiary">
-          It&apos;s formatted and checked the moment you paste. Nothing leaves your browser.
+          It&apos;s formatted and checked the moment you paste, right here in your browser.
         </div>
       </div>
       <div className="grid w-full max-w-[420px] grid-cols-2 gap-2">

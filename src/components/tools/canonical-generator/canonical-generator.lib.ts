@@ -58,6 +58,18 @@ export interface CanonicalResult {
   checks: Check[];
 }
 
+const NORMALISED = "Normalised the URL's form (default port, dot segments, root slash, encoding or an empty ? / #)";
+
+/** Decoded name of a raw `k=v` query segment ("utm%5Fsource=x" → "utm_source"). */
+function paramKey(seg: string): string {
+  const k = seg.split("=")[0].replace(/\+/g, " ");
+  try {
+    return decodeURIComponent(k);
+  } catch {
+    return k;
+  }
+}
+
 /** Raw host as typed (URL() lowercases it, which hides what changed). */
 function rawHost(input: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^/?#:]*)/i.exec(input)?.[1] ?? "";
@@ -80,6 +92,10 @@ export function canonicalize(input: string, o: CanonicalOptions): CanonicalResul
   }
 
   const notes: string[] = [];
+  // The parser itself may rewrite the URL (default port, dot segments, a root
+  // "/", percent-encoding); say so rather than calling it "already clean".
+  const host = rawHost(raw);
+  if (u.href !== raw.replace(host, host.toLowerCase())) notes.push(NORMALISED);
   if (o.https && u.protocol === "http:") {
     u.protocol = "https:";
     notes.push("Switched to https");
@@ -96,7 +112,8 @@ export function canonicalize(input: string, o: CanonicalOptions): CanonicalResul
   else if (hostHadCaps) notes.push("Lowercased host");
   else if (pathLowered) notes.push("Lowercased path");
 
-  if (o.www === "remove" && u.hostname.startsWith("www.")) {
+  // Only when something domain-like remains: www.com is a domain, not a www host.
+  if (o.www === "remove" && u.hostname.startsWith("www.") && u.hostname.slice(4).includes(".")) {
     u.hostname = u.hostname.slice(4);
     notes.push("Removed www");
   }
@@ -109,23 +126,34 @@ export function canonicalize(input: string, o: CanonicalOptions): CanonicalResul
     notes.push("Dropped index file");
   }
 
-  let params = Array.from(u.searchParams.entries());
+  // Work on the raw `k=v` segments so kept params keep their original
+  // encoding (%20 stays %20, a bare `?amp` stays bare, commas aren't escaped).
+  let params = u.search
+    .slice(1)
+    .split("&")
+    .filter((seg) => seg !== "");
   if (o.allParams) {
     if (params.length) notes.push(`Removed all ${params.length} ${params.length === 1 ? "param" : "params"}`);
     params = [];
   } else if (o.track) {
-    const dropped = params.filter(([k]) => TRACKING_PARAM.test(k));
+    const dropped = params.filter((seg) => TRACKING_PARAM.test(paramKey(seg)));
     if (dropped.length) {
-      notes.push(`Removed ${dropped.map(([k]) => k).join(", ")}`);
-      params = params.filter(([k]) => !TRACKING_PARAM.test(k));
+      notes.push(`Removed ${dropped.map(paramKey).join(", ")}`);
+      params = params.filter((seg) => !TRACKING_PARAM.test(paramKey(seg)));
     }
   }
   if (o.sort && params.length > 1) {
-    const sorted = [...params].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    const sorted = params
+      .map((seg, i) => ({ seg, key: paramKey(seg), i }))
+      .sort((a, b) => {
+        if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+        return a.i - b.i;
+      })
+      .map((x) => x.seg);
     if (sorted.some((p, i) => p !== params[i])) notes.push("Sorted params");
     params = sorted;
   }
-  if (params.length || u.search) u.search = params.length ? new URLSearchParams(params).toString() : "";
+  u.search = params.length ? `?${params.join("&")}` : "";
 
   const path = u.pathname;
   const isFile = /\.[a-z0-9]{2,5}$/i.test(path);
@@ -146,7 +174,7 @@ export function canonicalize(input: string, o: CanonicalOptions): CanonicalResul
   // `u.hash = ""` can leave a bare "#" in some engines; strip it.
   const canonical = u.href.replace(/#$/, "");
   notes.forEach((n) => push("ok", n));
-  if (!notes.length) push("ok", "Already clean — nothing to change.");
+  if (!notes.length) push("ok", canonical === raw ? "Already clean — nothing to change." : NORMALISED);
   if (params.length) {
     push("info", `Kept ${params.length} ${params.length === 1 ? "param" : "params"}. Only keep ones that change the content, like ?page=2.`);
   }

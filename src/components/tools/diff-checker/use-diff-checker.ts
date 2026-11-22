@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import {
   buildHunks,
   buildSideRows,
   computeStats,
-  diffLines,
+  diffLinesDetailed,
   formatUnifiedDiff,
+  type LineOp,
   type DiffOptions,
 } from "@/lib/diff";
 import { changeStarts } from "./diff-checker.lib";
@@ -36,7 +38,14 @@ export interface DiffCheckerState {
   activeChange: number | null;
   setActiveChange: (idx: number | null) => void;
   // Derived
-  ops: ReturnType<typeof diffLines>;
+  ops: LineOp[];
+  /**
+   * Honest-limits signals for very large inputs: `approximate` when some
+   * region was too far apart to align and is shown as a wholesale replace;
+   * `coarseRows` = changed lines shown without word-level highlights
+   * because they were over the word-diff budget.
+   */
+  limits: { approximate: boolean; coarseRows: number };
   stats: ReturnType<typeof computeStats>;
   hunks: ReturnType<typeof buildHunks>;
   sideRows: ReturnType<typeof buildSideRows>;
@@ -64,8 +73,25 @@ const PATCH_LABELS = { left: "original", right: "changed" };
  * keeps history clean and avoids leaking pasted content into the URL.
  */
 export function useDiffChecker(): DiffCheckerState {
-  const [left, setLeft] = useState(SAMPLE_LEFT);
-  const [right, setRight] = useState(SAMPLE_RIGHT);
+  const [left, setLeftState] = useState(SAMPLE_LEFT);
+  const [right, setRightState] = useState(SAMPLE_RIGHT);
+  // The latest text per side, updated synchronously — so an action can call
+  // `flushPendingEdits()` (big inputs reach React debounced) and read the
+  // result in the same handler instead of a stale closure.
+  const latest = useRef({ left: SAMPLE_LEFT, right: SAMPLE_RIGHT });
+  const setLeft = useCallback((v: string) => {
+    latest.current.left = v;
+    setLeftState(v);
+  }, []);
+  const setRight = useCallback((v: string) => {
+    latest.current.right = v;
+    setRightState(v);
+  }, []);
+  /** Flush pending editor edits and return both sides as they are now. */
+  const readNow = useCallback(() => {
+    flushPendingEdits();
+    return latest.current;
+  }, []);
   // Unified is the v2 default: compact, and the only view on phones.
   const [view, setView] = useState<ViewMode>("unified");
   const [options, setOptions] = useState<DiffOptions>({
@@ -102,13 +128,29 @@ export function useDiffChecker(): DiffCheckerState {
       }
       setHydrated(true);
     });
-  }, []);
+  }, [setLeft, setRight]);
 
   // ── Derived ────────────────────────────────────────────────────────
-  const ops = useMemo(() => diffLines(left, right, options), [left, right, options]);
+  // Diff against deferred copies of the inputs: keystrokes commit (and
+  // paint) immediately, and the diff + listing re-render at lower priority,
+  // so a big paste can't make the textareas feel stuck.
+  const deferredLeft = useDeferredValue(left);
+  const deferredRight = useDeferredValue(right);
+  const lineDiff = useMemo(
+    () => diffLinesDetailed(deferredLeft, deferredRight, options),
+    [deferredLeft, deferredRight, options],
+  );
+  const ops = lineDiff.ops;
   const stats = useMemo(() => computeStats(ops), [ops]);
   const hunks = useMemo(() => buildHunks(ops), [ops]);
   const sideRows = useMemo(() => buildSideRows(ops), [ops]);
+  const limits = useMemo(
+    () => ({
+      approximate: lineDiff.approximate,
+      coarseRows: sideRows.reduce((n, r) => (r.kind === "changed" && r.coarse ? n + 1 : n), 0),
+    }),
+    [lineDiff.approximate, sideRows],
+  );
   const opChangeStarts = useMemo(() => changeStarts(ops.map((o) => o.kind === "equal")), [ops]);
   const rowChangeStarts = useMemo(() => changeStarts(sideRows.map((r) => r.kind === "equal")), [sideRows]);
 
@@ -129,23 +171,36 @@ export function useDiffChecker(): DiffCheckerState {
   );
 
   const swap = useCallback(() => {
-    setLeft(right);
-    setRight(left);
-  }, [left, right]);
+    const { left: l, right: r } = readNow();
+    setLeft(r);
+    setRight(l);
+  }, [readNow, setLeft, setRight]);
 
   const clearBoth = useCallback(() => {
+    flushPendingEdits();
     setLeft("");
     setRight("");
-  }, []);
+  }, [setLeft, setRight]);
 
   const loadSample = useCallback(() => {
+    flushPendingEdits();
     setLeft(SAMPLE_LEFT);
     setRight(SAMPLE_RIGHT);
-  }, []);
+  }, [setLeft, setRight]);
+
+  /**
+   * Hunks of the inputs as they are now. The rendered `hunks` follow the
+   * deferred inputs, so recompute when an edit hasn't reached them yet.
+   */
+  const hunksNow = useCallback(() => {
+    const { left: l, right: r } = readNow();
+    return l === deferredLeft && r === deferredRight ? hunks : buildHunks(diffLinesDetailed(l, r, options).ops);
+  }, [readNow, deferredLeft, deferredRight, hunks, options]);
 
   const share = useCallback(async (): Promise<string | null> => {
     try {
-      const token = await encodeShare(left, right);
+      const { left: l, right: r } = readNow();
+      const token = await encodeShare(l, r);
       const hash = shareHashFor(token);
       const url = `${window.location.origin}${window.location.pathname}${hash}`;
       // Overwrite the hash so reload + browser-share use the same URL.
@@ -155,10 +210,10 @@ export function useDiffChecker(): DiffCheckerState {
     } catch {
       return null;
     }
-  }, [left, right]);
+  }, [readNow]);
 
   const copyAsPatch = useCallback(async (): Promise<boolean> => {
-    const patch = formatUnifiedDiff(hunks, PATCH_LABELS);
+    const patch = formatUnifiedDiff(hunksNow(), PATCH_LABELS);
     if (!patch) return false;
     try {
       await navigator.clipboard.writeText(patch);
@@ -166,10 +221,10 @@ export function useDiffChecker(): DiffCheckerState {
     } catch {
       return false;
     }
-  }, [hunks]);
+  }, [hunksNow]);
 
   const downloadPatch = useCallback((): boolean => {
-    const patch = formatUnifiedDiff(hunks, PATCH_LABELS);
+    const patch = formatUnifiedDiff(hunksNow(), PATCH_LABELS);
     if (!patch) return false;
     // Standard download-as-file pattern: Blob → object URL → temporary
     // anchor click → revoke the URL so the browser doesn't pin the Blob
@@ -184,7 +239,7 @@ export function useDiffChecker(): DiffCheckerState {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     return true;
-  }, [hunks]);
+  }, [hunksNow]);
 
   const acceptDroppedFiles = useCallback(async (files: File[]) => {
     // Take up to two files, in the order the browser handed them to us.
@@ -197,16 +252,18 @@ export function useDiffChecker(): DiffCheckerState {
       usable[0].text(),
       usable[1] ? usable[1].text() : Promise.resolve(null),
     ]);
+    // Pending keystrokes land first, so the file replaces them in order.
+    const { left: l, right: r } = readNow();
     if (b !== null) {
       setLeft(a);
       setRight(b);
     } else {
       // Single file → put it on whichever side is empty, else the left.
-      if (left === "" && right !== "") setLeft(a);
-      else if (right === "" && left !== "") setRight(a);
+      if (l === "" && r !== "") setLeft(a);
+      else if (r === "" && l !== "") setRight(a);
       else setLeft(a);
     }
-  }, [left, right]);
+  }, [readNow, setLeft, setRight]);
 
   return {
     left,
@@ -226,6 +283,7 @@ export function useDiffChecker(): DiffCheckerState {
     activeChange,
     setActiveChange,
     ops,
+    limits,
     stats,
     hunks,
     sideRows,

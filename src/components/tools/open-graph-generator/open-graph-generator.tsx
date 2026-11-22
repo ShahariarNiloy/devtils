@@ -38,6 +38,12 @@ export function OpenGraphGenerator({ tool }: { tool: Tool }) {
   const tLen = charCount(f.title.trim());
   const dLen = charCount(f.desc.trim());
 
+  const large = f.card === "summary_large_image";
+  const imageLabel = large ? "Image URL (1200 × 630)" : "Image URL (square)";
+  const imageHint = large
+    ? "The tags declare 1200 × 630, so use an image that size."
+    : "Small cards crop to a square. Use at least 144 × 144; no size is declared.";
+
   return (
     <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
       <SeoWorkspace
@@ -54,9 +60,9 @@ export function OpenGraphGenerator({ tool }: { tool: Tool }) {
             <SeoField label="Page URL">
               <SeoTextInput label="Page URL" value={f.url} onChange={set("url")} placeholder="https://example.com/page" mono />
             </SeoField>
-            <SeoField label="Image URL (1200 × 630)" hint="The tags declare 1200 × 630, so use an image that size.">
+            <SeoField label={imageLabel} hint={imageHint}>
               <SeoTextInput
-                label="Image URL (1200 × 630)"
+                label={imageLabel}
                 value={f.image}
                 onChange={set("image")}
                 placeholder="https://example.com/og.png"

@@ -57,35 +57,40 @@ export interface ColorConverterState {
   commitInput: () => void;
 }
 
-// Read the URL hash once on first client render. SSR returns the
-// neutral default. Lazy initializer guarantees a single run.
-function readInitialHsb(): { h: number; s: number; b: number; a: number } {
-  // Mockup sample colour #C58E5E (warm clay).
-  const sample = rgbToHsb({ r: 197, g: 142, b: 94, a: 1 });
-  const fallback = { h: sample.h, s: sample.s, b: sample.b, a: 1 };
-  if (typeof window === "undefined") return fallback;
+// Mockup sample colour #C58E5E (warm clay) — what the server renders and
+// what the first client render must match.
+const SAMPLE_HSB = rgbToHsb({ r: 197, g: 142, b: 94, a: 1 });
+
+/** Colour from the URL hash (`#ff0000`, `#rgb(…)`), or null. Client-only. */
+function readHashColor(): RGB | null {
   const hash = window.location.hash.slice(1);
-  if (!hash) return fallback;
-  const parsed = parseAnyColor(decodeURIComponent(hash));
-  if (!parsed) return fallback;
-  const hsb = rgbToHsb(parsed);
-  return { h: hsb.h, s: hsb.s, b: hsb.b, a: parsed.a };
+  if (!hash) return null;
+  try {
+    return parseAnyColor(decodeURIComponent(hash));
+  } catch {
+    return null; // malformed %-escape
+  }
+}
+
+function readStoredHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
+  } catch { return []; }
 }
 
 export function useColorConverter(): ColorConverterState {
-  const [initial] = useState(readInitialHsb);
-  const [hue, setHue] = useState(initial.h);
-  const [sat, setSat] = useState(initial.s);
-  const [bri, setBri] = useState(initial.b);
-  const [alpha, setAlpha] = useState(initial.a);
+  const [hue, setHue] = useState(SAMPLE_HSB.h);
+  const [sat, setSat] = useState(SAMPLE_HSB.s);
+  const [bri, setBri] = useState(SAMPLE_HSB.b);
+  const [alpha, setAlpha] = useState(1);
   const [bgRgb, setBgRgb] = useState<RGB>({ r: 255, g: 255, b: 255, a: 1 });
   const [primaryFormat, setPrimaryFormat] = useState<Format>("hex");
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-    } catch { return []; }
-  });
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // False for the server render and hydration pass; the URL hash and
+  // localStorage are only read after mount so both renders match.
+  const [hydrated, setHydrated] = useState(false);
 
   // Raw text in the colour field while the user is typing; null shows HEX.
   const [draft, setDraft] = useState<string | null>(null);
@@ -110,6 +115,15 @@ export function useColorConverter(): ColorConverterState {
   const setBriV = useCallback((v: number) => { setDraft(null); setBri(v); }, []);
   const setAlphaV = useCallback((v: number) => { setDraft(null); setAlpha(v); }, []);
 
+  useEffect(() => {
+    const fromHash = readHashColor();
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hydration of client-only hash + storage */
+    if (fromHash) applyRgb(fromHash);
+    setHistory(readStoredHistory());
+    setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [applyRgb]);
+
   const setInputText = useCallback((text: string) => {
     setDraft(text);
     const parsed = parseAnyColor(text);
@@ -132,13 +146,14 @@ export function useColorConverter(): ColorConverterState {
   // Update URL hash so a refresh restores the current color without
   // spamming history.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Don't overwrite a shared hash before it has been read.
+    if (!hydrated) return;
     const hex = rgbToHex(rgb).replace("#", "");
     const target = `#${hex}`;
     if (window.location.hash !== target) {
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${target}`);
     }
-  }, [rgb]);
+  }, [rgb, hydrated]);
 
   const addToHistory = useCallback((explicitHex?: string) => {
     const hex = explicitHex ?? rgbToHex(hsbToRgb(hue, sat, bri, 1));

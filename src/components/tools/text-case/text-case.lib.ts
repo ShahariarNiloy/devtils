@@ -42,12 +42,22 @@ export function tokenize(input: string): string[] {
   return input
     .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
     .replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, "$1 $2")
-    .split(/[^\p{L}\p{N}]+/u)
+    // Apostrophes inside a word don't split it: don't → dont, not don + t.
+    .replace(/(\p{L})['\u2019](?=\p{L})/gu, "$1")
+    // \p{M}: combining marks (Indic vowel signs, viramas, decomposed
+    // accents) belong to the letter before them, never a word break.
+    .split(/[^\p{L}\p{M}\p{N}]+/u)
     .filter(Boolean)
     .map((w) => w.toLowerCase());
 }
 
-const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+// Code-point aware so a word starting with an astral letter still capitalises.
+const cap = (s: string) => {
+  const first = s.codePointAt(0);
+  if (first === undefined) return s;
+  const head = String.fromCodePoint(first);
+  return head.toUpperCase() + s.slice(head.length);
+};
 
 const join = (sep: string) => (line: string) => tokenize(line).join(sep);
 const camelLike = (firstLower: boolean) => (line: string) =>

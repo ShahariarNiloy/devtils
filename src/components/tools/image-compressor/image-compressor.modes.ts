@@ -26,10 +26,19 @@ export interface QualityModeDef {
   description: string;
   /** Longer blurb shown for the active mode in the Settings drawer. */
   blurb: string;
-  /** Perceptual SSIM target for lossy codecs (JPEG/WebP/AVIF). */
-  ssimTarget: number;
-  /** Quality search window for the SSIM-targeted binary search. */
-  ssimBounds: { minQuality: number; maxQuality: number };
+  /**
+   * Fixed encoder quality per lossy codec. Calibrated with SSIMULACRA2 on
+   * the Kodak set + screenshots + alpha graphics (2026-11): Best ≈ 84–85
+   * (visually lossless), Balanced ≈ 71–76 (TinyPNG-level), Smallest ≈ 61–64
+   * (slight loss on close inspection). One encode per image — no search.
+   */
+  quality: { jpeg: number; webp: number; avif: number };
+  /**
+   * JPEG chroma: "full" always keeps 4:4:4; "photo-420" uses 4:2:0 for
+   * photographic images (≈9% smaller at equal perceived quality) and keeps
+   * 4:4:4 for screenshots/graphics, where 4:2:0 smears coloured text.
+   */
+  jpegChroma: "full" | "photo-420";
   /** How named modes map onto PNG behaviour. */
   png: { pngMode: PngMode; pngQuantizationQuality: number };
 }
@@ -37,21 +46,21 @@ export interface QualityModeDef {
 export const QUALITY_MODE_DEFS: Record<NamedQualityMode, QualityModeDef> = {
   maximum: {
     label: "Best",
-    helper: "Top quality, largest files.",
-    description: "Top quality",
-    blurb: "Top quality, largest files. Lossless for PNG.",
-    ssimTarget: 0.98, // visually lossless
-    ssimBounds: { minQuality: 60, maxQuality: 95 },
+    helper: "Visually lossless, larger files.",
+    description: "Visually lossless",
+    blurb: "Visually lossless — differences don't show even side by side. Larger files. Lossless for PNG.",
+    quality: { jpeg: 90, webp: 90, avif: 80 },
+    jpegChroma: "full",
     png: { pngMode: "lossless", pngQuantizationQuality: 100 },
   },
   high: {
     label: "Balanced",
-    helper: "Visually identical to the original, much smaller. Recommended.",
+    helper: "Looks the same at normal viewing, much smaller. Recommended.",
     description: "Recommended",
     blurb:
-      "Visually identical to the original, much smaller. The right pick for most images.",
-    ssimTarget: 0.95, // barely noticeable
-    ssimBounds: { minQuality: 40, maxQuality: 90 },
+      "Looks the same at normal viewing size, at a fraction of the bytes. The right pick for most images.",
+    quality: { jpeg: 75, webp: 80, avif: 60 },
+    jpegChroma: "photo-420",
     png: { pngMode: "lossy", pngQuantizationQuality: 85 },
   },
   small: {
@@ -60,8 +69,8 @@ export const QUALITY_MODE_DEFS: Record<NamedQualityMode, QualityModeDef> = {
     description: "Smallest file",
     blurb:
       "Smallest files, with a slight quality trade-off on close inspection.",
-    ssimTarget: 0.85, // visible on close inspection
-    ssimBounds: { minQuality: 20, maxQuality: 80 },
+    quality: { jpeg: 60, webp: 60, avif: 50 },
+    jpegChroma: "photo-420",
     png: { pngMode: "lossy", pngQuantizationQuality: 45 },
   },
 };

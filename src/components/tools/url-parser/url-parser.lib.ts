@@ -81,7 +81,8 @@ function part(label: string, value: string, kind: PartKind): UrlPart {
 export function urlParts(url: URL): UrlPart[] {
   const parts: UrlPart[] = [part("Scheme", url.protocol.replace(/:$/, ""), "scheme")];
   if (url.username || url.password) {
-    parts.push(part("Credentials", url.username + (url.password ? `:${url.password}` : ""), "user"));
+    // Show credentials decoded (p%40ss → p@ss); the coloured URL above keeps the raw form.
+    parts.push(part("Credentials", safeDecode(url.username) + (url.password ? `:${safeDecode(url.password)}` : ""), "user"));
   }
   parts.push(part("Host", url.hostname, "host"));
   const def = DEFAULT_PORTS[url.protocol];

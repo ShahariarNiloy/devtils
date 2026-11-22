@@ -1,11 +1,15 @@
 import type {
+  Goal,
   OutputFormat,
+  OutputMime,
   PngMode,
   QualityMode,
 } from "./image-compressor.constants";
 import type { CompressionError } from "./image-compressor.errors";
 
-export type { OutputFormat, PngMode, QualityMode };
+export type { Goal, OutputFormat, OutputMime, PngMode, QualityMode };
+
+export type IccStatus = "none" | "preserved" | "converted" | "lost" | "cmyk";
 
 export interface AdvancedEncoderOptions {
   // JPEG
@@ -35,8 +39,18 @@ export interface CompressionSettings {
   pngMode: PngMode;                    // 'lossy' (default) or 'lossless'
   pngQuantizationQuality: number;      // 1–100, lossy-PNG only
   pngOptimizationLevel: number;        // 1–6 oxipng level
-  /** Target output container. "auto" preserves the input mime. */
+  /** Target output container: "auto" = smallest of AVIF/WebP/JPEG,
+   *  "original" = keep each input's format, or one explicit mime. */
   outputFormat: OutputFormat;
+  /** "quality" = fixed per-codec quality (mode or slider); "budget" = the
+   *  highest quality whose file fits `budgetKb`, searched per image. */
+  goal: Goal;
+  /** Size budget in KB (1 KB = 1024 bytes), used when goal === "budget". */
+  budgetKb: number;
+  /** Keep the original bytes when the re-encode isn't smaller (same pixel
+   *  size; same format, or any format under Auto). Off = always deliver
+   *  the re-encode, with an honest "+x%". */
+  neverBigger: boolean;
   resize: {
     enabled: boolean;
     width: number | null;
@@ -49,6 +63,41 @@ export interface CompressionSettings {
 }
 
 export type FileStatus = "idle" | "compressing" | "done" | "error";
+
+/** One format's outcome for an image — Auto's candidates and the
+ *  "every format" comparison bars. */
+export interface CandidateSummary {
+  mimeType: OutputMime;
+  size: number;
+  /** Encoder quality used (palette quality for PNG; null = lossless). */
+  quality: number | null;
+  /** Budget goal: whether it fit. Null under the quality goal. */
+  fits: boolean | null;
+  iccStatus: IccStatus;
+  /** An approximation from a downscaled sample, not a real encode. */
+  estimated?: boolean;
+  /** The estimate is known to be loose (non-photo content, palette PNG). */
+  rough?: boolean;
+}
+
+export interface BudgetInfo {
+  targetBytes: number;
+  /** The delivered file is ≤ the budget. */
+  fits: boolean;
+  /** Encoder quality the search settled on (null = lossless / original). */
+  quality: number | null;
+  /** The budget pushed quality below Smallest — visibly softer. */
+  soft: boolean;
+}
+
+/** What the source carries that the output drops (EXIF). */
+export interface MetadataSummary {
+  /** Any EXIF/XMP block at all. */
+  exif: boolean;
+  gps: boolean;
+  /** "Google Pixel 8" from EXIF Make/Model, when present. */
+  camera: string | null;
+}
 
 export interface CompressionResult {
   buffer: ArrayBuffer;
@@ -74,7 +123,7 @@ export interface CompressionResult {
    *                 the WASM decoder converts CMYK → RGB only approximately,
    *                 so colours may shift. Warn rather than silently distort.
    */
-  iccStatus: "none" | "preserved" | "converted" | "lost" | "cmyk";
+  iccStatus: IccStatus;
   /**
    * The quality mode this result was produced under. Captured so the
    * UI can show estimates honestly: if the user changes the chip
@@ -91,13 +140,42 @@ export interface CompressionResult {
    */
   pngPhotoAdvisory: boolean;
   /**
-   * True when a lossy encoder (JPEG/WebP/AVIF) couldn't meet the perceptual
-   * (SSIM) target for "High"/"Maximum" mode. In that case `buffer` is the
-   * *original* input, not a degraded re-encode — the user is asked to pick
-   * a smaller quality or a different format rather than silently shipped a
-   * result below the bar they chose.
+   * True when re-encoding the same format at the same size came out no
+   * smaller, so the original bytes were kept (savedPct 0).
    */
-  qualityFloorMissed: boolean;
+  keptOriginal: boolean;
+  /**
+   * A browser-displayable rendering of the *original* (JPEG q92, full
+   * size) for sources browsers can't show — HEIC/HEIF. The UI swaps it in
+   * for the row thumbnail and the compare view's "Original" side.
+   */
+  sourcePreview?: { buffer: ArrayBuffer; mimeType: string };
+  /** The source was animated (GIF / APNG / animated WebP); only frame 1 was kept. */
+  animatedSource: "gif" | "apng" | "webp" | null;
+  /** The source carried EXIF/XMP metadata (camera, date, GPS) that the output omits. */
+  metadataStripped: boolean;
+  /** Auto chose this format among `candidates`. */
+  autoPicked: boolean;
+  /** Every format encoded for this result (Auto: the contenders). */
+  candidates: CandidateSummary[];
+  /** Set under the budget goal. */
+  budget: BudgetInfo | null;
+  /** The encoded pixels carry transparency (Auto skipped JPEG). */
+  hasAlpha: boolean;
+  /** Facts about the source the merge step needs (kept-original status). */
+  source: { hasProfile: boolean; cmyk: boolean };
+  /** Downscaled pre-encode pixels for the other formats' size estimates. */
+  sample?: EstimateSampleData;
+}
+
+/** See EstimateSample in image-compressor.lib (kept structural here). */
+export interface EstimateSampleData {
+  buffer: ArrayBuffer;
+  width: number;
+  height: number;
+  ratio: number;
+  inputMime: string;
+  p3: boolean;
 }
 
 export interface ImageFile {
@@ -107,6 +185,9 @@ export interface ImageFile {
   inputMimeType: string;
   inputDimensions: { width: number; height: number } | null;
   previewUrl: string;
+  /** Small (~160px) WebP for the queue card; null until made or when the
+   *  browser can't decode the file (the card then uses previewUrl). */
+  thumbUrl?: string | null;
   settings: CompressionSettings;
   status: FileStatus;
   result: CompressionResult | null;
@@ -128,4 +209,13 @@ export interface ImageFile {
    *  until the async probe completes. Used to warn before a format
    *  swap would silently drop the profile. */
   hasIcc: boolean | null;
+  /** EXIF camera / GPS facts, read from the first bytes on add. */
+  meta: MetadataSummary | null;
+  /** This image's own output format (set from its format bars), or null to
+   *  follow the global Format. `settings` already has it applied. */
+  formatOverride: OutputFormat | null;
+  /** Generated sample image (the "examples" set) — replaced by real files. */
+  sample: boolean;
+  /** Extra formats encoded for the comparison bars, keyed by settings. */
+  probes: { key: string; candidates: CandidateSummary[] } | null;
 }

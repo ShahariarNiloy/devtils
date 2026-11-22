@@ -1,8 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ClipboardPaste, Download, MoreHorizontal, Trash2 } from "lucide-react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import {
+  ClipboardPaste,
+  Download,
+  FolderOpen,
+  MoreHorizontal,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import { ToolShell } from "@/components/layout/tool-shell";
 import {
   DropdownMenu,
@@ -21,12 +29,18 @@ import { formatBytes } from "@/components/tools/json-formatter/json-formatter.li
 import type { Lang } from "@/lib/highlight";
 import type { Tool } from "@/lib/tools-registry";
 import type { TablePreview } from "./converter.lib";
-import { ConverterInputPane } from "./converter-input-pane";
+import { ConverterInputPane, loadFileInto, type JumpTarget } from "./converter-input-pane";
 import { ConverterOutputPane } from "./converter-output-pane";
 import { JSON_SAMPLES, type JsonSample } from "./samples";
 import { useIsNarrow } from "./use-narrow";
 
 type ParseError = { message: string; line?: number; col?: number };
+
+const FILE_ACCEPT: Partial<Record<Lang, string>> = {
+  json: ".json,application/json,.txt",
+  yaml: ".yaml,.yml,application/yaml,.txt",
+  csv: ".csv,.tsv,text/csv,.txt",
+};
 
 interface ConverterShellProps {
   tool: Tool;
@@ -68,6 +82,11 @@ interface ConverterShellProps {
   statusNote?: string;
   /** Extra status bar node (e.g. a round-trip validation result). */
   statusExtra?: ReactNode;
+  /**
+   * Non-fatal problem with a successful conversion (e.g. numbers that lose
+   * precision). Shown as a banner above the panes — never silently dropped.
+   */
+  warning?: string | null;
 
   /** SEO content block rendered below the workspace (use ToolContent). */
   content?: ReactNode;
@@ -105,10 +124,32 @@ export function ConverterShell({
   statusVerb = "Generated",
   statusNote,
   statusExtra,
+  warning,
   content,
 }: ConverterShellProps) {
   const narrow = useIsNarrow();
   const empty = !input.trim();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [jumpTo, setJumpTo] = useState<JumpTarget | undefined>(undefined);
+  const jump = useCallback((line: number, col: number) => setJumpTo((j) => ({ line, col, nonce: (j?.nonce ?? 0) + 1 })), []);
+  // Keep the nonce (so the next jump still differs) but stop a remount
+  // (e.g. the phone ↔ desktop layout switch) from jumping again.
+  const jumped = useCallback(() => setJumpTo((j) => (j ? { ...j, line: 0 } : j)), []);
+  const activeJump = jumpTo && jumpTo.line > 0 ? jumpTo : undefined;
+
+  /**
+   * Every action that replaces the input first delivers any keystrokes the
+   * editor is still debouncing (large documents), so a late flush can't
+   * overwrite the new text — and a clear of not-yet-reported text isn't a
+   * no-op.
+   */
+  const replaceInput = useCallback(
+    (v: string) => {
+      flushPendingEdits();
+      onInputChange(v);
+    },
+    [onInputChange],
+  );
 
   let error: { title: string; message: string } | null = null;
   if (parseError) {
@@ -116,7 +157,10 @@ export function ConverterShell({
       parseError.line !== undefined && !/line \d+/i.test(parseError.message)
         ? ` (line ${parseError.line}${parseError.col !== undefined ? `, column ${parseError.col}` : ""})`
         : "";
-    error = { title: `Invalid ${inputLabel}`, message: parseError.message + where };
+    error = {
+      title: `Invalid ${inputLabel}`,
+      message: parseError.message + where,
+    };
   } else if (conversionError) {
     error = { title: "Conversion failed", message: conversionError };
   }
@@ -125,7 +169,7 @@ export function ConverterShell({
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        onInputChange(text);
+        replaceInput(text);
         toast.success(`Pasted ${text.length.toLocaleString()} characters`);
       }
     } catch {
@@ -134,7 +178,8 @@ export function ConverterShell({
   };
 
   const handleDownload = () => {
-    if (!output) return;
+    flushPendingEdits();
+    if (!output || isComputing) return;
     const blob = new Blob([output], { type: downloadMime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -146,14 +191,24 @@ export function ConverterShell({
 
   let status: { text: string; tone: string };
   if (empty) status = { text: "Waiting for input", tone: "text-text-faint" };
-  else if (parseError) status = { text: `Invalid ${inputLabel}`, tone: "text-error" };
-  else if (conversionError) status = { text: "Conversion failed", tone: "text-error" };
-  else if (isComputing && !output) status = { text: "Converting…", tone: "text-text-faint" };
+  else if (parseError)
+    status = { text: `Invalid ${inputLabel}`, tone: "text-error" };
+  else if (conversionError)
+    status = { text: "Conversion failed", tone: "text-error" };
+  else if (isComputing && !output)
+    status = { text: "Converting…", tone: "text-text-faint" };
   else status = { text: statusVerb, tone: "text-success" };
 
   const ok = !empty && !error && output;
   const detail = ok
-    ? [outputLabel, summary, statusNote, narrow ? null : formatBytes(outputBytes)].filter(Boolean).join(" · ")
+    ? [
+        outputLabel,
+        summary,
+        statusNote,
+        narrow ? null : formatBytes(outputBytes),
+      ]
+        .filter(Boolean)
+        .join(" · ")
     : "";
 
   const inputPane = (
@@ -163,6 +218,9 @@ export function ConverterShell({
       parseError={parseError}
       inputLang={inputLang}
       inputLabel={inputLabel}
+      jumpTo={activeJump}
+      onJump={jump}
+      onJumped={jumped}
     />
   );
   const outputPane = (
@@ -172,6 +230,8 @@ export function ConverterShell({
       outputLabel={outputLabel}
       summary={summary}
       error={empty ? null : error}
+      errorAt={parseError?.line !== undefined ? { line: parseError.line, col: parseError.col ?? 1 } : null}
+      onJump={jump}
       isComputing={isComputing}
       preview={preview}
     />
@@ -184,6 +244,19 @@ export function ConverterShell({
         <div className="flex flex-wrap items-center gap-2.5 border-b border-border-subtle bg-toolbar p-3">
           {toolbar}
           <span className="grow" />
+          <input
+            ref={fileRef}
+            type="file"
+            accept={FILE_ACCEPT[inputLang] ?? ".txt"}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) loadFileInto(onInputChange)(f);
+              e.target.value = "";
+            }}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -195,7 +268,10 @@ export function ConverterShell({
                 <MoreHorizontal size={16} aria-hidden />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[70dvh] min-w-60 overflow-y-auto">
+            <DropdownMenuContent
+              align="end"
+              className="max-h-[70dvh] min-w-60 overflow-y-auto"
+            >
               {menu && (
                 <>
                   {menu}
@@ -203,14 +279,28 @@ export function ConverterShell({
                 </>
               )}
               <DropdownMenuItem onClick={() => void handlePaste()}>
-                <ClipboardPaste size={14} aria-hidden className="text-text-faint" />
+                <ClipboardPaste
+                  size={14}
+                  aria-hidden
+                  className="text-text-faint"
+                />
                 Paste from clipboard
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onInputChange("")} disabled={empty}>
+              <DropdownMenuItem onClick={() => fileRef.current?.click()}>
+                <FolderOpen size={14} aria-hidden className="text-text-faint" />
+                Open a file…
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => replaceInput("")}
+                disabled={empty}
+              >
                 <Trash2 size={14} aria-hidden className="text-text-faint" />
                 Clear input
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownload} disabled={!output || Boolean(error)}>
+              <DropdownMenuItem
+                onClick={handleDownload}
+                disabled={!output || Boolean(error) || isComputing}
+              >
                 <Download size={14} aria-hidden className="text-text-faint" />
                 Download .{downloadExt}
               </DropdownMenuItem>
@@ -221,11 +311,16 @@ export function ConverterShell({
                   {JSON_SAMPLES.map((s) => (
                     <DropdownMenuItem
                       key={s.id}
-                      onClick={() => onLoadSample(s)}
+                      onClick={() => {
+                        flushPendingEdits();
+                        onLoadSample(s);
+                      }}
                       className="flex-col items-start gap-0.5"
                     >
                       <span className="font-medium">{s.label}</span>
-                      <span className="text-xs text-text-faint">{s.description}</span>
+                      <span className="text-xs text-text-faint">
+                        {s.description}
+                      </span>
                     </DropdownMenuItem>
                   ))}
                 </>
@@ -234,10 +329,26 @@ export function ConverterShell({
           </DropdownMenu>
         </div>
 
+        {warning && !empty && !error && (
+          <div
+            role="status"
+            className="flex items-start gap-2 border-b border-warning-border bg-warning-bg px-3 py-1.5 text-[12.5px] text-warning-text"
+          >
+            <TriangleAlert
+              size={13}
+              className="mt-[3px] shrink-0"
+              aria-hidden
+            />
+            <span className="min-w-0 break-words">{warning}</span>
+          </div>
+        )}
+
         {/* PANES */}
         {narrow ? (
           <div className="flex flex-col">
-            <div className="h-[300px] border-b border-border-subtle">{inputPane}</div>
+            <div className="h-card-sm border-b border-border-subtle">
+              {inputPane}
+            </div>
             <div className="h-[max(340px,55dvh)]">{outputPane}</div>
           </div>
         ) : (
@@ -256,7 +367,7 @@ export function ConverterShell({
         )}
 
         {/* STATUS BAR */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border-subtle bg-toolbar px-4 py-[9px] font-mono text-xs text-text-faint">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border-subtle bg-toolbar px-4 py-2.25 font-mono text-xs text-text-faint">
           <span className={status.tone}>● {status.text}</span>
           {detail && <span>{detail}</span>}
           {statusExtra}

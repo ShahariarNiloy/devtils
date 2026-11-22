@@ -71,7 +71,7 @@ export function describeCompressionError(e: CompressionError): {
     case "image-too-large":
       return {
         label: "too large",
-        hint: `Image is ${e.dimensions[0]}×${e.dimensions[1]} — too large to process. Resize it first.`,
+        hint: `Image is ${e.dimensions[0]}×${e.dimensions[1]} — WebP can't go past 16383px on a side. Pick JPEG, PNG or AVIF, or a smaller max width.`,
       };
     case "unsupported-input":
       return {

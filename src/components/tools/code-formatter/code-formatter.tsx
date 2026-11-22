@@ -82,7 +82,7 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
 
   const onFile = useCallback(
     async (file: File) => {
-      s.setInput(await file.text());
+      s.replaceInput(await file.text());
     },
     [s],
   );
@@ -90,7 +90,7 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
   // ── Shortcuts ───────────────────────────────────────────────────────
   useShortcut({ key: "/", ignoreInEditable: true, label: "Focus input" }, (e) => {
     e.preventDefault();
-    workspaceRef.current?.querySelector("textarea")?.focus();
+    workspaceRef.current?.querySelector<HTMLElement>(".cm-content")?.focus();
   });
   useShortcut({ key: "c", meta: true, shift: true, label: "Copy output" }, (e) => {
     e.preventDefault();
@@ -217,7 +217,7 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
               <DropdownMenuItem disabled={!output} onSelect={onDownload}>
                 Download .{lang.extension}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void pasteInto(s.setInput)}>Paste from clipboard</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void pasteInto(s.replaceInput)}>Paste from clipboard</DropdownMenuItem>
               <DropdownMenuItem onSelect={s.loadSample}>Load sample</DropdownMenuItem>
               <DropdownMenuItem disabled={!s.input} onSelect={s.clear}>
                 Clear input
@@ -231,6 +231,7 @@ export function CodeFormatter({ tool }: { tool: Tool }) {
                 value={s.input}
                 onChange={s.setInput}
                 lang={hLang}
+                errorLine={s.error ? s.errorLine : undefined}
                 ariaLabel={`${lang.label} input`}
                 placeholder={`Paste ${lang.label} to format…`}
               />

@@ -90,6 +90,7 @@ export async function validate(xml: string): Promise<ValidationResult> {
 const ATTR_PREFIX = "@_";
 const COMMENT_KEY = "#comment";
 const CDATA_KEY = "#cdata";
+const TEXT_KEY = "#text";
 
 /**
  * Parse → optionally transform tree (sort attrs, strip namespaces, drop
@@ -128,7 +129,15 @@ export async function format(
       cdataPropName: CDATA_KEY,
       parseTagValue: false,
       parseAttributeValue: false,
-      trimValues: true,
+      // Keep whitespace so mixed content / `xml:space="preserve"` can be
+      // emitted exactly as written; `normalizeWhitespace` below drops the
+      // insignificant inter-element whitespace instead.
+      trimValues: false,
+      // Keep entity/character references exactly as written (`&copy;`,
+      // `&#169;`, `&amp;`) — the builder below emits them verbatim. Decoding
+      // on one side and re-escaping on the other turned `&copy;` into
+      // `&amp;copy;`, changing the document.
+      processEntities: false,
     });
 
     let tree = parser.parse(xml) as TreeNode[];
@@ -137,29 +146,53 @@ export async function format(
     if (options.stripNamespaces) tree = stripXmlns(tree);
     if (options.sortAttributes) tree = sortAttrs(tree);
 
-    // `suppressEmptyNode: true` emits `<foo/>` for empty elements;
-    // `false` emits `<foo></foo>`. The compact form is most users'
-    // expectation, so that's our default; opt-into expanded form
-    // explicitly when callers want HTML-flavoured XML.
     const suppressEmpty = options.selfClosing !== "expand";
-    const builder = new (XMLBuilder as typeof XmlBuilder)({
+    const builderOpts = {
       attributeNamePrefix: ATTR_PREFIX,
       ignoreAttributes: false,
       preserveOrder: true,
       commentPropName: COMMENT_KEY,
       cdataPropName: CDATA_KEY,
-      format: true,
-      indentBy,
       suppressEmptyNode: suppressEmpty,
-      processEntities: true,
+      processEntities: false,
+    };
+
+    // Elements whose whitespace is significant (mixed content, CDATA,
+    // `xml:space="preserve"`) are serialized inline, unformatted, and
+    // stood in for by a NUL-delimited placeholder — NUL can't occur in XML,
+    // and a plain-text placeholder keeps the pretty-printer from breaking
+    // the element across lines or appending a newline after `]]>`.
+    const inlineBuilder = new (XMLBuilder as typeof XmlBuilder)({ ...builderOpts, format: false });
+    const inlined: string[] = [];
+    tree = normalizeWhitespace(tree, false, (children) => {
+      inlined.push(inlineBuilder.build(children) as string);
+      return `\u0000${inlined.length - 1}\u0000`;
     });
-    let out = builder.build(tree) as string;
+
+    // `suppressEmptyNode: true` emits `<foo/>` for empty elements;
+    // `false` emits `<foo></foo>`. The compact form is most users'
+    // expectation, so that's our default; opt-into expanded form
+    // explicitly when callers want HTML-flavoured XML.
+    const builder = new (XMLBuilder as typeof XmlBuilder)({ ...builderOpts, format: true, indentBy });
+    let out = (builder.build(tree) as string).replace(
+      /\u0000(\d+)\u0000/g,
+      (_, n: string) => inlined[Number(n)],
+    );
 
     // Declaration handling.
     if (options.declaration === "strip") {
       out = out.replace(/^<\?xml[^?>]*\?>\s*\n?/i, "");
     } else if (options.declaration === "add" && !/^<\?xml/i.test(out)) {
       out = `<?xml version="1.0" encoding="UTF-8"?>\n${out}`;
+    }
+
+    // The parser drops `<!DOCTYPE …>`; put the original back in front of
+    // the root element (after the declaration / PIs / prolog comments).
+    const doctype = extractDoctype(xml);
+    if (doctype) {
+      const at = prologEnd(out);
+      const head = out.slice(0, at).replace(/\s+$/, "");
+      out = `${head}${head ? "\n" : ""}${doctype}\n${out.slice(at)}`;
     }
 
     // Trim leading + trailing whitespace; the builder sometimes prepends
@@ -334,6 +367,9 @@ export async function xmlToJson(
       processEntities: true,
       parseAttributeValue: true,
       parseTagValue: true,
+      // Never let number coercion lose data: `007` (zip codes, IDs) and
+      // `0x10` stay strings rather than becoming 7 and 16.
+      numberParseOptions: { leadingZeros: false, hex: false },
       trimValues: true,
     });
     const obj = parser.parse(xml) as unknown;
@@ -513,6 +549,157 @@ export function statsFor(input: string, output: string): XmlStats {
   };
 }
 
+// ── Whitespace / prolog helpers (internal) ─────────────────────────────
+
+const SPECIAL_KEYS: ReadonlySet<string> = new Set([TEXT_KEY, COMMENT_KEY, CDATA_KEY, ":@"]);
+
+/** The element/text/comment key of a preserveOrder node (never `:@`). */
+function nodeKey(node: TreeNode): string | undefined {
+  return Object.keys(node).find((k) => k !== ":@");
+}
+
+function isElementKey(key: string): boolean {
+  return !SPECIAL_KEYS.has(key) && key[0] !== "?";
+}
+
+function textOf(node: TreeNode): string {
+  const v = node[TEXT_KEY];
+  return typeof v === "string" ? v : "";
+}
+
+const isBlank = (s: string) => /^[ \t\r\n]*$/.test(s);
+
+/**
+ * Decide, per element, which whitespace is significant (the parser runs
+ * with `trimValues: false`):
+ *
+ *   - `xml:space="preserve"` (inherited), or mixed content — non-blank text
+ *     alongside child elements/comments — or any CDATA child: the children
+ *     are handed to `inline` and replaced by the placeholder text it returns,
+ *     so they're emitted byte-for-byte on one line.
+ *   - text-only: the text is trimmed (the formatter's long-standing
+ *     behaviour for `<a>  x  </a>`).
+ *   - element-only: blank text nodes are indentation noise and are dropped,
+ *     so the pretty-printer re-indents exactly as before.
+ */
+function normalizeWhitespace(
+  tree: TreeNode[],
+  inheritedPreserve: boolean,
+  inline: (children: TreeNode[]) => string,
+): TreeNode[] {
+  const out: TreeNode[] = [];
+  for (const node of tree) {
+    const key = nodeKey(node);
+    if (key === undefined) continue;
+    if (key === TEXT_KEY) {
+      // Only reached for element-only content and the top level.
+      if (!isBlank(textOf(node))) out.push(node);
+      continue;
+    }
+    const children = node[key];
+    if (!isElementKey(key) || !Array.isArray(children)) {
+      out.push(node);
+      continue;
+    }
+    const space = node[":@"]?.[`${ATTR_PREFIX}xml:space`];
+    let preserve = inheritedPreserve;
+    if (space === "preserve") preserve = true;
+    else if (space === "default") preserve = false;
+    const kids = children as TreeNode[];
+    const keys = kids.map(nodeKey);
+    const hasText = kids.some((k, i) => keys[i] === TEXT_KEY && !isBlank(textOf(k)));
+    const hasCdata = keys.includes(CDATA_KEY);
+    const hasNonText = keys.some((k) => k !== undefined && k !== TEXT_KEY);
+    const next: TreeNode = { ...node };
+    if (kids.length && (preserve || hasCdata || (hasText && hasNonText))) {
+      next[key] = [{ [TEXT_KEY]: inline(kids) }];
+    } else if (!hasNonText) {
+      const text = kids.map(textOf).join("").trim();
+      next[key] = text ? [{ [TEXT_KEY]: text }] : [];
+    } else {
+      next[key] = normalizeWhitespace(kids, preserve, inline);
+    }
+    out.push(next);
+  }
+  return out;
+}
+
+/** Index just past `<?…?>` / `<!--…-->` / `<!DOCTYPE …>` / whitespace at the start. */
+function prologEnd(xml: string): number {
+  let i = 0;
+  const len = xml.length;
+  while (i < len) {
+    const c = xml.charCodeAt(i);
+    if (c === 32 || c === 9 || c === 10 || c === 13 || c === 0xfeff) { i++; continue; }
+    if (xml.startsWith("<?", i)) {
+      const end = xml.indexOf("?>", i + 2);
+      if (end < 0) return i;
+      i = end + 2;
+      continue;
+    }
+    if (xml.startsWith("<!--", i)) {
+      const end = xml.indexOf("-->", i + 4);
+      if (end < 0) return i;
+      i = end + 3;
+      continue;
+    }
+    if (xml.startsWith("<!DOCTYPE", i)) {
+      const end = doctypeEnd(xml, i);
+      if (end < 0) return i;
+      i = end;
+      continue;
+    }
+    return i;
+  }
+  return i;
+}
+
+/** End index (exclusive) of the `<!DOCTYPE …>` starting at `start`, or -1. */
+function doctypeEnd(xml: string, start: number): number {
+  let quote = 0;
+  let subset = false;
+  for (let i = start + 9; i < xml.length; i++) {
+    const c = xml.charCodeAt(i);
+    if (quote) {
+      if (c === quote) quote = 0;
+    } else if (subset && xml.startsWith("<!--", i)) {
+      const end = xml.indexOf("-->", i + 4);
+      if (end < 0) return -1;
+      i = end + 2;
+    } else if (c === 34 || c === 39) quote = c;
+    else if (c === 91) subset = true;
+    else if (c === 93) subset = false;
+    else if (c === 62 && !subset) return i + 1;
+  }
+  return -1;
+}
+
+/** The source's `<!DOCTYPE …>` (internal subset included), if it has one. */
+function extractDoctype(xml: string): string | null {
+  let i = 0;
+  const len = xml.length;
+  while (i < len) {
+    const c = xml.charCodeAt(i);
+    if (c === 32 || c === 9 || c === 10 || c === 13 || c === 0xfeff) { i++; continue; }
+    if (xml.startsWith("<?", i)) {
+      const end = xml.indexOf("?>", i + 2);
+      if (end < 0) return null;
+      i = end + 2;
+      continue;
+    }
+    if (xml.startsWith("<!--", i)) {
+      const end = xml.indexOf("-->", i + 4);
+      if (end < 0) return null;
+      i = end + 3;
+      continue;
+    }
+    if (!xml.startsWith("<!DOCTYPE", i)) return null;
+    const end = doctypeEnd(xml, i);
+    return end < 0 ? null : xml.slice(i, end);
+  }
+  return null;
+}
+
 // ── Tree transformers (internal) ───────────────────────────────────────
 
 /**
@@ -546,28 +733,51 @@ function stripComments(tree: TreeNode[]): TreeNode[] {
   return out;
 }
 
+/** `soap:Body` → `Body`; unprefixed names pass through. */
+function localName(name: string): string {
+  const i = name.indexOf(":");
+  return i < 0 ? name : name.slice(i + 1);
+}
+
+/**
+ * "Strip namespaces": drop `xmlns` / `xmlns:*` declarations AND the
+ * prefixes that referred to them — leaving `soap:Body` behind without its
+ * declaration would be an unbound prefix (not namespace-well-formed).
+ * `xml:*` attributes (`xml:lang`, `xml:space`) are bound by definition and
+ * kept. If dropping an attribute prefix would collide with another
+ * attribute on the same element (`id` + `a:id`), the prefixed one becomes
+ * `a_id` instead so neither value is lost.
+ */
 function stripXmlns(tree: TreeNode[]): TreeNode[] {
   return tree.map((node) => {
-    const next: TreeNode = { ...node };
-    const attrs = next[":@"];
+    const next: TreeNode = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (k === ":@") continue;
+      const name = isElementKey(k) ? localName(k) : k;
+      next[name] = Array.isArray(v) ? stripXmlns(v as TreeNode[]) : v;
+    }
+    const attrs = node[":@"];
     if (attrs && typeof attrs === "object") {
+      const real = (k: string) => (k.startsWith(ATTR_PREFIX) ? k.slice(ATTR_PREFIX.length) : k);
+      // Names that are already unprefixed claim their slot first.
+      const taken = new Set(Object.keys(attrs).map(real).filter((n) => !n.includes(":") && n !== "xmlns"));
       const cleaned: AttrBag = {};
       for (const [k, v] of Object.entries(attrs)) {
-        const real = k.startsWith(ATTR_PREFIX) ? k.slice(ATTR_PREFIX.length) : k;
-        if (real === "xmlns" || real.startsWith("xmlns:")) continue;
-        cleaned[k] = v;
+        const name = real(k);
+        if (name === "xmlns" || name.startsWith("xmlns:")) continue;
+        let out = name;
+        if (name.includes(":") && !name.startsWith("xml:")) {
+          out = localName(name);
+          if (taken.has(out)) {
+            const base = name.replace(":", "_");
+            out = base;
+            for (let n = 2; taken.has(out); n++) out = `${base}${n}`;
+          }
+          taken.add(out);
+        }
+        cleaned[ATTR_PREFIX + out] = v;
       }
-      if (Object.keys(cleaned).length === 0) {
-        delete next[":@"];
-      } else {
-        next[":@"] = cleaned;
-      }
-    }
-    for (const k of Object.keys(next)) {
-      const v = next[k];
-      if (Array.isArray(v)) {
-        (next as Record<string, unknown>)[k] = stripXmlns(v as TreeNode[]);
-      }
+      if (Object.keys(cleaned).length) next[":@"] = cleaned;
     }
     return next;
   });

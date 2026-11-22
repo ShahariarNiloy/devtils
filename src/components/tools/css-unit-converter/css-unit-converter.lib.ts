@@ -430,10 +430,16 @@ function propertyInScope(name: string, scope: BulkScope): boolean {
 }
 
 // Order matters in alternation — list multi-char units before any that share
-// a prefix (e.g. `rem` before `em`, `mm` before any `m`-prefixed unit). `\b`
-// in the trailing position is fine for both word and `%` boundaries.
+// a prefix (e.g. `rem` before `em`). Boundaries are explicit look-arounds
+// rather than `\b` (which can never follow `%`):
+//  - the number must not continue an identifier, number or escape — so
+//    `--gap-4px`, `h4px`, `1.5px` (inner `.5px`) and `1e3px` are left alone;
+//  - the unit must not run on into an identifier (`4pxfoo`, `2in-x`) or a
+//    file name (`4px.png`).
 const NUMERIC_UNIT_RE =
-  /(-?\d*\.?\d+)(rem|em|px|pt|pc|in|cm|mm|vw|vh|%)\b/g;
+  /(?<![\w\-.\\\u0080-\uffff])(-?\d*\.?\d+)(rem|em|px|pt|pc|in|cm|mm|vw|vh|%)(?![\w\-.\u0080-\uffff])/g;
+/** Unquoted url(...) payloads inside a literal segment — never rewritten. */
+const URL_FN_RE = /(url\([^)]*\)?)/i;
 
 /**
  * One segment of a CSS declaration's value. `literal` segments are eligible
@@ -488,16 +494,24 @@ export function bulkRewrite(src: string, opts: BulkRewriteOptions): BulkRewriteR
       .map((seg) => {
         if (seg.kind === "raw") return seg.text;
         if (!inScope) return seg.text;
-        return seg.text.replace(NUMERIC_UNIT_RE, (whole, num, unit) => {
-          if (unit !== opts.from) return whole;
-          const v = parseFloat(num);
-          if (opts.preserveHairlines && opts.from === "px" && Math.abs(v) === 1) {
-            return whole;
-          }
-          const converted = convert(v, opts.from, opts.to, opts.ctx);
-          localReplaced++;
-          return formatWithUnit(converted, opts.to, opts.ctx.precision);
-        });
+        // Odd indices of the split are url(...) payloads: pass through.
+        return seg.text
+          .split(URL_FN_RE)
+          .map((part, idx) =>
+            idx % 2 === 1
+              ? part
+              : part.replace(NUMERIC_UNIT_RE, (whole: string, num: string, unit: string) => {
+                  if (unit !== opts.from) return whole;
+                  const v = parseFloat(num);
+                  if (opts.preserveHairlines && opts.from === "px" && Math.abs(v) === 1) {
+                    return whole;
+                  }
+                  const converted = convert(v, opts.from, opts.to, opts.ctx);
+                  localReplaced++;
+                  return formatWithUnit(converted, opts.to, opts.ctx.precision);
+                }),
+          )
+          .join("");
       })
       .join("");
     if (localReplaced > 0) {
@@ -698,6 +712,12 @@ export interface ClampResult {
   slopeVw: number;
   interceptRem: number;
   interceptPx: number;
+  /** clamp()'s first argument — always the smaller of min/max size. */
+  lowerPx: number;
+  /** clamp()'s last argument — always the larger of min/max size. */
+  upperPx: number;
+  /** True when the size shrinks as the viewport grows (min size > max size). */
+  shrinking: boolean;
 }
 
 export function buildClamp(spec: ClampSpec): ClampResult {
@@ -710,8 +730,13 @@ export function buildClamp(spec: ClampSpec): ClampResult {
   const slopeVwCoeff = slope * 100; // because 1vw = viewportWidth/100 px
   const interceptRem = interceptPx / baseFontSize;
 
-  const min = outputUnit === "rem" ? `${format(minPx / baseFontSize, precision)}rem` : `${format(minPx, precision)}px`;
-  const max = outputUnit === "rem" ? `${format(maxPx / baseFontSize, precision)}rem` : `${format(maxPx, precision)}px`;
+  // CSS clamp(MIN, VAL, MAX) resolves to max(MIN, min(VAL, MAX)): when MIN >
+  // MAX it's a constant MIN. So the bounds always go smallest-first; a
+  // shrinking ramp is expressed by the negative slope, not by swapped bounds.
+  const lowerPx = Math.min(minPx, maxPx);
+  const upperPx = Math.max(minPx, maxPx);
+  const len = (px: number) =>
+    outputUnit === "rem" ? `${format(px / baseFontSize, precision)}rem` : `${format(px, precision)}px`;
   const interceptStr =
     outputUnit === "rem"
       ? `${format(interceptRem, precision)}rem`
@@ -719,19 +744,27 @@ export function buildClamp(spec: ClampSpec): ClampResult {
   const slopeStr = `${format(slopeVwCoeff, precision)}vw`;
 
   // calc() with explicit operators so it pastes into CSS clean.
-  // Sign-aware: if intercept is negative we still want `intercept + slope`
-  // since `slope * 100vw` will adjust appropriately. Use signed slope text.
   const slopeSigned = slopeVwCoeff >= 0 ? `+ ${slopeStr}` : `- ${format(-slopeVwCoeff, precision)}vw`;
-  const expression = `clamp(${min}, ${interceptStr} ${slopeSigned}, ${max})`;
+  const expression = `clamp(${len(lowerPx)}, ${interceptStr} ${slopeSigned}, ${len(upperPx)})`;
 
-  return { expression, slopeVw: slopeVwCoeff, interceptRem, interceptPx };
+  return {
+    expression,
+    slopeVw: slopeVwCoeff,
+    interceptRem,
+    interceptPx,
+    lowerPx,
+    upperPx,
+    shrinking: minPx > maxPx,
+  };
 }
 
-/** Evaluate the fluid middle of a clamp at a specific viewport width — for the live preview. */
+/** What a built clamp() resolves to at a viewport — same maths as the CSS. */
+export function evaluateClamp(result: ClampResult, viewportPx: number): number {
+  const preferred = result.interceptPx + (result.slopeVw / 100) * viewportPx;
+  return Math.max(result.lowerPx, Math.min(preferred, result.upperPx));
+}
+
+/** Evaluate the generated clamp() at a specific viewport width — for the live preview. */
 export function evaluateClampAt(spec: ClampSpec, viewportPx: number): number {
-  const { minPx, maxPx, minViewportPx, maxViewportPx } = spec;
-  if (viewportPx <= minViewportPx) return minPx;
-  if (viewportPx >= maxViewportPx) return maxPx;
-  const t = (viewportPx - minViewportPx) / (maxViewportPx - minViewportPx);
-  return minPx + t * (maxPx - minPx);
+  return evaluateClamp(buildClamp(spec), viewportPx);
 }

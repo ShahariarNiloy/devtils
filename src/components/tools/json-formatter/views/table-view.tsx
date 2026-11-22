@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { extractColumns } from "@/components/tools/json-formatter/json-formatter.lib";
+import { CELL_CHARS, clipText, clippedJson, compactCount, DISPLAY_CHARS } from "./clip-text";
 
 export interface TableViewProps {
   value: Record<string, unknown>[];
@@ -11,11 +12,19 @@ export interface TableViewProps {
 
 type SortDir = "asc" | "desc" | "none";
 
+// Cells are one line wide and ellipsised by CSS anyway — never hand the
+// browser more text than it can show (a 7 MB cell freezes layout).
 function renderCell(v: unknown): string {
   if (v === null) return "null";
   if (v === undefined) return "";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
+  if (typeof v === "object") return clippedJson(v, CELL_CHARS);
+  return clipText(String(v), CELL_CHARS).text;
+}
+
+function cellTitle(v: unknown): string {
+  const full = v !== null && typeof v === "object" ? clippedJson(v, DISPLAY_CHARS) : String(v ?? "");
+  const { text, rest } = clipText(full, DISPLAY_CHARS);
+  return rest ? `${text}… (+${compactCount(rest)} more chars)` : text;
 }
 
 /** Above this row count the table caps rendering to avoid main-thread stalls. */
@@ -110,7 +119,7 @@ export function TableView({ value }: TableViewProps) {
                       isObj && "text-text-faint",
                       !isNull && !isBool && !isNum && !isObj && "text-syntax-string",
                     )}
-                    title={isObj ? JSON.stringify(v) : String(v ?? "")}
+                    title={cellTitle(v)}
                   >
                     {renderCell(v)}
                   </td>
@@ -155,7 +164,9 @@ function flatten(v: unknown, path: string, out: FlatRow[]): void {
     return;
   }
   const type = v === null ? "null" : typeof v;
-  out.push({ path, value: JSON.stringify(v) ?? String(v), type, color: TYPE_COLOR[type] ?? "text-text" });
+  const json = JSON.stringify(v) ?? String(v);
+  const { text, rest } = clipText(json, DISPLAY_CHARS);
+  out.push({ path, value: rest ? `${text}… (+${compactCount(rest)} more chars)` : text, type, color: TYPE_COLOR[type] ?? "text-text" });
 }
 
 /**

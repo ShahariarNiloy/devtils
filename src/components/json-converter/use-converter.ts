@@ -5,8 +5,10 @@ import type {
   ConversionResult,
   ConvertTarget,
 } from "@/components/tools/json-formatter/json-formatter.types";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import { runConversion } from "@/components/tools/json-formatter/convert-client";
 import { consumeHandoffInput } from "./handoff";
+import { findLossyJsonNumbers, type LossyNumber } from "./number-precision";
 
 /**
  * Above this byte count the converter dispatches to a Web Worker rather than
@@ -20,6 +22,18 @@ const WORKER_THRESHOLD = 50_000;
 
 export interface ParseState {
   parsed: unknown;
+  /**
+   * True only when the input is blank. A document that *parses* to `null`
+   * (`null`, `~`) is real input and still converts — don't test
+   * `parsed === null` to mean "nothing to convert".
+   */
+  empty: boolean;
+  /**
+   * Numbers the parse couldn't keep exactly (integers beyond 2^53, long
+   * decimals, non-finite values). The tool surfaces these as a warning —
+   * see `precisionWarning`.
+   */
+  lossy: LossyNumber[];
   error: { message: string; line?: number; col?: number } | null;
 }
 
@@ -34,9 +48,11 @@ export interface UseConverterArgs {
    * Custom input parser. Defaults to `JSON.parse(text.trim())` for forward
    * (JSON → X) conversions. Pass `yaml.load` or a CSV parser for reverse
    * directions. The function should throw on invalid input — the error
-   * surfaces in the parse status pill.
+   * surfaces in the parse status pill. Parsers that can detect precision
+   * loss call `reportLossy` for each affected number (the default JSON
+   * parser does this itself).
    */
-  parseInput?: (text: string) => unknown;
+  parseInput?: (text: string, reportLossy: (n: LossyNumber) => void) => unknown;
   /**
    * Target + options for the worker dispatch path. When set, large inputs
    * (above WORKER_THRESHOLD) run in the worker instead of on the main thread.
@@ -47,7 +63,13 @@ export interface UseConverterArgs {
     target: ConvertTarget;
     options: unknown;
   };
-  /** Initial input value (e.g. a default sample). */
+  /**
+   * Initial input value (e.g. a default sample). Bidirectional tools pass a
+   * direction-dependent sample; when it changes (the direction resolved from
+   * the URL after mount, or a swap with nothing to carry over) and the
+   * editor still holds the untouched initial sample, the input follows —
+   * so a YAML editor never ends up holding the JSON sample.
+   */
   initialInput?: string;
   /**
    * Pure text transform applied to every result — sync and worker alike —
@@ -77,15 +99,39 @@ export interface UseConverterState {
   isComputing: boolean;
 }
 
-function locateParseError(input: string, message: string) {
+/** Context V8 prints on each side of the offending character ("…"ctx"…"). */
+const V8_CONTEXT = 10;
+
+/**
+ * Offset of the error in `source` (the exact text that was parsed), from a
+ * native JSON.parse message. V8 gives "position N" for most errors, but
+ * "Unexpected token" errors only quote the surrounding source — recover the
+ * offset from that snippet.
+ */
+function errorOffset(source: string, message: string): number | undefined {
+  const pos = message.match(/position (\d+)/i);
+  if (pos) return Number(pos[1]);
+  const m = message.match(/^Unexpected token '(.+?)', (\.\.\.)?"([\s\S]*?)"(\.\.\.)? is not valid JSON/);
+  if (!m) return undefined;
+  const [, token, lead, snippet, trail] = m;
+  if (lead) {
+    const at = source.indexOf(snippet);
+    return at === -1 ? undefined : at + V8_CONTEXT;
+  }
+  // The snippet starts at the beginning of the source.
+  if (trail) return Math.max(0, snippet.length - V8_CONTEXT);
+  const at = source.lastIndexOf(token);
+  return at === -1 ? undefined : at;
+}
+
+/** `source` is the text the parser saw, starting at `trimmedStart` in `input`. */
+function locateParseError(input: string, message: string, source: string, trimmedStart: number) {
   // Reverse parsers report "(line L, column C)" directly.
   const lc = message.match(/line (\d+), column (\d+)/i);
   if (lc) return { line: Number(lc[1]), col: Number(lc[2]) };
-  const posMatch = message.match(/position (\d+)/i)
-    || message.match(/at position (\d+)/i)
-    || message.match(/at (\d+)/i);
-  if (!posMatch) return { line: undefined, col: undefined };
-  const pos = Number(posMatch[1]);
+  const offset = errorOffset(source, message);
+  if (offset === undefined) return { line: undefined, col: undefined };
+  const pos = trimmedStart + offset;
   let line = 1;
   let col = 1;
   for (let i = 0; i < pos && i < input.length; i++) {
@@ -103,10 +149,36 @@ export function useConverter({
   postProcess,
   acceptHandoff = true,
 }: UseConverterArgs): UseConverterState {
-  const [input, setInput] = useState(initialInput);
+  const [input, setRawInput] = useState(initialInput);
+  // True until anything (typing, a sample, a swap carry-over, a hand-off)
+  // replaces the initial sample.
+  const [pristine, setPristine] = useState(true);
+  const setInput = useCallback((v: string) => {
+    setRawInput(v);
+    setPristine(false);
+  }, []);
 
-  const loadInput = useCallback((v: string) => setInput(v), []);
-  const clearInput = useCallback(() => setInput(""), []);
+  // "Adjust state on prop change" during render (no effect, no extra paint):
+  // while the editor still holds the untouched sample, it follows
+  // `initialInput`. Server and first client render both use the default
+  // direction's sample, so this never causes a hydration mismatch.
+  const [prevInitial, setPrevInitial] = useState(initialInput);
+  if (initialInput !== prevInitial) {
+    setPrevInitial(initialInput);
+    if (pristine) setRawInput(initialInput);
+  }
+
+  // Replacing the text: deliver any keystrokes the editor is still
+  // debouncing first, so a late flush can't overwrite the new value (and a
+  // clear of not-yet-reported text isn't a no-op).
+  const loadInput = useCallback(
+    (v: string) => {
+      flushPendingEdits();
+      setInput(v);
+    },
+    [setInput],
+  );
+  const clearInput = useCallback(() => loadInput(""), [loadInput]);
 
   useEffect(() => {
     if (!acceptHandoff) return;
@@ -122,20 +194,30 @@ export function useConverter({
 
   const parse = useMemo<ParseState>(() => {
     const trimmed = input.trim();
-    if (!trimmed) return { parsed: null, error: null };
+    if (!trimmed) return { parsed: null, empty: true, lossy: [], error: null };
+    const lossy: LossyNumber[] = [];
     try {
-      const parser = parseInput ?? ((text: string) => JSON.parse(text.trim()) as unknown);
-      return { parsed: parser(input), error: null };
+      const parsed = parseInput
+        ? parseInput(input, (n) => lossy.push(n))
+        : (JSON.parse(trimmed) as unknown);
+      return {
+        parsed,
+        empty: false,
+        lossy: parseInput ? lossy : findLossyJsonNumbers(trimmed),
+        error: null,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const { line, col } = locateParseError(input, message);
-      return { parsed: null, error: { message, line, col } };
+      // The default parser parses the trimmed text; offsets are relative to it.
+      const trimmedStart = parseInput ? 0 : input.length - input.trimStart().length;
+      const { line, col } = locateParseError(input, message, parseInput ? input : trimmed, trimmedStart);
+      return { parsed: null, empty: false, lossy: [], error: { message, line, col } };
     }
   }, [input, parseInput]);
 
   // ── Synchronous path (small inputs) ──────────────────────────────────────
   const syncResult = useMemo(() => {
-    if (parse.error || parse.parsed === null) return null;
+    if (parse.error || parse.empty) return null;
     if (worker && input.length >= WORKER_THRESHOLD) return null;
     try {
       return convert(parse.parsed);
@@ -162,7 +244,7 @@ export function useConverter({
 
   useEffect(() => {
     if (!worker) return;
-    if (parse.error || parse.parsed === null) return;
+    if (parse.error || parse.empty) return;
     if (input.length < WORKER_THRESHOLD) return;
     const id = ++workerSeq.current;
     // The worker run IS the external system this effect synchronises with —
@@ -193,7 +275,7 @@ export function useConverter({
   // ── Pick the active result ───────────────────────────────────────────────
   // A worker result from an earlier (large, valid) input must not outlive it.
   const result =
-    parse.error || parse.parsed === null ? null : (syncResult ?? asyncResult);
+    parse.error || parse.empty ? null : (syncResult ?? asyncResult);
 
   const { output, outputResult, conversionError } = useMemo<{
     output: string;

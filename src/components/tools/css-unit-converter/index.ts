@@ -13,6 +13,7 @@ export {
   buildClamp,
   convert,
   detectBaseFontSize,
+  evaluateClamp,
   evaluateClampAt,
   format,
   formatWithUnit,

@@ -1,75 +1,61 @@
-import { ToolContent } from "@/components/shared/tool-content";
+// SEO data for the image compressor (intro, starting points, FAQ). Read by
+// the server-side JSON-LD / search index (src/lib/tool-seo.ts), so this
+// module stays free of client code; the interactive section that renders
+// it lives in components/content-section.tsx.
+
+import { STARTING_POINTS } from "./image-compressor.starts";
 
 export const seoData = {
-  intro: "Compress images in the browser with codec-quality output: JPEG, PNG, WebP, and AVIF, all encoded via the original reference encoders compiled to WebAssembly. Side-by-side comparison with a draggable reveal lets you spot quality loss instantly. Colour profile (ICC) preservation is on by default so red doesn't drift into orange after a round-trip.",
-  usesNote: "Smaller images, same pixels on your device.",
-  useCases: [
-        {
-          title: "Optimising images for the web",
-          description:
-            "Drop a screenshot or product photo, get a WebP or AVIF version that's 40-70% smaller with no visible difference. The reveal slider catches any compression artifacts before you ship.",
-        },
-        {
-          title: "Preparing images for email or chat",
-          description:
-            "Most email services limit attachment size to ~25MB. Drag in a high-res image and drag the quality slider down — the new size appears as soon as you let go.",
-        },
-        {
-          title: "Bulk processing a photo set",
-          description:
-            "Drop multiple images at once — each is processed in its own worker. The job queue shows total saved bytes and lets you re-tune any individual photo.",
-        },
-        {
-          title: "Converting between formats",
-          description:
-            "JPEG → WebP, PNG → AVIF, etc. Pick the output format in the toolbar and every image is re-encoded without intermediate steps. Auto keeps each image's own format; lossless PNG preserves its exact pixels.",
-        },
-      ],
+  intro:
+    "Compress images in the browser with real encoders — AVIF, WebP, JPEG and PNG compiled to WebAssembly — and see the real file sizes before you download. Auto keeps the smallest format per image, a size budget finds the highest quality that fits, and a drag-to-reveal comparison with “Show what changed” shows exactly what compression touched. Colour profiles are kept or colour-managed, so reds don't drift.",
+  usesTitle: "Pick a starting point",
+  usesNote: "What most sites need.",
+  useCases: STARTING_POINTS.map((p) => ({ title: p.title, description: p.body, tag: p.chip, tint: p.tint })),
   faqs: [
-        {
-          question: "Does my image leave the browser?",
-          answer:
-            "No — everything runs locally via WebAssembly-compiled encoders. No upload, no server, no third-party CDN. Safe for sensitive screenshots, personal photos, and unreleased product assets.",
-        },
-        {
-          question: "Which format should I pick?",
-          answer:
-            "AVIF for the best size at acceptable quality (modern browsers only). WebP for broad support with good size savings. JPEG for universal compatibility. PNG for screenshots / UI / anything with sharp edges or transparency. Hover over each option for a one-line guide.",
-        },
-        {
-          question: "What does Auto quality do?",
-          answer:
-            "Instead of a fixed number, Auto searches for the lowest encoder quality whose result still measures as visually identical to the original (an SSIM check). If no quality meets that bar, the image is returned unchanged and you're told why. Drag the slider to pick a fixed quality instead — 70–80 is usually indistinguishable from the original.",
-        },
-        {
-          question: "Why is my AVIF encoded slowly?",
-          answer:
-            "AVIF's encoder explores a much larger search space than JPEG / WebP to find optimal compression. Expect 5-20× longer encode time. The reward is meaningfully smaller files at the same quality.",
-        },
-        {
-          question: "What does ICC profile preservation do?",
-          answer:
-            "Images carry colour profile metadata (sRGB, Display P3, Adobe RGB) that tells browsers how to display the pixels. Stripping the profile is a common 'optimization' that silently shifts colours. The compressor preserves the source profile by default.",
-        },
-        {
-          question: "Why is my output sometimes larger than the input?",
-          answer:
-            "If the input is already aggressively compressed (e.g. a small JPEG from a CDN), re-encoding can't beat it. The 'savings' badge surfaces this explicitly with a `+%` indicator rather than silently shipping a worse file.",
-        },
-        {
-          question: "Can I batch-resize as well as compress?",
-          answer:
-            "Yes — turn on Max 1920px wide in the toolbar. Wider images are scaled down to 1920px (keeping their aspect ratio) before re-encoding; images that are already narrower keep their size, never upscaled.",
-        },
-      ],
-  relatedSlugs: [
-        "image-format-converter",
-        "image-resizer",
-        "image-batch-resizer",
-        "image-color-extractor",
-      ],
+    {
+      question: "What does Auto do?",
+      answer:
+        "It encodes each image as AVIF, WebP and JPEG at the same quality and keeps the smallest. JPEG is skipped for images with transparency. If the smallest one would drop a wide-gamut colour profile and another format keeps the colours right, the colour-accurate one wins.",
+    },
+    {
+      question: "How does the size budget work?",
+      answer:
+        "For each image it searches for the highest quality that still fits. If even the lowest quality is too big, the image is flagged so you can pick a smaller width.",
+    },
+    {
+      question: "Are my images uploaded?",
+      answer: "No. Your browser does the encoding, so the sizes you see are the real file sizes you'll download.",
+    },
+    {
+      question: "Why did a file stay the same?",
+      answer:
+        "Some files — small UI screenshots especially — are already compressed well. Rather than hand you a bigger file, the original is kept. Turn off “Never make it bigger” to get the re-encode anyway, with its honest +% size.",
+    },
+    {
+      question: "What do Best, Balanced and Smallest mean?",
+      answer:
+        "Each is a fixed encoder quality per format, tuned on a public photo set: Best is visually lossless, Balanced looks the same at normal viewing and is much smaller, Smallest trades a little detail for size. Drag the slider for an exact quality instead — every format gets the equivalent setting, so comparisons stay fair.",
+    },
+    {
+      question: "Which format should I pick?",
+      answer:
+        "By default each image keeps its own format — nothing is converted until you choose. The bars under the preview show an estimate (≈) of every other format's size; click one to convert and get the exact size. AVIF is usually smallest (every current browser shows it); WebP is close behind and encodes faster; JPEG works everywhere but has no transparency; PNG is for sharp-edged graphics and exact pixels. Auto encodes AVIF, WebP and JPEG and keeps the smallest.",
+    },
+    {
+      question: "Why is AVIF slow to encode?",
+      answer:
+        "AVIF's encoder searches a much larger space than JPEG or WebP to find the best compression — often 5–20× longer. The reward is meaningfully smaller files at the same quality.",
+    },
+    {
+      question: "What happens to colour profiles?",
+      answer:
+        "Images carry a colour profile (sRGB, Display P3, Adobe RGB) that tells browsers how to show their pixels. Keeping the same format keeps the profile; a format swap converts Display P3 to sRGB so colours stay right, and you're warned if another profile can't be carried. Stripping profiles silently is how reds turn orange.",
+    },
+    {
+      question: "Can I resize as well as compress?",
+      answer:
+        "Yes — pick a Max width. Wider images are scaled down to it (keeping their aspect ratio) before encoding; narrower ones keep their size, never upscaled.",
+    },
+  ],
+  relatedSlugs: ["image-format-converter", "image-resizer", "image-batch-resizer", "image-color-extractor"],
 } as const;
-
-export function ImageCompressorContent() {
-  return <ToolContent {...seoData} />;
-}

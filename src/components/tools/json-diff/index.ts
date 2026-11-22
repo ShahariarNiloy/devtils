@@ -1,5 +1,6 @@
 export { JsonDiff } from "./json-diff";
 export {
+  applyPatch,
   canonicalize,
   deepEqual,
   diffJson,
@@ -7,6 +8,7 @@ export {
   inlineDisplay,
   toJsonPatch,
   typeOf,
+  verifyPatch,
 } from "./json-diff.lib";
 export type {
   ArrayStrategy,

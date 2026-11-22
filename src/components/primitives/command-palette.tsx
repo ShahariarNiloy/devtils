@@ -12,6 +12,7 @@ import { LIVE_SLUGS } from "@/lib/tools/live";
 import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { KeyIcon, toolIcon } from "@/components/shared/key-icon";
+import { EmptySearch } from "@/components/illustrations/empty-search";
 
 const RECENT_KEY = "utilyx:recent";
 const MAX_RECENT = 3;
@@ -322,7 +323,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             </div>
           ))}
           {flat.length === 0 && (
-            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <div className="flex flex-col items-center gap-2 px-4 pt-6 pb-8 text-center">
+              <EmptySearch className="mb-1.5 w-[150px]" />
               <span className="text-[15px] font-bold">No tool called “{query.trim()}” yet</span>
               <button type="button" onClick={() => go("/request")} className="text-sm text-clay-light hover:text-clay-cream">
                 Request it →

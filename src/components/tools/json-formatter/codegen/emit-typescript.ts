@@ -123,9 +123,10 @@ export function emitTypeScript(
   }
 
   // Expose the root as a type alias when it isn't itself a named object — keeps
-  // the emitter's output addressable as `Root` regardless of input shape.
+  // the output addressable by the configured root name regardless of shape.
+  // `collect` reserved the name, so it can't clash with a declared type.
   if (collected.root.kind !== "object") {
-    blocks.push(`${exp}type Root = ${refToTs(collected.root)};`);
+    blocks.push(`${exp}type ${collected.rootName} = ${refToTs(collected.root)};`);
   }
 
   return blocks.join("\n\n") + "\n";

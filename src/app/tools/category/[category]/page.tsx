@@ -56,7 +56,7 @@ export default async function CategoryRoute({ params }: CategoryRouteProps) {
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip text-base leading-[1.6]">
-      <Header variant="catalogue" />
+      <Header variant="site" />
       <CategoryPage view={buildCategoryView(cat)} />
       <HomeFooter variant="compact" />
     </div>

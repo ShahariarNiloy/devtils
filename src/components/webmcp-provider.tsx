@@ -3,7 +3,6 @@
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { mcpToolsAsWebMcp } from "@/lib/webmcp/from-mcp";
 import type { WebMcpTool } from "@/lib/webmcp/types";
 import { TOOLS } from "@/lib/tools-registry";
 
@@ -25,6 +24,10 @@ import { TOOLS } from "@/lib/tools-registry";
  * no-op — no console noise, no thrown errors, no degraded UX. When a
  * browser ships the API (or a polyfilling extension installs it), the
  * tools become available immediately on next page load.
+ *
+ * Performance: the compute tools pull in every tool's library (Temporal,
+ * js-yaml, the code generators…). They're imported only after we've seen
+ * `navigator.modelContext`, so ordinary visitors never download them.
  */
 export function WebMcpProvider() {
   const router = useRouter();
@@ -32,10 +35,8 @@ export function WebMcpProvider() {
 
   // Build the tool list once per (router, setTheme) pair. Both are stable
   // for the lifetime of the component in practice, so this runs once.
-  const tools = useMemo<WebMcpTool[]>(() => {
-    const computeTools = mcpToolsAsWebMcp();
-
-    const uiTools: WebMcpTool[] = [
+  const uiTools = useMemo<WebMcpTool[]>(() => {
+    const list: WebMcpTool[] = [
       {
         name: "utilyx_list_tools",
         description:
@@ -107,34 +108,38 @@ export function WebMcpProvider() {
       },
     ];
 
-    return [...computeTools, ...uiTools];
+    return list;
   }, [router, setTheme]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     const api = navigator.modelContext;
     if (!api || typeof api.provideContext !== "function") return;
+    let cancelled = false;
 
     // The spec says calling provideContext replaces the previous
     // registration. Best-effort cleanup on unmount clears it so a tab
     // navigating away doesn't leave stale tool advertisements bound to a
     // dead React tree.
-    try {
-      api.provideContext({ tools });
-    } catch {
-      // Implementations may reject if the page isn't visible / focused
-      // yet. We don't retry — the next mount (route change, theme toggle
-      // re-render) will try again, which is good enough for our needs.
-    }
+    void import("@/lib/webmcp/from-mcp").then(({ mcpToolsAsWebMcp }) => {
+      if (cancelled) return;
+      try {
+        api.provideContext({ tools: [...mcpToolsAsWebMcp(), ...uiTools] });
+      } catch {
+        // Implementations may reject if the page isn't visible / focused
+        // yet. We don't retry — the next mount will try again.
+      }
+    });
 
     return () => {
+      cancelled = true;
       try {
         api.provideContext({ tools: [] });
       } catch {
         // Same rationale — best effort.
       }
     };
-  }, [tools]);
+  }, [uiTools]);
 
   return null;
 }

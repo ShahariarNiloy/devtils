@@ -1,231 +1,239 @@
-import { base64UrlToBytes } from "./jwt-decoder.lib";
-import type {
-  Algorithm,
-  JwksKey,
-  ParsedJwt,
-  VerificationKey,
-  VerificationResult,
-} from "./jwt-decoder.types";
+import { isPlainObject, tryBase64UrlToBytes } from "./jwt-decoder.lib";
+import type { AlgInfo, JwksKey, ParsedJwt, VerifiableAlgorithm, VerificationResult } from "./jwt-decoder.types";
+import {
+  esSignatureLength,
+  familyOf,
+  importParams,
+  isJwkLike,
+  jwkMismatch,
+  keyKindOf,
+  kindMismatch,
+  parsePem,
+  pkcs1ToSpki,
+  publicJwk,
+  selectJwksKeys,
+  signatureParams,
+  spkiFromCertificate,
+} from "./jwt-keys";
 
-type Family = "HS" | "RS" | "ES" | "PS";
+/**
+ * Signature verification with WebCrypto only (crypto.subtle.verify — no
+ * string comparison of signatures). The key must fit the token's alg:
+ * an HMAC token is never checked against something that looks like a
+ * public key (the classic alg-confusion attack), and an RSA/EC token never
+ * against a secret. Every failure resolves to a result; nothing throws.
+ */
 
-function family(alg: Algorithm): Family | null {
-  if (alg.startsWith("HS")) return "HS";
-  if (alg.startsWith("RS")) return "RS";
-  if (alg.startsWith("ES")) return "ES";
-  if (alg.startsWith("PS")) return "PS";
-  return null;
+export interface VerifyOptions {
+  /** HS only: the secret field holds Base64URL, not text. */
+  secretIsBase64Url?: boolean;
 }
 
-function shaFor(alg: Algorithm): "SHA-256" | "SHA-384" | "SHA-512" {
-  if (alg.endsWith("384")) return "SHA-384";
-  if (alg.endsWith("512")) return "SHA-512";
-  return "SHA-256";
+type ResolvedKeys =
+  | { keys: CryptoKey[]; note: string | null }
+  | { error: string };
+
+const enc = new TextEncoder();
+
+function errMsg(e: unknown, fallback: string): string {
+  return e instanceof Error && e.message ? e.message : fallback;
 }
 
-function ecCurve(alg: Algorithm): "P-256" | "P-384" | "P-521" {
-  if (alg.endsWith("384")) return "P-384";
-  if (alg.endsWith("512")) return "P-521";
-  return "P-256";
-}
-
-function saltLen(alg: Algorithm): number {
-  if (alg.endsWith("384")) return 48;
-  if (alg.endsWith("512")) return 64;
-  return 32;
-}
-
-function pemToDer(pem: string): Uint8Array {
-  const b64 = pem
-    .replace(/-----BEGIN [^-]+-----/g, "")
-    .replace(/-----END [^-]+-----/g, "")
-    .replace(/\s+/g, "");
-  return base64UrlToBytes(b64);
-}
-
-function looksLikePem(s: string): boolean {
-  return /-----BEGIN /.test(s);
-}
-
-function looksLikeJwk(s: string): boolean {
-  const t = s.trim();
-  return t.startsWith("{") && /"kty"\s*:/.test(t);
-}
-
-async function importVerifyKey(
-  alg: Algorithm,
-  material: string,
-): Promise<CryptoKey> {
-  const fam = family(alg);
-  const hash = shaFor(alg);
-
-  if (fam === "HS") {
-    if (looksLikePem(material)) {
-      throw new Error(
-        "Algorithm mismatch: the token uses HMAC but the key looks like a PEM. Paste the shared secret instead.",
-      );
+async function resolveHmacKey(alg: VerifiableAlgorithm, text: string, opts: VerifyOptions): Promise<ResolvedKeys> {
+  const t = text.trim();
+  if (/-----BEGIN /.test(t)) {
+    return {
+      error: `${alg} needs the shared secret, not a PEM key. Checking an HMAC token with a public key is the classic algorithm-confusion attack, so it's refused.`,
+    };
+  }
+  let raw: Uint8Array | null = null;
+  let note: string | null = null;
+  if (t.startsWith("{") && /"kty"\s*:/.test(t)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(t) as unknown;
+    } catch {
+      return { error: "That JWK JSON doesn't parse." };
     }
-    return crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(material),
-      { name: "HMAC", hash },
-      false,
-      ["verify"],
-    );
+    const list: unknown[] = isPlainObject(parsed) && Array.isArray(parsed.keys) ? parsed.keys : [parsed];
+    const jwk = list.find((k): k is JwksKey => isJwkLike(k) && k.kty === "oct");
+    if (!jwk) {
+      const other = list.find(isJwkLike);
+      return {
+        error: other
+          ? (jwkMismatch(other, alg) ?? `${alg} needs the shared secret.`) + " Refused: that's the algorithm-confusion attack."
+          : "That JSON isn't a JWK.",
+      };
+    }
+    const mismatch = jwkMismatch(jwk, alg);
+    if (mismatch) return { error: mismatch };
+    raw = typeof jwk.k === "string" ? tryBase64UrlToBytes(jwk.k) : null;
+    if (!raw) return { error: "That oct JWK has no readable k value." };
+    note = "Using the k value of the oct JWK.";
+  } else if (opts.secretIsBase64Url) {
+    raw = tryBase64UrlToBytes(t);
+    if (!raw) return { error: "The secret isn't valid Base64URL. Turn off “Secret is Base64URL-encoded” if it's plain text." };
+  } else {
+    // Plain-text secrets are used byte for byte: whitespace is significant.
+    raw = enc.encode(text);
   }
-
-  if (looksLikeJwk(material)) {
-    const jwk = JSON.parse(material) as JsonWebKey;
-    return crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      asymmetricParams(alg),
-      false,
-      ["verify"],
-    );
-  }
-
-  if (!looksLikePem(material)) {
-    throw new Error(
-      `Algorithm mismatch: the token uses ${alg} but no PEM/JWK public key was provided.`,
-    );
-  }
-  const der = pemToDer(material);
-  return crypto.subtle.importKey(
-    "spki",
-    der as BufferSource,
-    asymmetricParams(alg),
-    false,
-    ["verify"],
-  );
+  if (raw.length === 0) return { error: "The secret is empty." };
+  const key = await crypto.subtle.importKey("raw", raw as BufferSource, importParams(alg), false, ["verify"]);
+  return { keys: [key], note };
 }
 
-function asymmetricParams(
-  alg: Algorithm,
-):
-  | RsaHashedImportParams
-  | EcKeyImportParams {
-  const fam = family(alg);
-  const hash = shaFor(alg);
-  if (fam === "RS") return { name: "RSASSA-PKCS1-v1_5", hash };
-  if (fam === "PS") return { name: "RSA-PSS", hash };
-  return { name: "ECDSA", namedCurve: ecCurve(alg) };
+async function importSpki(alg: VerifiableAlgorithm, der: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey("spki", der as BufferSource, importParams(alg), false, ["verify"]);
 }
 
-function verifyParams(alg: Algorithm): AlgorithmIdentifier | RsaPssParams | EcdsaParams {
-  const fam = family(alg);
-  if (fam === "HS") return "HMAC";
-  if (fam === "RS") return "RSASSA-PKCS1-v1_5";
-  if (fam === "PS") return { name: "RSA-PSS", saltLength: saltLen(alg) };
-  return { name: "ECDSA", hash: shaFor(alg) };
+async function resolvePemKey(alg: VerifiableAlgorithm, t: string): Promise<ResolvedKeys> {
+  const pem = parsePem(t);
+  if (!pem) return { error: "That PEM block is incomplete — it needs matching BEGIN and END lines." };
+  if (!pem.der) return { error: "The PEM body isn't valid base64." };
+  let spki: Uint8Array | null = null;
+  let note: string | null = null;
+  switch (pem.label) {
+    case "PUBLIC KEY":
+      spki = pem.der;
+      break;
+    case "RSA PUBLIC KEY":
+      spki = pkcs1ToSpki(pem.der);
+      note = "Read as a PKCS#1 RSA public key.";
+      break;
+    case "CERTIFICATE":
+      spki = spkiFromCertificate(pem.der);
+      if (!spki) return { error: "Couldn't find the public key inside that certificate." };
+      note = "Using the public key from the certificate.";
+      break;
+    case "PRIVATE KEY": {
+      const mismatch = kindMismatch(keyKindOf(pem.der), alg);
+      if (mismatch) return { error: mismatch };
+      // Derive the public half; the private key is only held in memory.
+      const priv = await crypto.subtle.importKey("pkcs8", pem.der as BufferSource, importParams(alg), true, ["sign"]);
+      const jwk = await crypto.subtle.exportKey("jwk", priv);
+      if (!isJwkLike(jwk)) return { error: "Couldn't read that private key." };
+      const key = await crypto.subtle.importKey("jwk", publicJwk(jwk), importParams(alg), false, ["verify"]);
+      return { keys: [key], note: "That's a private key, so its public half was used. Keep private keys off shared machines." };
+    }
+    case "RSA PRIVATE KEY":
+    case "EC PRIVATE KEY":
+      return { error: "That's a private key in a legacy format. Paste the public key (BEGIN PUBLIC KEY) instead." };
+    default:
+      return { error: `A “${pem.label}” PEM isn't a public key. Paste BEGIN PUBLIC KEY, a certificate, a JWK or a JWKS.` };
+  }
+  const mismatch = kindMismatch(keyKindOf(spki), alg);
+  if (mismatch) return { error: mismatch };
+  return { keys: [await importSpki(alg, spki)], note };
 }
 
-export async function verifyJwt(
-  jwt: ParsedJwt,
-  key: VerificationKey,
-): Promise<VerificationResult> {
-  const alg = jwt.header.alg;
-
-  if (alg === "none") {
-    return {
-      status: "unsupported",
-      reason:
-        "Token uses alg:none — it is unsigned and cannot be trusted. Verification refused by design.",
-    };
-  }
-  if (!family(alg)) {
-    return { status: "unsupported", reason: `Unsupported algorithm: ${alg}.` };
-  }
-  if (!key.material.trim()) {
-    return { status: "invalid", reason: "No key or secret provided." };
-  }
-  if (jwt.signatureBytes.length === 0) {
-    return { status: "invalid", reason: "Token has no signature segment." };
-  }
-
-  let cryptoKey: CryptoKey;
+async function resolveJwkKeys(alg: VerifiableAlgorithm, t: string, kid: string | undefined): Promise<ResolvedKeys> {
+  let parsed: unknown;
   try {
-    cryptoKey = await importVerifyKey(alg, key.material.trim());
-  } catch (e) {
-    return {
-      status: "invalid",
-      reason: e instanceof Error ? e.message : "Invalid key format.",
-    };
+    parsed = JSON.parse(t) as unknown;
+  } catch {
+    return { error: "That JSON doesn't parse." };
   }
-
-  const data = new TextEncoder().encode(
-    `${jwt.segments.header}.${jwt.segments.payload}`,
-  );
-
-  try {
-    const ok = await crypto.subtle.verify(
-      verifyParams(alg),
-      cryptoKey,
-      jwt.signatureBytes as BufferSource,
-      data,
-    );
-    return ok
-      ? { status: "valid" }
-      : { status: "invalid", reason: "Signature does not match." };
-  } catch (e) {
-    return {
-      status: "invalid",
-      reason: e instanceof Error ? e.message : "Verification failed.",
-    };
+  let candidates: JwksKey[];
+  let note: string | null = null;
+  if (isPlainObject(parsed) && Array.isArray(parsed.keys)) {
+    const sel = selectJwksKeys(parsed.keys, kid, alg);
+    if ("error" in sel) return sel;
+    candidates = sel.keys;
+    note = sel.note;
+  } else if (isJwkLike(parsed)) {
+    const mismatch = jwkMismatch(parsed, alg);
+    if (mismatch) return { error: mismatch };
+    candidates = [parsed];
+  } else {
+    return { error: "That JSON isn't a JWK or a JWKS ({\"keys\": […]})." };
   }
+  const keys: CryptoKey[] = [];
+  let lastError: unknown = null;
+  for (const jwk of candidates) {
+    try {
+      keys.push(await crypto.subtle.importKey("jwk", publicJwk(jwk), importParams(alg), false, ["verify"]));
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  if (keys.length === 0) return { error: errMsg(lastError, "That JWK couldn't be read.") };
+  return { keys, note };
 }
 
-export function parseJwks(raw: string): JwksKey[] {
-  const json = JSON.parse(raw) as { keys?: JwksKey[] } | JwksKey;
-  if (Array.isArray((json as { keys?: JwksKey[] }).keys)) {
-    return (json as { keys: JwksKey[] }).keys;
-  }
-  if ((json as JwksKey).kty) return [json as JwksKey];
-  throw new Error("Not a JWKS document or a single JWK.");
-}
-
-export function selectJwksKey(
-  keys: JwksKey[],
+async function resolveKeys(
+  alg: VerifiableAlgorithm,
+  text: string,
   kid: string | undefined,
-): JwksKey | null {
-  if (keys.length === 0) return null;
-  if (kid) {
-    const match = keys.find((k) => k.kid === kid);
-    if (match) return match;
+  opts: VerifyOptions,
+): Promise<ResolvedKeys> {
+  if (familyOf(alg) === "HS") return resolveHmacKey(alg, text, opts);
+  const t = text.trim();
+  if (/^https?:\/\//i.test(t)) {
+    return { error: "That's a URL. Use “Fetch issuer's keys”, or paste the JWKS JSON itself." };
   }
-  return keys.length === 1 ? keys[0] : null;
+  if (t.startsWith("{")) return resolveJwkKeys(alg, t, kid);
+  if (/-----BEGIN /.test(t)) return resolvePemKey(alg, t);
+  // Bare base64 SPKI (a PEM without its armour lines).
+  if (/^[A-Za-z0-9+/=\s]+$/.test(t) && t.length > 60) {
+    const der = tryBase64UrlToBytes(t.replace(/\s+/g, ""));
+    if (der && der[0] === 0x30) {
+      const mismatch = kindMismatch(keyKindOf(der), alg);
+      if (mismatch) return { error: mismatch };
+      return { keys: [await importSpki(alg, der)], note: "Read as a base64 SPKI public key." };
+    }
+  }
+  return {
+    error: `${alg} needs a public key (PEM, JWK or JWKS), not a secret.`,
+  };
+}
+
+/** Why a token's alg can't be verified here (none vs. an unknown alg). */
+export function unsupportedReason(info: Exclude<AlgInfo, { kind: "supported" }>): string {
+  if (info.kind === "none") return "This token has no signature. Anyone can write one like it, so a server must never accept it.";
+  if (info.nonStandardNone) {
+    return `“${info.name}” isn't the standard “none”, but some libraries have treated it as unsigned. Reject it.`;
+  }
+  if (info.name === "(missing)") return "The header has no alg, so the signature can't be checked.";
+  return `${info.name} can't be verified here. This tool verifies HS, RS, PS and ES with SHA-256, 384 and 512.`;
 }
 
 /**
- * A pasted JWKS document ({"keys": [...]}) becomes the one key the token's
- * `kid` selects; anything else (secret, PEM, single JWK) passes through.
- * Nothing is fetched — JWKS URLs aren't followed, so the token stays local.
+ * Verify `jwt`'s signature with `keyText` (a secret, PEM, JWK or JWKS).
+ * Resolves to valid / invalid (subtle.verify's answer) or keyerror.
  */
-export function resolveVerificationMaterial(
-  raw: string,
-  kid: string | undefined,
-): { material: string; note: string | null } | { error: string } {
-  const t = raw.trim();
-  if (/^https?:\/\//i.test(t)) {
-    return {
-      error:
-        "That's a URL. Paste the JWKS JSON itself — keys are never fetched, so nothing leaves your browser.",
-    };
+export async function verifyJwt(jwt: ParsedJwt, keyText: string, opts: VerifyOptions = {}): Promise<VerificationResult> {
+  if (jwt.alg.kind !== "supported") return { status: "keyerror", reason: unsupportedReason(jwt.alg) };
+  const alg = jwt.alg.name;
+  if (jwt.signatureBytes.length === 0) return { status: "invalid", reason: "The token has no signature.", note: null };
+  if (familyOf(alg) === "HS" ? keyText.length === 0 : !keyText.trim()) {
+    return { status: "keyerror", reason: "Add a key to check the signature." };
   }
-  if (!t.startsWith("{") || !/"keys"\s*:/.test(t)) return { material: raw, note: null };
-  let keys: JwksKey[];
+
+  const kid = typeof jwt.header.kid === "string" ? jwt.header.kid : undefined;
+  let resolved: ResolvedKeys;
   try {
-    keys = parseJwks(t);
-  } catch {
-    return { error: "That JWKS JSON doesn't parse." };
+    resolved = await resolveKeys(alg, keyText, kid, opts);
+  } catch (e) {
+    return { status: "keyerror", reason: errMsg(e, "Couldn't read this key.") };
   }
-  const selected = selectJwksKey(keys, kid);
-  if (!selected) {
+  if ("error" in resolved) return { status: "keyerror", reason: resolved.error };
+
+  if (familyOf(alg) === "ES" && jwt.signatureBytes.length !== esSignatureLength(alg)) {
     return {
-      error: kid
-        ? `No JWKS key matches kid "${kid}".`
-        : "JWKS has several keys but the token has no kid.",
+      status: "invalid",
+      reason: `An ${alg} signature is ${esSignatureLength(alg)} bytes (r‖s); this one is ${jwt.signatureBytes.length}. It may be DER-encoded, which JWTs don't use.`,
+      note: resolved.note,
     };
   }
-  return { material: JSON.stringify(selected), note: `Using key ${selected.kid ?? "(no kid)"} from the JWKS.` };
+
+  const data = enc.encode(`${jwt.segments.header}.${jwt.segments.payload}`);
+  try {
+    for (const key of resolved.keys) {
+      const ok = await crypto.subtle.verify(signatureParams(alg), key, jwt.signatureBytes as BufferSource, data);
+      if (ok) return { status: "valid", note: resolved.note };
+    }
+  } catch (e) {
+    return { status: "keyerror", reason: errMsg(e, "Verification failed.") };
+  }
+  return { status: "invalid", reason: null, note: resolved.note };
 }

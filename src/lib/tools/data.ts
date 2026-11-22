@@ -89,14 +89,15 @@ export const TOOLS: Tool[] = [
   },
   {
     slug: 'blur-placeholder',
-    name: 'Blur placeholder generator',
-    description: 'Generate base64 blurDataURL for next/image placeholder prop.',
-    category: 'Next.js',
+    name: 'Blur placeholder',
+    description: 'Tiny previews that show while images load: blurDataURL, ThumbHash, BlurHash, CSS and SVG.',
+    category: 'Image',
     tier: 'free',
-    icon: 'image-down',
-    tags: ['next', 'image', 'placeholder', 'blur', 'lqip'],
-    wasm: true,
+    icon: 'grid-3x3',
+    tags: ['next', 'image', 'placeholder', 'blur', 'lqip', 'blurdataurl', 'thumbhash', 'blurhash', 'base64'],
     isNew: true,
+    order: 39,
+    showcase: true,
   },
   {
     slug: 'byte-size',
@@ -371,7 +372,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'css-unit-converter',
     name: 'CSS unit converter',
-    description: 'Convert px ↔ rem, em, %, pt, pc, in, cm, mm, vw, vh — and build fluid clamp() expressions with live preview.',
+    description: 'Convert px, rem, em, %, pt, vw, vh and more, and build fluid clamp() values with a live preview.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -382,7 +383,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'px-to-rem-converter',
     name: 'Px to rem converter',
-    description: 'Convert px to rem instantly. Configurable root font-size, 10px shortcut supported, runs in your browser.',
+    description: 'Convert px to rem instantly, with a configurable root font-size and the 10px shortcut.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -392,7 +393,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'rem-to-px-converter',
     name: 'Rem to px converter',
-    description: 'Convert rem to pixels instantly with any root font-size. Reverse a stylesheet or audit a design token in one click.',
+    description: 'Convert rem to px with any root font-size. Handy for auditing a stylesheet or design tokens.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -402,7 +403,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'px-to-em-converter',
     name: 'Px to em converter',
-    description: 'Convert pixels to em with a configurable parent font-size. Matches the way em is used in 99% of real CSS.',
+    description: 'Convert px to em with a configurable parent font-size, the way em is resolved in CSS.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -411,7 +412,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'em-to-px-converter',
     name: 'Em to px converter',
-    description: 'Convert em to pixels instantly. Useful for auditing inherited typography scales and translating tokens to absolute values.',
+    description: 'Convert em to px instantly. Useful for auditing inherited type scales and design tokens.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -420,7 +421,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'px-to-pt-converter',
     name: 'Px to pt converter',
-    description: 'Convert CSS pixels to typography points. 16px = 12pt exactly, per the CSS spec — independent of display DPI.',
+    description: 'Convert CSS pixels to points. 16px = 12pt exactly, per the CSS spec, whatever the display.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -429,7 +430,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'pt-to-px-converter',
     name: 'Pt to px converter',
-    description: 'Convert points to CSS pixels. 12pt = 16px, 9pt = 12px — exact CSS-spec conversion regardless of display DPI.',
+    description: 'Convert points to CSS pixels. 12pt = 16px and 9pt = 12px, exact per the CSS spec.',
     category: 'Design',
     tier: 'free',
     icon: 'ruler',
@@ -832,7 +833,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'json-diff',
     name: 'JSON diff',
-    description: 'Semantic JSON diff with move detection, identity-keyed array compare, and JSON Patch (RFC 6902) export.',
+    description: 'Compare two JSON documents as data: arrays by key, ignore fields, verified JSON Patch (RFC 6902).',
     category: 'JSON',
     tier: 'free',
     icon: 'diff',

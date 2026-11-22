@@ -122,11 +122,15 @@ export type ValueHint =
  * the first match. Order matters: data-URI before generic URL, color before
  * anything else (so `#abc` isn't mistaken for a fragment).
  */
+/** Colours, URLs and dates are short — don't regex-scan a multi-MB string for them. */
+const HINT_SCAN_MAX = 2_048;
+
 export function detectValueHint(s: string): ValueHint {
   if (!s) return null;
   // Data-URI image is cheap to gate (prefix match).
   const dataImg = detectDataUriImage(s);
   if (dataImg) return { kind: "data-image", src: dataImg };
+  if (s.length > HINT_SCAN_MAX) return null;
 
   const color = detectColor(s);
   if (color) return { kind: "color", css: color };

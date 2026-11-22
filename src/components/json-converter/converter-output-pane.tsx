@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { flushPendingEdits, LazyCodeEditor } from "@/components/primitives/code-editor";
 import { CodeView } from "@/components/tools/json-formatter/views/code-view";
-import { highlight, type Lang } from "@/lib/highlight";
+import { highlight, HIGHLIGHT_SIZE_THRESHOLD, type Lang } from "@/lib/highlight";
 import type { TablePreview } from "./converter.lib";
+import { editorHandles, editorLanguage } from "./editor-language";
 
 interface ConverterOutputPaneProps {
   output: string;
@@ -14,6 +16,9 @@ interface ConverterOutputPaneProps {
   summary?: string;
   /** Problem to show instead of output (parse or conversion error). */
   error: { title: string; message: string } | null;
+  /** Where the input error is, for a "Go to line N" action in the alert. */
+  errorAt?: { line: number; col: number } | null;
+  onJump?: (line: number, col: number) => void;
   isComputing?: boolean;
   /** Optional table preview under the code (CSV tools). */
   preview?: (TablePreview & { totalRows?: number }) | null;
@@ -21,8 +26,17 @@ interface ConverterOutputPaneProps {
 
 /**
  * v2 output pane: bold label + summary + cream Copy in the header, the
- * read-only highlighted CodeView, and an optional "Preview" table below.
- * Errors render as an alert in place of the output — never a silent blank.
+ * read-only output, and an optional "Preview" table below. Errors render as
+ * an alert in place of the output — never a silent blank.
+ *
+ * Output view: languages the shared editor has a grammar for (JSON, YAML,
+ * XML; CSV as plain text) use the read-only CodeMirror editor — it renders
+ * only the visible lines, so a multi-MB result costs nothing to show or
+ * replace. Code outputs (TypeScript, Go, Rust, Python) have no CodeMirror
+ * grammar installed; they're usually small, so they keep the tuned
+ * in-house highlighter (CodeView) — until they pass its highlight limit,
+ * where it would fall back to plain text anyway and the editor's
+ * virtualization wins.
  */
 export function ConverterOutputPane({
   output,
@@ -30,15 +44,19 @@ export function ConverterOutputPane({
   outputLabel,
   summary,
   error,
+  errorAt,
+  onJump,
   isComputing,
   preview,
 }: ConverterOutputPaneProps) {
-  const highlighted = useMemo(() => highlight(output, outputLang), [output, outputLang]);
+  const inEditor = editorHandles(outputLang) || output.length > HIGHLIGHT_SIZE_THRESHOLD;
+  const highlighted = useMemo(() => (inEditor ? "" : highlight(output, outputLang)), [inEditor, output, outputLang]);
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const handleCopy = async () => {
+    flushPendingEdits();
     if (!output) return;
     try {
       await navigator.clipboard.writeText(output);
@@ -62,7 +80,9 @@ export function ConverterOutputPane({
         <button
           type="button"
           onClick={() => void handleCopy()}
-          disabled={!output}
+          // While a newer input is still converting, the visible output is
+          // stale — don't let Copy hand it out as if it were current.
+          disabled={!output || isComputing}
           aria-live="polite"
           className="btn-action inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -76,13 +96,33 @@ export function ConverterOutputPane({
           className="m-3.5 shrink-0 rounded-[10px] border border-error-border bg-error-bg px-3.5 py-3 text-[13px] text-error-text"
         >
           <span className="font-semibold">{error.title}.</span> {error.message}
+          {errorAt && onJump && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={() => onJump(errorAt.line, errorAt.col)}
+                className="font-semibold underline underline-offset-2 hover:text-text"
+              >
+                Go to line {errorAt.line}
+              </button>
+            </>
+          )}
         </div>
       )}
 
       <div className="min-h-0 flex-1">
-        {!error && (
-          <CodeView variant="v2" value={output} highlighted={highlighted} indent="2" lang={outputLang} />
-        )}
+        {!error &&
+          (inEditor ? (
+            <LazyCodeEditor
+              language={editorLanguage(outputLang)}
+              value={output}
+              ariaLabel={`${outputLabel} output`}
+              emptyText="Output will appear here."
+            />
+          ) : (
+            <CodeView variant="v2" value={output} highlighted={highlighted} indent="2" lang={outputLang} />
+          ))}
       </div>
 
       {preview && !error && preview.cols.length > 0 && (

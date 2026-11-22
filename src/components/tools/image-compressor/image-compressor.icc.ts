@@ -688,3 +688,24 @@ function injectAvifIcc(
 
   return asArrayBuffer(modified);
 }
+
+/**
+ * The ICC profile *bytes* behind what `extractIcc` returned. For JPEG/WebP
+ * that's already the profile; a PNG iCCP chunk holds it zlib-compressed
+ * after the profile name, so inflate it (DecompressionStream — available
+ * in workers). Needed to inspect a PNG profile, e.g. to spot Display P3
+ * before a format swap; pass-through keeps using the raw chunk.
+ */
+export async function iccProfileBytes(extracted: Uint8Array, mime: string): Promise<Uint8Array | null> {
+  if (mime !== "image/png") return extracted;
+  // extracted = length(4) type(4) data crc(4); data = name \0 method(1) zlib…
+  const data = extracted.subarray(8, extracted.length - 4);
+  const nul = data.indexOf(0);
+  if (nul < 0 || nul + 2 > data.length || data[nul + 1] !== 0) return null;
+  try {
+    const stream = new Blob([data.slice(nul + 2)]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}

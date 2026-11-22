@@ -9,13 +9,24 @@
 /* eslint-disable no-console */
 
 import {
+  applyPatch,
   canonicalize,
   deepEqual,
   diffJson,
+  hashValue,
+  lineView,
+  ROW_ADD,
+  ROW_CHG,
+  ROW_DEL,
+  ROW_IGN,
+  ROW_SAME,
   toJsonPatch,
+  verifyPatch,
   type DiffOptions,
   type JsonValue,
 } from "../json-diff.lib";
+import { computeDiff, computePatch, parseSide } from "../json-diff.engine";
+import { itemForRow, splitList, tokenizePatchLine, unifiedList } from "../json-diff.view";
 
 let pass = 0;
 let fail = 0;
@@ -267,8 +278,7 @@ section("JSON Patch (RFC 6902)");
   // job).
   const left: JsonValue = { name: "alice", age: 30, tags: ["a", "b"] };
   const right: JsonValue = { name: "alice", age: 31, tags: ["a", "b", "c"] };
-  const r = diff(left, right);
-  const patch = toJsonPatch(r);
+  const patch = toJsonPatch(left, right);
 
   // Should produce: replace /age + add /tags/2 (in some order)
   const replace = patch.find((p) => p.op === "replace");
@@ -285,23 +295,20 @@ section("JSON Patch (RFC 6902)");
 
 {
   // Type change emits a replace, not a special op.
-  const r = diff(1 as JsonValue, "1" as unknown as JsonValue);
-  const patch = toJsonPatch(r);
+  const patch = toJsonPatch(1, "1");
   eq("type-change → replace op", patch[0]?.op, "replace");
 }
 
 {
   // Removed → remove op.
-  const r = diff({ a: 1, b: 2 }, { a: 1 });
-  const patch = toJsonPatch(r);
+  const patch = toJsonPatch({ a: 1, b: 2 }, { a: 1 });
   eq("remove op", patch[0]?.op, "remove");
   eq("remove path", patch[0]?.path, "/b");
 }
 
 {
   // Move → move op with from + path.
-  const r = diff(["a", "b", "c"], ["b", "c", "a"]);
-  const patch = toJsonPatch(r);
+  const patch = toJsonPatch(["a", "b", "c"], ["b", "c", "a"]);
   const move = patch.find((p) => p.op === "move");
   eq("move op present", move?.op, "move");
   if (move && move.op === "move") {
@@ -322,6 +329,256 @@ section("Stats consistency");
   eq("total equals sum of kinds", r.stats.total,
     r.stats.added + r.stats.removed + r.stats.changed + r.stats.typeChanges + r.stats.moves);
   check("at least one type change", r.stats.typeChanges >= 1);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Structural hash");
+
+check("hash ignores key order", hashValue({ a: 1, b: [1, { c: 2 }] }) === hashValue({ b: [1, { c: 2 }], a: 1 }));
+check("hash: 0 and -0 equal", hashValue(0) === hashValue(-0));
+check("hash: array order matters", hashValue([1, 2]) !== hashValue([2, 1]));
+check("hash: '1' vs 1 differ", hashValue("1") !== hashValue(1));
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Ignore list");
+
+{
+  const l = { requestId: "a", meta: { updatedAt: 1, keep: 1 }, items: [{ id: 1, updatedAt: 5, v: 1 }] };
+  const r = { requestId: "b", meta: { updatedAt: 2, keep: 2 }, items: [{ id: 1, updatedAt: 6, v: 1 }] };
+  const res = diffJson(l, r, { ignore: ["requestId", "updatedAt"] });
+  eq("key names ignored everywhere → 1 change left", res.stats.total, 1);
+  eq("ignored count = 3", res.stats.ignored, 3);
+  eq("remaining change is meta.keep", res.entries[0]?.path, "meta.keep");
+}
+{
+  const l = { meta: { requestId: 1 }, requestId: 1 };
+  const r = { meta: { requestId: 2 }, requestId: 2 };
+  const res = diffJson(l, r, { ignore: ["$.meta.requestId"] });
+  eq("path ignores one spot only", res.stats.total, 1);
+  eq("…the other requestId still reported", res.entries[0]?.path, "requestId");
+}
+{
+  const l = { items: [{ at: 1, v: 1 }, { at: 2, v: 2 }] };
+  const r = { items: [{ at: 9, v: 1 }, { at: 8, v: 3 }] };
+  const res = diffJson(l, r, { ignore: ["$.items[*].at"] });
+  eq("[*] wildcard ignores every item's field", res.stats.total, 1);
+  eq("…ignored 2", res.stats.ignored, 2);
+}
+{
+  const res = diffJson({ a: 1 }, { a: 1, b: 2 }, { ignore: ["b"] });
+  eq("added ignored key isn't a change", res.stats.total, 0);
+  eq("…but counts as ignored", res.stats.ignored, 1);
+}
+{
+  const ops = toJsonPatch({ a: 1, t: 1 }, { a: 2, t: 2 }, { ignore: ["t"] });
+  eq("patch skips ignored keys", ops.length, 1);
+  check("patch with ignore still verifies", verifyPatch({ a: 1, t: 1 }, { a: 2, t: 2 }, ops, { ignore: ["t"] }));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Identity-keyed paths");
+
+{
+  const r = diffJson(
+    { items: [{ id: 7, q: 1 }, { id: 12, q: 2 }] },
+    { items: [{ id: 12, q: 3 }, { id: 7, q: 1 }, { id: 19, q: 1 }] },
+    { arrayStrategy: "identity", identityKey: "id" },
+  );
+  deep("paths use [id=…] labels", r.entries.map((e) => e.path), ["items[id=12].q", "items[id=19]"]);
+  deep("pointers stay positional", r.entries.map((e) => e.pointer), ["/items/1/q", "/items/2"]);
+}
+{
+  const r = diffJson([{ id: "a" }], [{ id: "a" }, { id: "b" }], { arrayStrategy: "identity", identityKey: "id" });
+  eq("string ids unquoted in label", r.entries[0]?.path, "[id=b]");
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Ordered arrays at scale (Myers)");
+
+{
+  const n = 20000;
+  const left = Array.from({ length: n }, (_, i) => ({ id: i, v: i }));
+  const right = left.map((x) => ({ ...x }));
+  right.splice(5000, 1); // one removal in the middle
+  right[15000] = { id: 15001, v: -1 }; // one in-place change
+  const t0 = performance.now();
+  const r = diffJson(left, right);
+  const ms = performance.now() - t0;
+  eq("removal found (not a cascade of changes)", r.stats.removed, 1);
+  eq("one nested change", r.stats.changed, 1);
+  check(`20k-item ordered diff is fast (${ms.toFixed(1)} ms < 250)`, ms < 250);
+}
+{
+  const r = diffJson([1, 2, 3, 4], [1, 2, 3, 4, 5], { maxEdits: 0 });
+  eq("over budget → positional; trailing add", r.stats.added, 1);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Set strategy at scale");
+
+{
+  const n = 20000;
+  const left = Array.from({ length: n }, (_, i) => ({ k: `item-${i}` }));
+  const right = left.slice().reverse();
+  right.push({ k: "new" });
+  const t0 = performance.now();
+  const r = diffJson(left, right, { arrayStrategy: "set" });
+  const ms = performance.now() - t0;
+  eq("set: only the new item", r.stats.total, 1);
+  check(`20k-item set diff is linear (${ms.toFixed(1)} ms < 200)`, ms < 200);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("applyPatch");
+
+{
+  const doc: JsonValue = { a: [1, 2, 3], b: { c: 1 } };
+  const out = applyPatch(doc, [
+    { op: "remove", path: "/a/0" },
+    { op: "add", path: "/a/-", value: 9 },
+    { op: "replace", path: "/b/c", value: 2 },
+    { op: "move", from: "/b", path: "/d" },
+  ]);
+  deep("ops applied in order", out, { a: [2, 3, 9], d: { c: 2 } });
+  deep("input not mutated", doc, { a: [1, 2, 3], b: { c: 1 } });
+}
+{
+  let threw = false;
+  try {
+    applyPatch({ a: 1 }, [{ op: "remove", path: "/zz" }]);
+  } catch {
+    threw = true;
+  }
+  check("missing path throws", threw);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Patch round-trip (fuzz, all strategies)");
+
+{
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const gen = (depth: number): JsonValue => {
+    const r = rnd();
+    if (depth > 3 || r < 0.35) {
+      const p = rnd();
+      if (p < 0.25) return Math.floor(rnd() * 5);
+      if (p < 0.5) return ["a", "b", "c"][Math.floor(rnd() * 3)];
+      if (p < 0.7) return rnd() < 0.5;
+      if (p < 0.8) return null;
+      return String(Math.floor(rnd() * 3));
+    }
+    if (r < 0.65) return Array.from({ length: Math.floor(rnd() * 6) }, () => gen(depth + 1));
+    if (r < 0.8) return Array.from({ length: Math.floor(rnd() * 5) }, (_, i) => ({ id: Math.floor(rnd() * 4) + i * 10, v: gen(depth + 1) }));
+    const o: Record<string, JsonValue> = {};
+    for (let i = 0; i < Math.floor(rnd() * 5); i++) o[["x", "y", "z", "w"][Math.floor(rnd() * 4)]] = gen(depth + 1);
+    return o;
+  };
+  let ok = 0;
+  let total = 0;
+  let bad = "";
+  for (let i = 0; i < 600; i++) {
+    const a = gen(0);
+    const b = gen(0);
+    for (const strategy of ["ordered", "set", "identity"] as const) {
+      const opts: DiffOptions = { arrayStrategy: strategy, identityKey: "id" };
+      total++;
+      const ops = toJsonPatch(a, b, opts);
+      let good = false;
+      try {
+        good = deepEqual(applyPatch(a, ops), b);
+      } catch {
+        good = false;
+      }
+      // No differences ⇔ empty change list (for ordered; set/identity are order-free).
+      const d = diffJson(a, b, opts);
+      if (strategy === "ordered" && (d.stats.total === 0) !== deepEqual(a, b)) good = false;
+      if (good) ok++;
+      else if (!bad) bad = `${strategy}: ${JSON.stringify(a)} → ${JSON.stringify(b)}`;
+    }
+  }
+  eq(`patch(a→b) applied to a deep-equals b (${total} cases)`, ok, total);
+  if (bad) console.error(`      first failure: ${bad}`);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Row table");
+
+{
+  const a = { x: 1, list: [1, 2], o: { k: "v" } };
+  const res = diffJson(a, { o: { k: "v" }, list: [1, 2], x: 1 }, {}, { rows: true });
+  const rows = res.rows;
+  check("rows built", rows !== undefined);
+  if (rows) {
+    eq("identical docs: every row same", Array.from(rows.kind).every((k) => k === ROW_SAME), true);
+    eq("row count = pretty-printed line count", rows.count, JSON.stringify(a, null, 2).split("\n").length);
+    const text = Array.from({ length: rows.left.count }, (_, i) => {
+      const v = lineView(rows, rows.left, i);
+      return `${"  ".repeat(v.ind)}${v.key ? `${v.key}: ` : ""}${v.text}${v.comma ? "," : ""}`;
+    }).join("\n");
+    eq("left lines reproduce JSON.stringify(…, 2)", text, JSON.stringify(a, null, 2));
+  }
+}
+{
+  const res = diffJson({ a: 1, b: "x", c: [1] }, { a: 2, b: 5, d: true }, { ignore: [] }, { rows: true });
+  const kinds = Array.from(res.rows?.kind ?? []);
+  check("changed primitive → CHG row", kinds.includes(ROW_CHG));
+  check("removed key → DEL rows", kinds.includes(ROW_DEL));
+  check("added key → ADD row", kinds.includes(ROW_ADD));
+  check("every change points at a row of its own cid", res.entries.every((e, i) => res.rows?.cid[e.row ?? -1] === i));
+}
+{
+  const res = diffJson({ t: 1, v: 1 }, { t: 2, v: 1 }, { ignore: ["t"] }, { rows: true });
+  check("ignored key → IGN row", Array.from(res.rows?.kind ?? []).includes(ROW_IGN));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Display lists");
+
+{
+  const big: Record<string, number> = {};
+  for (let i = 0; i < 40; i++) big[`k${i}`] = i;
+  const changed = { ...big, k20: -1 };
+  const rows = diffJson(big, changed, {}, { rows: true }).rows;
+  if (rows) {
+    const full = splitList(rows, false);
+    const folded = splitList(rows, true);
+    eq("no folding when off", full.count, rows.count);
+    check("folding shrinks the list", folded.count < 12);
+    const folds = Array.from(folded.items).filter((x) => x < 0);
+    eq("two folds around one change", folds.length, 2);
+    const changeRow = Array.from(rows.kind).indexOf(ROW_CHG);
+    eq("itemForRow finds the change", folded.items[itemForRow(folded, changeRow)], changeRow);
+    const uni = unifiedList(rows, false);
+    eq("unified: a changed row becomes − and +", uni.count, rows.count + 1);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+section("Engine");
+
+{
+  const p = parseSide('{\n  "a": 1,\n  "b" 2\n}');
+  check("parse error has a line", p.status.state === "error" && p.status.line === 3);
+  eq("empty input", parseSide("  \n").status.state, "empty");
+  const ok = parseSide('{"a":1}\n');
+  eq("valid: line count ignores trailing newline", ok.status.state === "ok" ? ok.status.lines : -1, 1);
+}
+{
+  const { model, session } = computeDiff('{"total":"48.50"}', '{"total":48.5}', { arrayStrategy: "identity", identityKey: "id", ignore: [], sortKeys: false });
+  eq("type change flagged", model.changes[0]?.kind, "type");
+  eq("…with its types", model.changes[0]?.types, "string → number");
+  eq("…and previews", `${model.changes[0]?.a} → ${model.changes[0]?.b}`, '"48.50" → 48.5');
+  const patch = session ? computePatch(session) : null;
+  check("patch verified", patch?.verified === true);
+}
+{
+  const { model } = computeDiff('{"b":1,"a":[1,2]}', '{ "a": [1, 2], "b": 1 }', { arrayStrategy: "ordered", identityKey: "id", ignore: [], sortKeys: false });
+  eq("reordered keys + formatting → no differences", model.counts.total, 0);
+}
+{
+  const toks = tokenizePatchLine('    "op": "replace",');
+  deep("patch tokens", toks.filter((t) => t.k !== "plain").map((t) => t.k), ["key", "punct", "op", "punct"]);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

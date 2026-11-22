@@ -37,6 +37,12 @@ export interface TypeRef {
    * `CollectedProperty.optional`, which means the key itself may be absent.
    */
   nullable?: boolean;
+  /**
+   * Integer primitives only: set when a sample overflowed int64 (see
+   * `JsonSchema.intRange`). Fixed-width emitters (Go, Rust) widen to
+   * `uint64` / an arbitrary-precision or float type.
+   */
+  intRange?: "uint64" | "big";
 }
 
 export interface CollectedProperty {
@@ -56,6 +62,12 @@ export interface CollectResult {
   types: CollectedType[];
   /** TypeRef for the document root — could name a struct or be a builtin. */
   root: TypeRef;
+  /**
+   * Name for the root declaration. For object roots it is `root.name`; for
+   * array / primitive roots it names the alias (`type Root = Item[]`) and is
+   * reserved before the walk, so no collected type can take it.
+   */
+  rootName: string;
 }
 
 // ── Identifier hygiene ───────────────────────────────────────────────────────
@@ -137,7 +149,7 @@ function sanitizeName(raw: string): string {
 function canon(schema: JsonSchema): string {
   return JSON.stringify(schema, (_key, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      const sorted: Record<string, unknown> = {};
+      const sorted = Object.create(null) as Record<string, unknown>;
       for (const k of Object.keys(value).sort()) {
         sorted[k] = (value as Record<string, unknown>)[k];
       }
@@ -155,6 +167,22 @@ interface Collector {
   order: CollectedType[];
 }
 
+/**
+ * Type names no emitter may declare: keywords that are PascalCase (`Self` in
+ * Rust; `None` / `True` / `False` in Python) and the builtin / imported names
+ * the emitters themselves reference (`String`, `Vec`, `Option` in Rust;
+ * `Any`, `Optional`, `UUID`, … in Python; `Record` in TypeScript). A key like
+ * `"string": {…}` would otherwise declare `struct String` and silently
+ * re-point every `String` field at it.
+ */
+const RESERVED_TYPE_NAMES = [
+  "Self", "None", "True", "False",
+  "String", "Vec", "Option", "Box", "Result", "Some", "Ok", "Err",
+  "Serialize", "Deserialize",
+  "Any", "Optional", "TypedDict", "BaseModel", "Field", "UUID",
+  "Record", "Array", "Object", "Date",
+];
+
 function uniquify(c: Collector, base: string): string {
   const baseName = sanitizeName(pascalCase(base) || "Item");
   if (!c.takenNames.has(baseName)) {
@@ -170,22 +198,27 @@ function uniquify(c: Collector, base: string): string {
 
 function refFor(c: Collector, schema: JsonSchema, hint: string): TypeRef {
   if (schema.oneOf && schema.oneOf.length > 0) {
-    // Detect the nullable-T pattern: two variants where one is `null`. This is
-    // common in practice (a field that's "string sometimes, null sometimes")
-    // and emitting the inner type with a `nullable` flag is strictly more
-    // useful than collapsing to a `mixed` placeholder.
-    if (schema.oneOf.length === 2) {
-      const nullIdx = schema.oneOf.findIndex((v) => v.type === "null");
-      if (nullIdx !== -1) {
-        const inner = schema.oneOf[1 - nullIdx];
-        const ref = refFor(c, inner, hint);
-        return { ...ref, nullable: true };
-      }
+    // `inferJsonSchema` emits flat oneOfs, but flatten defensively so a
+    // hand-built nested oneOf still resolves the same way.
+    const flat: JsonSchema[] = [];
+    const walk = (s: JsonSchema) => {
+      if (s.oneOf && s.type === undefined) s.oneOf.forEach(walk);
+      else flat.push(s);
+    };
+    walk(schema);
+    const nonNull = flat.filter((v) => v.type !== "null");
+    const hasNull = nonNull.length < flat.length;
+    // Nullable-T: exactly one non-null variant plus `null` (a field that's
+    // "string sometimes, null sometimes"). Emitting the inner type with a
+    // `nullable` flag is strictly more useful than a `mixed` placeholder.
+    if (nonNull.length === 1) {
+      const ref = refFor(c, nonNull[0], hint);
+      return hasNull ? { ...ref, nullable: true } : ref;
     }
-    // Collapse arbitrary oneOf to a "mixed" placeholder for codegen; emitters
-    // map this to interface{} / Any / unknown / serde_json::Value. Each variant
-    // is still walked so its nested objects get registered.
-    schema.oneOf.forEach((v, i) => refFor(c, v, `${hint}Variant${i + 1}`));
+    if (nonNull.length === 0) return { kind: "null" };
+    // Genuinely mixed: emitters map this to interface{} / Any / unknown /
+    // serde_json::Value. Variants are deliberately *not* registered as named
+    // types — nothing would reference them, so they'd only be orphans.
     return { kind: "mixed" };
   }
   const t = schema.type;
@@ -227,15 +260,37 @@ function refFor(c: Collector, schema: JsonSchema, hint: string): TypeRef {
       ? { kind: "string-format", format: schema.format }
       : { kind: "primitive", prim: "string" };
   }
-  if (t === "integer") return { kind: "primitive", prim: "integer" };
+  if (t === "integer") {
+    return schema.intRange
+      ? { kind: "primitive", prim: "integer", intRange: schema.intRange }
+      : { kind: "primitive", prim: "integer" };
+  }
   if (t === "number") return { kind: "primitive", prim: "number" };
   if (t === "boolean") return { kind: "primitive", prim: "boolean" };
   if (t === "null") return { kind: "null" };
   return { kind: "any" };
 }
 
+function isObjectRoot(schema: JsonSchema): boolean {
+  return schema.type === "object" && !schema.oneOf;
+}
+
 export function collect(schema: JsonSchema, rootName = "Root"): CollectResult {
-  const c: Collector = { byHash: new Map(), takenNames: new Set(), order: [] };
-  const root = refFor(c, schema, rootName);
-  return { types: c.order, root };
+  const c: Collector = {
+    byHash: new Map(),
+    takenNames: new Set(RESERVED_TYPE_NAMES),
+    order: [],
+  };
+  if (isObjectRoot(schema)) {
+    // First registration, so the struct gets `rootName` itself (unless that
+    // is a reserved name, in which case it is suffixed like any collision).
+    const root = refFor(c, schema, rootName);
+    return { types: c.order, root, rootName: root.name ?? rootName };
+  }
+  // Array / primitive root: claim the alias name up front so items can't
+  // collide with it (`Root = RootItem[]` beside a `RootItem` struct, or
+  // `User = User[]`).
+  const alias = uniquify(c, rootName);
+  const root = refFor(c, schema, alias);
+  return { types: c.order, root, rootName: alias };
 }

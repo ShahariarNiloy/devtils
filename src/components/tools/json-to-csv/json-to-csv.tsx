@@ -12,6 +12,7 @@ import {
   MenuCheck,
   MenuChoice,
   parseCsv,
+  precisionWarning,
   Segmented,
   stringCodec,
   tableSummary,
@@ -150,6 +151,7 @@ export function JsonToCsv({ tool }: { tool: Tool }) {
       downloadMime={forward ? "text/csv" : "application/json"}
       downloadName="data"
       conversionError={c.conversionError}
+      warning={precisionWarning(c.parse.lossy, String)}
       isComputing={c.isComputing}
       content={<JsonToCsvContent />}
       toolbar={

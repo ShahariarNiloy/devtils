@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
 import { CodeView } from "../views/code-view";
+import { LazyJsonEditor } from "../views/json-editor-lazy";
 import { DeferredMount } from "../views/deferred-mount";
 import { TreeView } from "../views/tree-view";
 import { FlatTableView, TableView } from "../views/table-view";
@@ -43,6 +44,8 @@ import { OutputSearchBar } from "./output-search-bar";
 import { EmptyState, InvalidState } from "./empty-state";
 import { applySearchHighlight, highlight, langForOutput } from "../json-highlighter";
 import { formatJson, formatJsonText } from "../json-formatter.lib";
+import { WORKER_THRESHOLD } from "../json-worker-client";
+import { useWorkerFormat } from "../hooks/use-worker-format";
 
 // Graph is a heavier SVG view — only its chunk loads when the tab opens.
 const GraphView = lazy(() => import("../views/graph/graph-view"));
@@ -98,34 +101,44 @@ function OutputPanelImpl({
   // Tree → Code always shows something useful (the user didn't have to
   // click Format first to populate output), and finally the raw input.
   //
-  // The expensive call — `formatJson(parsedValue, indent)` — is split into
-  // its own memo so it ONLY re-runs when the parsed tree or indent changes,
-  // not on every input keystroke. The composite memo just picks among
-  // pre-computed strings.
-  // Only stringify for the Code view. Copy/Download read `output || input`
-  // directly, so Tree/Graph/Path never pay this pass on a large document.
-  const formattedFromParsed = useMemo(() => {
-    if (state.viewMode !== "code") return "";
-    if (state.parsedValue === null || state.parsedValue === undefined) return "";
-    // Format from the source text so big integers / long decimals keep their
-    // exact digits; fall back to the parsed value if the text is mid-edit.
+  // The pretty-print only runs for the Code view and only when there's no
+  // output to show (Copy/Download read `output || input` directly). It
+  // formats the source text so big integers / long decimals keep their
+  // exact digits. A large document is formatted in the JSON worker — the
+  // whole-document pass took > 1 s on the main thread at 50 MB.
+  const needsPretty =
+    state.viewMode === "code" && !state.output && state.parsedValue !== null && state.parsedValue !== undefined;
+  const largePretty = needsPretty && state.parsedSource.length > WORKER_THRESHOLD;
+  const formattedSync = useMemo(() => {
+    if (!needsPretty || largePretty) return "";
     try {
       return formatJsonText(state.parsedSource, state.indent, "none", state.parsedValue);
     } catch {
+      // The text is mid-edit (the parse lags): format the last good value.
       try { return formatJson(state.parsedValue, state.indent); } catch { return ""; }
     }
-  }, [state.viewMode, state.parsedValue, state.parsedSource, state.indent]);
-  const displayedCode = state.output || formattedFromParsed || state.input;
+  }, [needsPretty, largePretty, state.parsedValue, state.parsedSource, state.indent]);
+  const formattedAsync = useWorkerFormat(largePretty ? state.parsedSource : "", state.indent);
+  const formattedFromParsed = largePretty ? formattedAsync.text : formattedSync;
+  // While the first worker result is on its way, show nothing rather than
+  // mounting the editor on the raw text only to replace it a moment later.
+  const prettyPending = largePretty && formattedAsync.pending && !formattedAsync.text;
+  const displayedCode = state.output || formattedFromParsed || (prettyPending ? "" : state.input);
+  const hasText = Boolean(displayedCode || state.input);
   const deferredCode = useDeferredValue(displayedCode);
 
   const outputLang = langForOutput(state.conversionResult?.format);
+  // JSON output renders in CodeMirror (virtualized, incremental highlight),
+  // so the whole-document HTML highlight below is only built for converted
+  // output (TypeScript, YAML, Go…), which is small.
+  const isJsonOutput = outputLang === "json";
   const highlightedOutput = useMemo(
-    () => highlight(deferredCode, outputLang),
-    [deferredCode, outputLang],
+    () => (isJsonOutput || state.viewMode !== "code" ? "" : highlight(deferredCode, outputLang)),
+    [deferredCode, outputLang, isJsonOutput, state.viewMode],
   );
   const highlightedWithSearch = useMemo(
     () =>
-      deferredSearch
+      deferredSearch && highlightedOutput
         ? applySearchHighlight(highlightedOutput, deferredSearch)
         : highlightedOutput,
     [highlightedOutput, deferredSearch],
@@ -229,10 +242,10 @@ function OutputPanelImpl({
             })}
           </div>
           <span className="grow" />
-          <IconBtn label="Search output" onClick={handleToggleSearch} pressed={showSearch} disabled={!displayedCode}>
+          <IconBtn label="Search output" onClick={handleToggleSearch} pressed={showSearch} disabled={!hasText}>
             <Search size={15} />
           </IconBtn>
-          <IconBtn label="Download" shortcut="⌘⇧D" onClick={() => state.downloadOutput("json")} disabled={!displayedCode}>
+          <IconBtn label="Download" shortcut="⌘⇧D" onClick={() => state.downloadOutput("json")} disabled={!hasText}>
             <Download size={15} />
           </IconBtn>
           {/* View extras the mockup doesn't show: graph, tree controls, fullscreen. */}
@@ -274,7 +287,7 @@ function OutputPanelImpl({
             <button
               type="button"
               onClick={() => void handleCopy()}
-              disabled={!displayedCode}
+              disabled={!hasText}
               className="ml-1 inline-flex min-h-[34px] items-center gap-[7px] rounded-lg border border-white/12 bg-white/[.04] px-3 text-[13px] font-semibold text-text transition-colors hover:bg-white/[.07] disabled:opacity-40"
             >
               <Copy size={14} aria-hidden />
@@ -318,9 +331,23 @@ function OutputPanelImpl({
           />
         )}
         {!showEmptyState && showInvalid && <InvalidState />}
-        {!showEmptyState && !showInvalid && (
+        {!showEmptyState && !showInvalid && state.viewMode === "code" && prettyPending && (
+          <div aria-busy={formattedAsync.busy || undefined} className="flex h-full items-center justify-center text-sm text-text-faint">
+            {formattedAsync.busy && <span className="animate-pulse">Formatting…</span>}
+          </div>
+        )}
+        {!showEmptyState && !showInvalid && !(state.viewMode === "code" && prettyPending) && (
           <DeferredMount token={state.viewMode}>
-            {state.viewMode === "code" && (
+            {state.viewMode === "code" && isJsonOutput && (
+              <LazyJsonEditor
+                value={deferredCode}
+                indent={state.indent}
+                search={deferredSearch}
+                onCursorChange={state.setOutputCursor}
+                wrap={state.wrapText}
+              />
+            )}
+            {state.viewMode === "code" && !isJsonOutput && (
               <CodeView
                 variant="v2"
                 value={displayedCode}

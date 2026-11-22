@@ -2,86 +2,108 @@
 
 import { cn } from "@/lib/cn";
 import { Maximize2, Minimize2, MoveHorizontal } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { formatBytes } from "../../image-compressor.lib";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ── Compare canvas — drag-to-reveal slider ─────────────────────
 //
-// Inline visualization in the expanded row: a single canvas with both
-// images stacked and a draggable vertical divider. Differences pop the
-// instant the divider crosses a region where compression introduced
-// artifacts.
+// One canvas with both images stacked and a vertical divider: the
+// compressed (or "what changed") layer is clipped from the left at the
+// divider, so differences pop the instant it crosses a region where
+// compression introduced artifacts.
 //
-// The inline canvas is intentionally compact (`aspect-[3/2]`, capped
-// max-height) so it doesn't dominate the row. For pixel-level
-// inspection — 1:1 zoom with pan — the user clicks "Expand" to open
-// the same canvas in a dialog where it gets full viewport room.
+// Zoom is focus-based: at 100% / 200% both layers render at the
+// original's natural pixel size × zoom, positioned so the focus point
+// (fx, fy ∈ 0–1 of the image) sits at the centre of the view. Entering a
+// zoom with focus 0.5/0.5 is centred; clicking a spot at Fit zooms there;
+// dragging pans. Both layers share the exact same box, so a resized
+// output and the diff map line up pixel for pixel under the divider.
+
+export type CompareZoom = "fit" | 1 | 2;
+
+export interface CompareFocus {
+  fx: number;
+  fy: number;
+}
 
 interface CompareCanvasProps {
   originalUrl: string;
   compressedUrl: string;
-  originalSize: number;
-  compressedSize: number;
-  /** "inline" = compact + Expand button; "panel" = fixed 260px workspace
-   *  preview + Expand button; "modal" = large + zoom toggle. */
-  variant: "inline" | "panel" | "modal";
-  onExpand?: () => void;
-  /** Controlled divider position (0–100). Uncontrolled when omitted. */
-  position?: number;
-  onPositionChange?: (pct: number) => void;
-  /** Corner labels; default to "Original · size" / "Compressed · size". */
-  originalLabel?: string;
-  compressedLabel?: string;
+  /** "stage" = the workspace preview (zoom driven by the parent);
+   *  "modal" = the Inspect dialog (own Fit / 1:1 toggle). */
+  variant: "stage" | "modal";
+  /** Controlled divider position (0–100). */
+  position: number;
+  onPositionChange: (pct: number) => void;
+  originalLabel: React.ReactNode;
+  compressedLabel: React.ReactNode;
+  /** Show a checkerboard behind transparent images. */
+  alpha?: boolean;
+  /** Stage only: zoom + focus are controlled. */
+  zoom?: CompareZoom;
+  focus?: CompareFocus;
+  onZoomAt?: (focus: CompareFocus) => void;
+  onFocusChange?: (focus: CompareFocus) => void;
+  onInspect?: () => void;
+  /** Dim the compressed layer while a fresher result is on its way. */
+  stale?: boolean;
+  className?: string;
 }
+
+const CENTRE: CompareFocus = { fx: 0.5, fy: 0.5 };
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const CHECKER = "repeating-conic-gradient(#1b1b19 0 25%, #121211 0 50%) 0 0 / 16px 16px";
 
 export function CompareCanvas({
   originalUrl,
   compressedUrl,
-  originalSize,
-  compressedSize,
   variant,
-  onExpand,
   position,
   onPositionChange,
   originalLabel,
   compressedLabel,
+  alpha = false,
+  zoom: zoomProp,
+  focus: focusProp,
+  onZoomAt,
+  onFocusChange,
+  onInspect,
+  stale = false,
+  className,
 }: CompareCanvasProps) {
-  const [ownPos, setOwnPos] = useState(50);
-  const dividerPos = position ?? ownPos;
-  const setDividerPos = useCallback(
-    (next: number | ((p: number) => number)) => {
-      const value = typeof next === "function" ? next(position ?? ownPos) : next;
-      if (onPositionChange) onPositionChange(value);
-      else setOwnPos(value);
-    },
-    [onPositionChange, position, ownPos],
-  );
-  const [zoomed, setZoomed] = useState(false);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  // Original's pixel size: at 1:1 both layers render at it, so a resized
+  // output still lines up pixel-for-pixel under the divider.
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
 
-  // Zoom only exists in the modal variant. Recenter the pan on every
-  // toggle (handled in the button below) so each zoom entry starts
-  // centered — no effect needed, which keeps render side-effect-free.
-  const toggleZoom = useCallback(() => {
-    setZoomed((z) => !z);
-    setPan({ x: 0, y: 0 });
-  }, []);
+  // Modal: own zoom state (Fit ↔ 1:1), always entering centred.
+  const [ownZoom, setOwnZoom] = useState<CompareZoom>("fit");
+  const [ownFocus, setOwnFocus] = useState<CompareFocus>({ fx: 0.5, fy: 0.5 });
+  const zoom = variant === "stage" ? (zoomProp ?? "fit") : ownZoom;
+  const focus = useMemo(() => (variant === "stage" ? (focusProp ?? CENTRE) : ownFocus), [variant, focusProp, ownFocus]);
+  const setFocus = useCallback(
+    (f: CompareFocus) => {
+      if (variant === "stage") onFocusChange?.(f);
+      else setOwnFocus(f);
+    },
+    [variant, onFocusChange],
+  );
+  const zoomed = zoom !== "fit";
 
   useEffect(() => {
     if (variant !== "modal" || !zoomed) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setZoomed(false);
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOwnZoom("fit");
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [variant, zoomed]);
 
-  // ── Divider drag (always available when not zoomed) ──
+  // ── Divider drag ──
   // Pointer capture routes every move/up to the divider itself, so the
-  // drag keeps tracking past the canvas edge and releases cleanly when
-  // the pointer is lifted anywhere — no window-level listeners that could
-  // outlive the element or leak across remounts.
+  // drag keeps tracking past the canvas edge and releases cleanly.
   const onDividerPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.stopPropagation();
@@ -92,179 +114,212 @@ export function CompareCanvas({
       const onMove = (ev: PointerEvent) => {
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-        setDividerPos(Math.max(0, Math.min(100, pct)));
+        onPositionChange(Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100)));
       };
       const onUp = () => {
         el.removeEventListener("pointermove", onMove);
         el.removeEventListener("pointerup", onUp);
-        if (el.hasPointerCapture(pointerId))
-          el.releasePointerCapture(pointerId);
+        el.removeEventListener("pointercancel", onUp);
+        if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
       };
       el.addEventListener("pointermove", onMove);
       el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
     },
-    [setDividerPos]
+    [onPositionChange],
   );
 
-  // ── Pan drag (modal + zoomed only) ──
-  const onPanPointerDown = useCallback(
+  const scale = zoom === 2 ? 2 : 1;
+  const boxW = (natural?.w ?? 0) * scale;
+  const boxH = (natural?.h ?? 0) * scale;
+
+  // ── Pan drag (zoomed) / click-to-inspect (fit) ──
+  const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (variant !== "modal" || !zoomed) return;
-      e.preventDefault();
+      if ((e.target as HTMLElement).closest("[data-divider],button")) return;
       const el = e.currentTarget;
       const pointerId = e.pointerId;
-      const startX = e.clientX - pan.x;
-      const startY = e.clientY - pan.y;
+      const sx = e.clientX;
+      const sy = e.clientY;
+      const f0 = focus;
+      let moved = false;
       el.setPointerCapture(pointerId);
       const onMove = (ev: PointerEvent) => {
-        setPan({ x: ev.clientX - startX, y: ev.clientY - startY });
+        if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) moved = true;
+        if (zoomed && boxW > 0 && boxH > 0) {
+          setFocus({ fx: clamp01(f0.fx - (ev.clientX - sx) / boxW), fy: clamp01(f0.fy - (ev.clientY - sy) / boxH) });
+        }
       };
-      const onUp = () => {
+      const onUp = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", onMove);
         el.removeEventListener("pointerup", onUp);
-        if (el.hasPointerCapture(pointerId))
-          el.releasePointerCapture(pointerId);
+        el.removeEventListener("pointercancel", onUp);
+        if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+        if (moved || zoomed || ev.type === "pointercancel" || !natural) return;
+        // Map the click into the image box (object-fit: contain) and zoom there.
+        const rect = el.getBoundingClientRect();
+        const s = Math.min(rect.width / natural.w, rect.height / natural.h);
+        const ox = (rect.width - natural.w * s) / 2;
+        const oy = (rect.height - natural.h * s) / 2;
+        const at = {
+          fx: clamp01((ev.clientX - rect.left - ox) / (natural.w * s)),
+          fy: clamp01((ev.clientY - rect.top - oy) / (natural.h * s)),
+        };
+        if (variant === "stage") onZoomAt?.(at);
+        else {
+          setOwnFocus(at);
+          setOwnZoom(1);
+        }
       };
       el.addEventListener("pointermove", onMove);
       el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
     },
-    [variant, zoomed, pan.x, pan.y]
+    [focus, zoomed, boxW, boxH, natural, setFocus, variant, onZoomAt],
   );
 
-  const imgClass = zoomed
-    ? "absolute top-1/2 left-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 cursor-grab select-none active:cursor-grabbing"
-    : "absolute inset-0 m-auto max-h-full max-w-full object-contain select-none";
-  const imgStyle = zoomed
-    ? {
-        transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))`,
-      }
-    : undefined;
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!zoomed) return;
+    const step = 0.04;
+    const map: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const d = map[e.key];
+    if (!d) return;
+    e.preventDefault();
+    setFocus({ fx: clamp01(focus.fx + d[0]), fy: clamp01(focus.fy + d[1]) });
+  };
+
+  // Layer box. Fit: contain inside the view. Zoomed: natural × zoom with the
+  // focus point at the centre (left/top 50% + translate by the focus).
+  const boxStyle: React.CSSProperties =
+    zoomed && natural
+      ? {
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: boxW,
+          height: boxH,
+          transform: `translate(${Math.round(-focus.fx * boxW)}px, ${Math.round(-focus.fy * boxH)}px)`,
+        }
+      : { position: "absolute", inset: 0 };
+  const imgClass = zoomed ? "block h-full w-full max-w-none select-none" : "block h-full w-full object-contain select-none";
+  const imgStyle: React.CSSProperties | undefined = zoom === 2 ? { imageRendering: "pixelated" } : undefined;
 
   const sizeClass =
-    variant === "modal"
-      ? "h-[min(75vh,720px)] w-full"
-      : variant === "panel"
-        ? "h-[260px] w-full"
-        : "aspect-[16/9] max-h-[440px] w-full";
+    variant === "modal" ? "h-[min(75vh,720px)] w-full" : "h-[300px] w-full sm:h-[440px] lg:h-[520px]";
+  const hint = zoomed ? "Drag to look around" : "Click a spot to inspect it at 100%";
 
   return (
     <div
       ref={containerRef}
+      tabIndex={zoomed ? 0 : -1}
+      aria-label={zoomed ? "Comparison — use arrow keys to pan" : undefined}
+      onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border bg-[#0d0d0c]",
-        sizeClass
+        "relative touch-none overflow-hidden rounded-[14px] border border-white/7 outline-none select-none focus-visible:ring-2 focus-visible:ring-brand",
+        zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in",
+        sizeClass,
+        className,
       )}
-      onPointerDown={onPanPointerDown}
+      style={{ background: alpha ? CHECKER : "#0b0b0a" }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={originalUrl}
-        alt="Original"
-        className={imgClass}
-        style={imgStyle}
-        draggable={false}
-      />
-      {!zoomed ? (
-        <div
-          className="absolute inset-0 overflow-hidden"
-          // Clip the compressed image from the LEFT by `dividerPos%`. So the
-          // compressed view is visible from the divider rightwards — matching
-          // the "Compressed" label that sits at the top-right corner. With
-          // the previous `inset(0 ${100 - dividerPos}% 0 0)` (clip from the
-          // RIGHT), the compressed half landed on the left of the canvas,
-          // inverted from the label.
-          style={{ clipPath: `inset(0 0 0 ${dividerPos}%)` }}
-        >
+      <div className="absolute inset-0 overflow-hidden">
+        <div style={boxStyle}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={originalUrl}
+            alt="Original"
+            draggable={false}
+            className={imgClass}
+            style={imgStyle}
+            onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          />
+        </div>
+      </div>
+      <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 0 0 ${position}%)` }}>
+        <div style={boxStyle}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={compressedUrl}
             alt="Compressed"
-            className={imgClass}
             draggable={false}
+            className={cn(imgClass, "transition-opacity duration-200", stale && "opacity-60")}
+            style={imgStyle}
           />
         </div>
-      ) : null}
+      </div>
 
-      {!zoomed ? (
-        <div
-          data-divider
-          role="slider"
-          aria-label="Compare position"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(dividerPos)}
-          tabIndex={0}
-          onPointerDown={onDividerPointerDown}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowLeft") setDividerPos((p) => Math.max(0, p - 2));
-            if (e.key === "ArrowRight")
-              setDividerPos((p) => Math.min(100, p + 2));
-          }}
-          className="group/divider absolute top-0 bottom-0 w-0.5 cursor-ew-resize bg-text shadow-[0_0_0_1px_rgba(0,0,0,0.3)] outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          style={{ left: `${dividerPos}%`, transform: "translateX(-50%)" }}
+      {/* Divider: a 2px line with a wider invisible grab area. */}
+      <div
+        data-divider
+        role="slider"
+        aria-label="Compare original and compressed"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(position)}
+        tabIndex={0}
+        onPointerDown={onDividerPointerDown}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") onPositionChange(Math.max(0, position - 2));
+          if (e.key === "ArrowRight") onPositionChange(Math.min(100, position + 2));
+        }}
+        className="group/divider absolute top-0 bottom-0 w-4 -translate-x-1/2 cursor-ew-resize outline-none!"
+        style={{ left: `${position}%` }}
+      >
+        <span aria-hidden className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-text shadow-[0_0_10px_rgba(0,0,0,0.5)]" />
+        {/* The knob: a visible handle (and a bigger touch target) mid-line. It
+            also carries the keyboard focus ring — the global outline would
+            frame the whole full-height grab strip. */}
+        <span
+          aria-hidden
+          className="surface-key absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-text-key transition-transform duration-150 ease-out-strong group-hover/divider:scale-105 group-focus-visible/divider:outline-2! group-focus-visible/divider:outline-offset-2 group-focus-visible/divider:outline-brand group-focus-visible/divider:outline-solid group-active/divider:scale-110 max-sm:size-11"
         >
-          <span
-            aria-hidden
-            className="surface-key absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-text-key transition-transform duration-150 ease-out-strong group-hover/divider:scale-105 group-active/divider:scale-110"
-          >
-            <MoveHorizontal size={16} strokeWidth={1.8} />
-          </span>
-        </div>
-      ) : null}
+          <MoveHorizontal size={16} strokeWidth={1.8} />
+        </span>
+      </div>
 
-      <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 left-2.5">
-        {originalLabel ?? `Original · ${formatBytes(originalSize)}`}
+      <span className="pointer-events-none absolute top-3 left-3 max-w-[45%] truncate rounded-full bg-[rgba(11,11,10,0.8)] px-[9px] py-1 font-mono text-[11px] text-text-strong">
+        {originalLabel}
       </span>
-      {!zoomed ? (
-        <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 right-2.5">
-          {compressedLabel ?? `Compressed · ${formatBytes(compressedSize)}`}
-        </span>
-      ) : (
-        <span className="pointer-events-none absolute rounded-md bg-black/50 px-2 py-[3px] text-[11px] font-bold text-text tabular-nums top-2.5 right-2.5">
-          1:1 · drag to pan
-        </span>
-      )}
+      {/* In the modal the dialog's close button sits in this corner; keep clear of it. */}
+      <span
+        className={cn(
+          "pointer-events-none absolute top-3 max-w-[45%] truncate rounded-full bg-[rgba(11,11,10,0.8)] px-[9px] py-1 font-mono text-[11px] text-[#f0c9a0]",
+          variant === "modal" ? "right-14" : "right-3",
+        )}
+      >
+        {compressedLabel}
+      </span>
+      <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[rgba(11,11,10,0.7)] px-2.5 py-1 text-[11.5px] whitespace-nowrap text-text-tertiary max-sm:hidden">
+        {hint}
+      </span>
 
-      {/* Bottom-right control: Expand (inline) or Zoom toggle (modal). */}
-      {variant !== "modal" ? (
+      {variant === "stage" && onInspect ? (
         <button
           type="button"
-          aria-label="Expand comparison for closer inspection"
-          title="Expand"
-          onClick={(e) => {
-            e.stopPropagation();
-            onExpand?.();
-          }}
-          className="absolute right-2.5 bottom-2.5 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-black/50 px-2.5 text-xs font-semibold text-text backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:bg-black/70 active:scale-[0.96]"
+          onClick={onInspect}
+          aria-label="Inspect in a larger view"
+          className="absolute right-3 bottom-3 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(11,11,10,0.8)] px-3 text-xs font-semibold text-text transition-colors hover:bg-black max-sm:min-h-11"
         >
           <Maximize2 size={12} strokeWidth={2} aria-hidden />
           Inspect
         </button>
-      ) : (
+      ) : null}
+      {variant === "modal" ? (
         <button
           type="button"
           aria-label={zoomed ? "Fit to view" : "View at 1:1"}
           title={zoomed ? "Fit to view (Esc)" : "View at 1:1"}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleZoom();
+          onClick={() => {
+            setOwnFocus({ fx: 0.5, fy: 0.5 });
+            setOwnZoom(zoomed ? "fit" : 1);
           }}
-          className="absolute right-2.5 bottom-2.5 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-black/50 px-2.5 text-xs font-semibold text-text backdrop-blur-sm transition-[opacity,transform] duration-150 ease-out-strong hover:bg-black/70 active:scale-[0.96]"
+          className="absolute right-3 bottom-3 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(11,11,10,0.8)] px-3 text-xs font-semibold text-text transition-colors hover:bg-black"
         >
-          {zoomed ? (
-            <>
-              <Minimize2 size={12} strokeWidth={2} aria-hidden />
-              Fit
-            </>
-          ) : (
-            <>
-              <Maximize2 size={12} strokeWidth={2} aria-hidden />
-              1:1
-            </>
-          )}
+          {zoomed ? <Minimize2 size={12} strokeWidth={2} aria-hidden /> : <Maximize2 size={12} strokeWidth={2} aria-hidden />}
+          {zoomed ? "Fit" : "1:1"}
         </button>
-      )}
+      ) : null}
     </div>
   );
 }

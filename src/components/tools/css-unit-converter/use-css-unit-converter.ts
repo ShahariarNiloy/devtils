@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   DEFAULT_CONTEXT,
@@ -42,8 +42,9 @@ interface ShareParams {
 }
 
 /**
- * Read share-link params once at initial render (lazy state initializer),
- * so SSR HTML matches the first client render and no effect is needed.
+ * Read share-link params. Client-only (`window.location`), so it runs in a
+ * mount effect — never during render — to keep the first client render
+ * identical to the server HTML (no hydration mismatch on share links).
  */
 function readShareParams(): ShareParams {
   if (typeof window === "undefined") return {};
@@ -109,23 +110,34 @@ function useContextField(initial: number, fallback: number, max: number): [Conte
  * share only the context.
  */
 export function useCssUnitConverter(slug: string): CssUnitConverterState {
-  const [initial] = useState(readShareParams);
   const alias = useMemo(() => parseAliasSlug(slug), [slug]);
 
-  const initialFrom = initial.from ?? alias?.from ?? "px";
-  const [tab, setTab] = useState<TabKey>(initial.tab ?? "convert");
+  const initialFrom = alias?.from ?? "px";
+  const [tab, setTab] = useState<TabKey>("convert");
   // Alias pages open on a natural sample (16px, or 1rem / 1em / 1pt);
   // the canonical page opens on the mockup's 24px.
   const sample = alias ? (initialFrom === "px" ? "16" : "1") : "24";
-  const [valueText, setValueText] = useState(initial.value ?? sample);
+  const [valueText, setValueText] = useState(sample);
   const [from, setFrom] = useState<LengthUnit>(initialFrom);
   const [precision, setPrecision] = useState(DEFAULT_CONTEXT.precision);
 
   const [base, baseFontSize, setBaseFontSize] = useContextField(
-    initial.base ?? DEFAULT_CONTEXT.baseFontSize,
+    DEFAULT_CONTEXT.baseFontSize,
     DEFAULT_CONTEXT.baseFontSize,
     200,
   );
+
+  // Apply a share link after hydration (server + first client render both
+  // use the defaults above).
+  useEffect(() => {
+    const shared = readShareParams();
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hydration of client-only URL state */
+    if (shared.tab) setTab(shared.tab);
+    if (shared.value !== undefined) setValueText(shared.value);
+    if (shared.from) setFrom(shared.from);
+    if (shared.base !== undefined) setBaseFontSize(shared.base);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [setBaseFontSize]);
   const [vw, viewportWidth] = useContextField(DEFAULT_CONTEXT.viewportWidth, DEFAULT_CONTEXT.viewportWidth, 100_000);
   const [vh, viewportHeight] = useContextField(DEFAULT_CONTEXT.viewportHeight, DEFAULT_CONTEXT.viewportHeight, 100_000);
 

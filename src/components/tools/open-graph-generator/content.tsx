@@ -13,7 +13,7 @@ export const seoData = {
     {
       question: "What image size?",
       answer:
-        "1200 × 630 pixels works for large cards everywhere. The generated tags declare that size, so use an image with those dimensions or edit og:image:width and og:image:height after copying.",
+        "1200 × 630 pixels works for large cards everywhere. The generated tags declare that size, so use an image with those dimensions or edit og:image:width and og:image:height after copying. The small summary card uses a square image, so no size is declared for it.",
     },
     {
       question: "Why does my old preview still show?",

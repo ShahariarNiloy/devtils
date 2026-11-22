@@ -125,13 +125,11 @@ export function Segmented<T extends string>({
 
 /** Header row above each input: coloured side marker + label + actions. */
 export function SideHeader({
-  htmlFor,
   side,
   label,
   meta,
   children,
 }: {
-  htmlFor: string;
   side: "left" | "right";
   label: string;
   meta?: ReactNode;
@@ -139,10 +137,11 @@ export function SideHeader({
 }) {
   return (
     <div className="flex min-h-[42px] items-center gap-2 border-b border-border-subtle pr-2 pl-4">
-      <label htmlFor={htmlFor} className="flex items-center gap-2 text-[13px] font-bold">
+      {/* Not a <label>: the code editor carries its own aria-label. */}
+      <span className="flex items-center gap-2 text-[13px] font-bold">
         <span aria-hidden className={cn("size-2 rounded-[2px]", side === "left" ? "bg-error" : "bg-success")} />
         {label}
-      </label>
+      </span>
       {meta && <span className="font-mono text-xs text-text-faint">{meta}</span>}
       <span className="grow" />
       {children}

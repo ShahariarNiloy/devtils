@@ -9,13 +9,14 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/tools/category/json", label: "JSON" },
       { href: "/tools/category/text", label: "Text" },
       { href: "/tools/category/encoding", label: "Encoding" },
-      { href: "/#categories", label: "All categories" },
+      { href: "/tools/category", label: "All categories" },
     ],
   },
   {
     title: "Resources",
     links: [
       { href: "/tools", label: "All tools" },
+      { href: "/blog", label: "Blog" },
       { href: "/changelog", label: "Changelog" },
       { href: "/faq", label: "FAQ" },
       { href: "/contact", label: "Contact" },
@@ -43,6 +44,7 @@ export function HomeFooter({ variant = "full", wide = false }: { variant?: "full
             © {new Date().getFullYear()} {SITE_NAME} · made with care
           </span>
           {[
+            { href: "/blog", label: "Blog" },
             { href: "/request", label: "Request a tool" },
             { href: "/changelog", label: "What's new" },
             { href: "/faq", label: "FAQ" },

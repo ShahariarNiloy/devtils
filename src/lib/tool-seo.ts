@@ -50,8 +50,12 @@ import { seoData as sitemapValidator } from "@/components/tools/sitemap-validato
 import { seoData as openGraphGenerator } from "@/components/tools/open-graph-generator/content";
 import { seoData as metaPreview } from "@/components/tools/meta-preview/content";
 import { seoData as jsonLdGenerator } from "@/components/tools/json-ld-generator/content";
+import { seoData as blurPlaceholder } from "@/components/tools/blur-placeholder/content";
 import { seoData as jsonDiff } from "@/components/tools/json-diff/content";
-import { seoData as cssUnitConverter } from "@/components/tools/css-unit-converter/content";
+import {
+  getSeoData as cssUnitAliasSeo,
+  seoData as cssUnitConverter,
+} from "@/components/tools/css-unit-converter/content";
 
 export type ToolSeoData = ToolContentProps;
 
@@ -96,8 +100,20 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "open-graph-generator": openGraphGenerator,
   "meta-preview": metaPreview,
   "json-ld-generator": jsonLdGenerator,
+  "blur-placeholder": blurPlaceholder,
   "json-diff": jsonDiff,
   "css-unit-converter": cssUnitConverter,
+  // The px/rem/em/pt alias routes share the converter, each with its own copy.
+  ...Object.fromEntries(
+    [
+      "px-to-rem-converter",
+      "rem-to-px-converter",
+      "px-to-em-converter",
+      "em-to-px-converter",
+      "px-to-pt-converter",
+      "pt-to-px-converter",
+    ].map((slug) => [slug, cssUnitAliasSeo(slug)]),
+  ),
 };
 
 export function getToolSeoData(slug: string): ToolSeoData | undefined {

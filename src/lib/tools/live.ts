@@ -1,10 +1,10 @@
 /**
  * Slugs of tools that are live (have a component). Dependency-free so the
  * header's ⌘K palette can mark "soon" tools without bundling every tool.
- * `implemented-tools.ts` verifies at module load that this matches
- * COMPONENT_MAP exactly, so a drift fails the build instead of lying.
+ * `components/tool-loaders.tsx` is typed `Record<LiveSlug, …>`, so a live
+ * slug without a component (or vice versa) fails the type check.
  */
-export const LIVE_SLUGS: readonly string[] = [
+const LIVE = [
   "json-diff",
   "json-formatter",
   "json-schema",
@@ -53,4 +53,8 @@ export const LIVE_SLUGS: readonly string[] = [
   "open-graph-generator",
   "meta-preview",
   "json-ld-generator",
-];
+  "blur-placeholder",
+] as const;
+
+export type LiveSlug = (typeof LIVE)[number];
+export const LIVE_SLUGS: readonly string[] = LIVE;

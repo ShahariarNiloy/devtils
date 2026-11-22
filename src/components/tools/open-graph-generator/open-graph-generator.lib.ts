@@ -122,13 +122,16 @@ export function buildOg(f: OgFields): OgResult {
   chk("info", "Platforms cache previews. After changing tags, refresh them with each platform's sharing debugger.");
   if (!checks.some((c) => c.level === "err" || c.level === "warn")) chk("ok", "Everything a share card needs is here.");
 
+  // The large card's 1200×630 is the size the form asks for; the small card
+  // uses a square image of unknown size, so no dimensions are declared.
+  const large = f.card === "summary_large_image";
   const prop: [string, string][] = [
     ["og:title", title],
     ["og:description", desc],
     ["og:url", url],
     ["og:image", image],
-    ["og:image:width", image ? "1200" : ""],
-    ["og:image:height", image ? "630" : ""],
+    ["og:image:width", image && large ? "1200" : ""],
+    ["og:image:height", image && large ? "630" : ""],
     ["og:site_name", site],
     ["og:type", f.type],
   ];
@@ -150,7 +153,7 @@ export function buildOg(f: OgFields): OgResult {
       title: shownTitle,
       titleShort: truncate(shownTitle, 52, 50),
       desc: desc ? truncate(desc, 120, 118) : "Add a description",
-      imgLabel: image ? "og:image · 1200×630" : "No image set",
+      imgLabel: image ? `og:image · ${large ? "1200×630" : "square"}` : "No image set",
     },
   };
 }

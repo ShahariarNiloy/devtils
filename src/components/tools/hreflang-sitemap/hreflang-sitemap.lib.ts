@@ -45,6 +45,8 @@ export function buildHreflangSitemap(raw: string, opts: SitemapOptions): Sitemap
     '        xmlns:xhtml="http://www.w3.org/1999/xhtml">',
   ];
   let count = 0;
+  /** Each <loc> may appear once in a sitemap: URL → where it was first listed. */
+  const seenLoc = new Map<string, string>();
   pages.forEach((r, ri) => {
     if (r.length > heads.length) push("warn", `Row ${ri + 1} has more cells than there are locale columns; the extra cells are ignored.`);
     const alts = heads
@@ -59,6 +61,12 @@ export function buildHreflangSitemap(raw: string, opts: SitemapOptions): Sitemap
     }
     for (const a of alts) {
       if (a.lang === "x-default") continue;
+      const first = seenLoc.get(a.url);
+      if (first) {
+        push("err", `Row ${ri + 1}, ${a.lang}: “${a.url}” is already listed (${first}). Each page URL can appear once, so it's left out.`);
+        continue;
+      }
+      seenLoc.set(a.url, `row ${ri + 1}, ${a.lang}`);
       count++;
       xml.push("  <url>", `    <loc>${escapeXml(a.url)}</loc>`);
       if (opts.lastmod && opts.today) xml.push(`    <lastmod>${opts.today}</lastmod>`);
@@ -71,6 +79,7 @@ export function buildHreflangSitemap(raw: string, opts: SitemapOptions): Sitemap
   xml.push("</urlset>");
 
   if (!heads.length) push("err", "Paste a header row of locale codes, then one row of URLs per page.");
+  else if (!pages.length) push("warn", "Only a header row so far. Add one row of URLs per page below it.");
   else {
     push(
       "info",

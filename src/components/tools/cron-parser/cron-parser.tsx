@@ -194,7 +194,7 @@ export function CronParser({ tool }: { tool: Tool }) {
             {runs.map((d, i) => (
               <div key={d.getTime()} className="surface-panel flex items-center gap-2.5 rounded-[11px] px-3 py-2.5">
                 <span className="w-5 font-mono text-[11px] text-text-ghost">{i + 1}</span>
-                <span className="grow font-mono text-[13px] text-text">{formatRun(d)}</span>
+                <span className="grow font-mono text-[13px] text-text">{formatRun(d, now)}</span>
                 <span className="text-xs text-text-faint">{now ? relativeTime(d, now) : ""}</span>
               </div>
             ))}

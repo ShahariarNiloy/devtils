@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { stashHandoffInput } from "@/components/json-converter";
+import type { MouseEvent } from "react";
 import type { JsonFormatterState } from "../use-json-formatter";
-import { handoffText } from "./workspace-toolbar";
+import { useHandoff } from "../hooks/use-handoff";
 
 const TARGETS: { slug: string; glyph: string; label: string }[] = [
   { slug: "json-to-typescript", glyph: "TS", label: "TypeScript" },
@@ -22,10 +22,14 @@ const TARGETS: { slug: string; glyph: string; label: string }[] = [
  * converter with the current input handed off, so nothing is re-pasted.
  */
 export function ConvertStrip({ state }: { state: JsonFormatterState }) {
-  const stash = () => {
+  const handoff = useHandoff(state);
+  // Small inputs stash synchronously and the link navigates as usual; a
+  // large one is formatted off the main thread first, then navigates.
+  const stash = (e: MouseEvent, slug: string) => {
     if (state.validation.status !== "valid") return;
-    const text = handoffText(state);
-    if (text.trim()) stashHandoffInput(text);
+    if (handoff.stashNow()) return;
+    e.preventDefault();
+    handoff.open(slug);
   };
   return (
     <section id="convert" data-full-window-hide aria-label="Convert" className="surface-panel flex flex-wrap items-center gap-2 rounded-[14px] px-3.5 py-3">
@@ -34,11 +38,12 @@ export function ConvertStrip({ state }: { state: JsonFormatterState }) {
         <Link
           key={t.slug}
           href={`/tools/${t.slug}`}
-          onClick={stash}
+          onClick={(e) => stash(e, t.slug)}
+          aria-busy={handoff.pendingSlug === t.slug || undefined}
           className="surface-key inline-flex min-h-[34px] shrink-0 items-center gap-[7px] rounded-[9px] px-[11px] text-[13px] font-semibold text-[#ece7dc] transition-colors hover:border-clay-light/60 hover:text-[#ece7dc]"
         >
           <span aria-hidden="true" className="font-mono text-[10px] text-clay-light">{t.glyph}</span>
-          {t.label}
+          <span className={handoff.busySlug === t.slug ? "animate-pulse" : undefined}>{t.label}</span>
         </Link>
       ))}
     </section>

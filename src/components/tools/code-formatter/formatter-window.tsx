@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/primitives/dropdown-menu";
+import { flushPendingEdits, LazyCodeEditor, type CodeLanguage } from "@/components/primitives/code-editor";
 import { Tooltip } from "@/components/primitives/tooltip";
 import { CodeView } from "@/components/tools/json-formatter/views/code-view";
 import { cn } from "@/lib/cn";
@@ -283,33 +284,55 @@ export function InputPane({
   );
 }
 
-/** Editable editor for the input pane — mockup metrics, soft-wrapped. */
+/**
+ * Code-editor grammar per highlighter language. Languages without a grammar
+ * here (GraphQL…) edit as plain text; the output pane keeps its own
+ * highlighter, so formatted output is still coloured.
+ */
+const EDITOR_LANG: Partial<Record<Lang, CodeLanguage>> = {
+  json: "json",
+  yaml: "yaml",
+  xml: "xml",
+  css: "css",
+  markdown: "markdown",
+  sql: "sql",
+  typescript: "typescript",
+};
+
+/**
+ * Editable editor for the input pane — mockup metrics (13px / 1.75, line
+ * gutter), soft-wrapped. The shared lazy CodeMirror: only visible lines
+ * render, so a multi-MB paste types instantly. Big documents reach
+ * `onChange` debounced — actions that read or replace the input must call
+ * `flushPendingEdits()` first (see `useLiveText`).
+ */
 export function InputEditor({
   value,
   onChange,
   lang,
   placeholder,
   ariaLabel,
+  errorLine,
 }: {
   value: string;
   onChange: (v: string) => void;
   lang: Lang;
   placeholder: string;
   ariaLabel: string;
+  /** 1-based line of the parse error — its gutter number turns red. */
+  errorLine?: number;
 }) {
+  const errorLines = useMemo(() => (errorLine ? [errorLine] : []), [errorLine]);
   return (
-    <div className="h-full" aria-label={ariaLabel} role="group">
-      <CodeView
-        variant="v2"
-        value={value}
-        onChange={onChange}
-        indent="2"
-        lang={lang}
-        placeholder={placeholder}
-        maxHighlightSize={MAX_HIGHLIGHT}
-        wrap
-      />
-    </div>
+    <LazyCodeEditor
+      language={EDITOR_LANG[lang] ?? "plain"}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      errorLines={errorLines}
+      wrap
+    />
   );
 }
 
@@ -445,7 +468,11 @@ export function FormatterStatusBar({
 export async function pasteInto(set: (v: string) => void): Promise<void> {
   try {
     const text = await navigator.clipboard.readText();
-    if (text) set(text);
+    if (text) {
+      // Pending keystrokes land first, so the paste replaces them in order.
+      flushPendingEdits();
+      set(text);
+    }
     else toast("Clipboard is empty", { duration: 1000 });
   } catch {
     toast.error("Couldn't read clipboard");

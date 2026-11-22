@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { getToolComponent, IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { ToolRenderer } from "@/components/tool-loaders";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
 import { SITE_URL, SITE_WORDMARK } from "@/lib/site";
 
@@ -58,8 +59,7 @@ export default async function ToolEmbed({
   const { slug } = await params;
   const tool = getToolBySlug(slug);
   if (!tool) notFound();
-  const Comp = getToolComponent(slug);
-  if (!Comp) notFound();
+  if (!IMPLEMENTED_TOOL_SLUGS.has(slug)) notFound();
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
@@ -67,7 +67,7 @@ export default async function ToolEmbed({
           renders inside ToolShell which still surrounds it, so a tool that
           owns its own h1/breadcrumb keeps that. */}
       <main id="main" className="flex-1">
-        <Comp tool={tool} />
+        <ToolRenderer slug={slug} tool={tool} />
       </main>
 
       {/* Attribution strip — small, but unmissable. Embedders can't strip

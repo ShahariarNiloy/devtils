@@ -33,7 +33,23 @@ export interface RegexMatch {
 export const MATCH_CAP = 5000;
 
 /**
- * Run the regex against text, return every match (capped at MATCH_CAP).
+ * ES `AdvanceStringIndex`: step past an empty match. Under the `u`/`v` flags
+ * the step is one *code point*, not one UTF-16 unit — landing between a
+ * surrogate pair makes V8 snap back to the pair start, so a `+1` step there
+ * re-finds the same empty match forever.
+ */
+export function advanceStringIndex(text: string, index: number, unicode: boolean): number {
+  if (!unicode || index + 1 >= text.length) return index + 1;
+  const hi = text.charCodeAt(index);
+  if (hi < 0xd800 || hi > 0xdbff) return index + 1;
+  const lo = text.charCodeAt(index + 1);
+  return lo >= 0xdc00 && lo <= 0xdfff ? index + 2 : index + 1;
+}
+
+/**
+ * Run the regex against text and return its matches, mirroring JS semantics:
+ * with the `g` flag every match (capped at MATCH_CAP), without it only the
+ * first one — exactly what `String.prototype.match` / `replace` would see.
  *
  * Line numbers are computed with a single forward-moving newline counter
  * instead of `text.slice(0, m.index).split("\n")` per match — the old form
@@ -41,15 +57,14 @@ export const MATCH_CAP = 5000;
  * large test string with many matches crawl.
  */
 export function matchAll(regex: RegExp, text: string): RegexMatch[] {
-  const r = regex.global ? regex : new RegExp(regex.source, regex.flags + "g");
+  // Fresh copy so we never inherit or leak `lastIndex` state.
+  const r = new RegExp(regex.source, regex.flags);
+  const unicode = r.unicode || r.unicodeSets;
   const out: RegexMatch[] = [];
-  let lastIndex = -1;
   let m: RegExpExecArray | null;
   let scanPos = 0; // how far the newline counter has consumed
   let lineNo = 1;
   while ((m = r.exec(text))) {
-    if (m.index === lastIndex) { r.lastIndex += 1; continue; }
-    lastIndex = m.index;
     // Advance the line counter up to this match (matches arrive in order).
     for (; scanPos < m.index; scanPos++) {
       if (text.charCodeAt(scanPos) === 10) lineNo++;
@@ -62,18 +77,22 @@ export function matchAll(regex: RegExp, text: string): RegexMatch[] {
       named: { ...(m.groups ?? {}) },
       line: lineNo,
     });
-    if (out.length >= MATCH_CAP) break;
-    if (m[0].length === 0) r.lastIndex += 1;
+    if (!r.global || out.length >= MATCH_CAP) break;
+    if (m[0].length === 0) r.lastIndex = advanceStringIndex(text, r.lastIndex, unicode);
   }
   return out;
 }
 
 // ─── Replace ──────────────────────────────────────────────────────────────────
 
+/**
+ * Native `String.prototype.replace`: all matches with `g`, the first one
+ * without — the engine also handles empty-match advancement (code-point
+ * aware under `u`/`v`) itself.
+ */
 export function replaceText(regex: RegExp, text: string, replacement: string): string {
   try {
-    const r = regex.global ? regex : new RegExp(regex.source, regex.flags + "g");
-    return text.replace(r, replacement);
+    return text.replace(new RegExp(regex.source, regex.flags), replacement);
   } catch {
     return text;
   }

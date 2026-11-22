@@ -85,7 +85,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
   // ── Shortcuts ───────────────────────────────────────────────────────
   useShortcut({ key: "/", ignoreInEditable: true, label: "Focus input" }, (e) => {
     e.preventDefault();
-    workspaceRef.current?.querySelector("textarea")?.focus();
+    workspaceRef.current?.querySelector<HTMLElement>(".cm-content")?.focus();
   });
   useShortcut({ key: "c", meta: true, shift: true, label: "Copy output" }, (e) => {
     e.preventDefault();
@@ -223,7 +223,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
               <DropdownMenuItem disabled={!output} onSelect={onDownload}>
                 Download .sql
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void pasteInto(s.setInput)}>Paste from clipboard</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void pasteInto(s.replaceInput)}>Paste from clipboard</DropdownMenuItem>
               <DropdownMenuItem onSelect={s.loadSample}>Load sample</DropdownMenuItem>
               <DropdownMenuItem disabled={!s.input} onSelect={s.clear}>
                 Clear input
@@ -237,6 +237,7 @@ export function SqlFormatter({ tool }: { tool: Tool }) {
                 value={s.input}
                 onChange={s.setInput}
                 lang="sql"
+                errorLine={s.error ? s.errorLine : undefined}
                 ariaLabel="SQL input"
                 placeholder="Paste any SQL — a one-liner from your logs, a migration, several statements…"
               />

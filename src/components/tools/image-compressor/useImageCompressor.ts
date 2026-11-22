@@ -1,55 +1,78 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { downloadZip } from "client-zip";
 import {
+  AUTO_CANDIDATES,
+  OUTPUT_FORMAT_LABEL,
   MAX_FILES_IN_BATCH,
   MAX_FILE_SIZE_BYTES,
   SUPPORTED_INPUT_MIME_TYPES,
   WORKER_POOL_SIZE,
+  type OutputMime,
 } from "./image-compressor.constants";
-import {
-  baseFileName,
-  extensionForMime,
-  formatBytes,
-  resolveInputMime,
-} from "./image-compressor.lib";
+import { mergeCandidates } from "./image-compressor.auto";
+import { readExifSummary } from "./image-compressor.exif";
+import { detectMetadata, formatBytes, resolveInputMime } from "./image-compressor.lib";
 import {
   CompressionFailure,
   toCompressionError,
 } from "./image-compressor.errors";
 import { extractIcc, supportsIcc } from "./image-compressor.icc";
-import {
-  mergeSettings,
-  useCompressorStore,
-  type SortMode,
-} from "./image-compressor.store";
+import { barPick, collectOverrides } from "./image-compressor.overrides";
+import { useCompressorStore } from "./image-compressor.store";
+import { makeThumbnail } from "./image-compressor.thumb";
 import { createWorkerPool, type WorkerPool } from "./worker-pool";
 import type {
+  CompressionResult,
   CompressionSettings,
   ImageFile,
-  QualityMode,
+  MetadataSummary,
+  OutputFormat,
 } from "./image-compressor.types";
+import { outputFileName, probeKey, uniqueNames } from "./image-compressor.view";
 
-export type { SortMode };
+/** Formats the "every format" comparison bars show. */
+const COMPARE_FORMATS: readonly OutputMime[] = ["image/avif", "image/webp", "image/jpeg", "image/png"];
 
 // ── Hook ──────────────────────────────────────────────────────────
 
-export function useImageCompressor() {
-  // Reactive slices — components re-render when these change. Async code
-  // (queue loop, worker callbacks, drag handlers) reads the live values
-  // through `useCompressorStore.getState()` instead, so there's no
-  // manually-synced ref and no render-lag race.
-  const files = useCompressorStore((s) => s.files);
-  const expandedFileId = useCompressorStore((s) => s.expandedFileId);
-  const globalSettings = useCompressorStore((s) => s.globalSettings);
-  const sortMode = useCompressorStore((s) => s.sortMode);
+/** Release a row's object URLs (full preview + queue thumbnail). */
+function revokeUrls(f: ImageFile) {
+  URL.revokeObjectURL(f.previewUrl);
+  if (f.thumbUrl) URL.revokeObjectURL(f.thumbUrl);
+}
 
+/** Make the row's small queue thumbnail in the background (see image-compressor.thumb). */
+function attachThumbnail(id: string, source: Blob) {
+  void makeThumbnail(source).then((url) => {
+    if (!url) return;
+    const row = useCompressorStore.getState().files.find((f) => f.id === id);
+    if (!row) {
+      URL.revokeObjectURL(url); // removed meanwhile
+      return;
+    }
+    if (row.thumbUrl) URL.revokeObjectURL(row.thumbUrl);
+    useCompressorStore.getState().setThumbUrl(id, url);
+  });
+}
+
+/**
+ * Workspace actions + the queue engine. Holds no reactive state on purpose:
+ * the columns, rows and stage each subscribe to their own store slice
+ * (image-compressor.selectors), so a per-file update never re-renders the
+ * whole tool. Every returned action is stable for the component's life.
+ */
+export function useImageCompressor() {
   const queueRunningRef = useRef(false);
-  // Map of fileId → in-flight worker pool jobId. Used so cancelOne()
-  // can look up the right worker to terminate.
-  const jobIdMapRef = useRef<Map<string, string>>(new Map());
+  // Map of fileId → in-flight worker pool jobIds (several when Auto's
+  // formats are split across the pool). Used so cancelOne() can look up
+  // the right workers to terminate.
+  const jobIdMapRef = useRef<Map<string, string[]>>(new Map());
+  // Low-priority comparison probes / diff renders, per file.
+  const probeJobRef = useRef<Map<string, string>>(new Map());
+  const diffJobRef = useRef<Map<string, string>>(new Map());
 
   // Worker pool — lazily created on first compress so an empty
   // workspace doesn't allocate codec WASMs. Guarded against SSR.
@@ -64,70 +87,13 @@ export function useImageCompressor() {
     return poolRef.current;
   }, []);
 
-  /**
-   * Apply the current sort mode for display. The underlying `files`
-   * array stays in upload order so re-uploads keep stable IDs and dedup
-   * semantics; we only rearrange a copy for rendering.
-   */
-  const visibleFiles = useMemo(() => {
-    if (sortMode === "upload") return files;
-    const copy = [...files];
-    const nameOf = (f: ImageFile) => f.displayName ?? f.file.name;
-    switch (sortMode) {
-      case "name":
-        copy.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-        break;
-      case "size-desc":
-        copy.sort((a, b) => b.originalSize - a.originalSize);
-        break;
-      case "savings-desc":
-        copy.sort(
-          (a, b) => (b.result?.savedPct ?? -Infinity) - (a.result?.savedPct ?? -Infinity),
-        );
-        break;
-    }
-    return copy;
-  }, [files, sortMode]);
-
-  const stats = useMemo(() => {
-    let orig = 0;
-    let processedOrig = 0;
-    let comp = 0;
-    let done = 0;
-    let compressing = 0;
-    let queued = 0;
-    let dirty = 0;
-    for (const f of files) {
-      orig += f.originalSize;
-      if (f.result) {
-        processedOrig += f.originalSize;
-        comp += f.result.newSize;
-      }
-      if (f.status === "done") done += 1;
-      if (f.status === "compressing") compressing += 1;
-      if (f.status === "idle") queued += 1;
-      if (f.settingsDirty) dirty += 1;
-    }
-    // Signed total reduction. Matches the per-file convention in
-    // `image-compressor.lib.ts` so the status bar can honestly show
-    // a regression ("+5% larger") instead of clamping to 0.
-    const totalSavedPct =
-      processedOrig === 0
-        ? 0
-        : Math.round(((processedOrig - comp) / processedOrig) * 100);
-    return {
-      totalOriginalBytes: orig,
-      processedOriginalBytes: processedOrig,
-      totalCompressedBytes: comp,
-      totalSavedPct,
-      doneCount: done,
-      compressingCount: compressing,
-      queuedCount: queued,
-      dirtyCount: dirty,
-    };
-  }, [files]);
-
   // ── Queue ──
+
+  /** Stop background probes so user-visible work gets the workers. */
+  const cancelProbes = useCallback(() => {
+    for (const jobId of probeJobRef.current.values()) poolRef.current?.cancel(jobId);
+    probeJobRef.current.clear();
+  }, []);
 
   const compressOneInternal = useCallback(
     async (id: string) => {
@@ -138,26 +104,68 @@ export function useImageCompressor() {
       // if the user changed settings during compression (H2).
       const settingsAtStart = target.settings;
       store.setStatus(id, "compressing");
+      cancelProbes();
       try {
-        // Read the file fresh each time — the previous buffer was
-        // transferred into the worker and is no longer accessible. File
-        // objects retain their backing storage so this is cheap.
-        const buffer = await target.file.arrayBuffer();
-        const { id: jobId, promise } = getPool().compress(
-          buffer,
-          target.inputMimeType,
-          settingsAtStart,
-        );
-        // Track the job ID so a user-initiated cancel can find the
-        // right worker. Cleared in `finally` so a stale entry never
-        // points at a completed job.
-        jobIdMapRef.current.set(id, jobId);
-        const result = await promise;
+        const pool = getPool();
+        const t0 = performance.now();
+        // Auto on a lone image: one job per format so AVIF, WebP and JPEG
+        // encode in parallel (the pool is otherwise idle). In a batch the
+        // pool is already saturated by other images, so one job decodes
+        // once and encodes the formats back to back.
+        const active = useCompressorStore
+          .getState()
+          .files.filter((f) => f.status === "compressing" || f.status === "idle").length;
+        const split = settingsAtStart.outputFormat === "auto" && active === 1 && WORKER_POOL_SIZE > 1;
+        let result: CompressionResult;
+        if (split) {
+          // Read the file fresh for each job — buffers are transferred into
+          // the worker. File objects keep their backing storage, so it's cheap.
+          const jobs = await Promise.all(
+            AUTO_CANDIDATES.map(async (fmt) =>
+              pool.compress(await target.file.arrayBuffer(), target.inputMimeType, settingsAtStart, {
+                formats: [fmt],
+                partial: true,
+                // HEIC display preview from the AVIF job — the one format
+                // every image gets (JPEG is skipped for transparency).
+                preview: fmt === "image/avif",
+                sample: fmt === "image/avif",
+              }),
+            ),
+          );
+          jobIdMapRef.current.set(id, jobs.map((j) => j.id));
+          const settled = await Promise.allSettled(jobs.map((j) => j.promise));
+          const parts = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+          const failed = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+          // A cancel (or a crash) on any part cancels the image.
+          if (failed && (parts.length === 0 || (failed.reason instanceof CompressionFailure && failed.reason.detail.kind === "cancelled"))) {
+            throw failed.reason;
+          }
+          if (parts.length === 0) throw new CompressionFailure({ kind: "encode-failed", targetMime: "image/avif" });
+          result = mergeCandidates(parts, { buffer: await target.file.arrayBuffer(), mime: target.inputMimeType }, settingsAtStart, {
+            encodingTimeMs: Math.round(performance.now() - t0),
+          });
+        } else {
+          const job = pool.compress(await target.file.arrayBuffer(), target.inputMimeType, settingsAtStart);
+          // Track the job ID so a user-initiated cancel can find the
+          // right worker. Cleared in `finally` so a stale entry never
+          // points at a completed job.
+          jobIdMapRef.current.set(id, [job.id]);
+          [result] = await job.promise;
+        }
         // Bail if removed while we were running. Worker response is
         // silently dropped — the result buffer was transferred back
         // but the file row no longer exists to display it.
         if (!useCompressorStore.getState().files.some((f) => f.id === id))
           return;
+        if (result.sourcePreview) {
+          // HEIC: replace the undisplayable object URL with the rendered one.
+          const url = URL.createObjectURL(new Blob([result.sourcePreview.buffer], { type: result.sourcePreview.mimeType }));
+          const prev = useCompressorStore.getState().files.find((f) => f.id === id)?.previewUrl;
+          useCompressorStore.getState().setPreviewUrl(id, url);
+          if (prev) URL.revokeObjectURL(prev);
+          const row = useCompressorStore.getState().files.find((f) => f.id === id);
+          if (row && !row.thumbUrl) attachThumbnail(id, new Blob([result.sourcePreview.buffer], { type: result.sourcePreview.mimeType }));
+        }
         useCompressorStore.getState().setResult(id, result, settingsAtStart);
       } catch (err) {
         // The pool always rejects with a CompressionFailure (cancel,
@@ -172,7 +180,7 @@ export function useImageCompressor() {
         jobIdMapRef.current.delete(id);
       }
     },
-    [getPool],
+    [getPool, cancelProbes],
   );
 
   const runQueue = useCallback(async () => {
@@ -208,9 +216,20 @@ export function useImageCompressor() {
   }, [compressOneInternal]);
 
   // ── Actions ──
-  const addFiles = useCallback((incoming: File[] | FileList) => {
+  const addFiles = useCallback((incoming: File[] | FileList, opts: { sample?: boolean } = {}) => {
     const arr = Array.from(incoming);
     const supported = SUPPORTED_INPUT_MIME_TYPES as readonly string[];
+    const sample = opts.sample === true;
+
+    // Real images replace the examples (like the design's sample set).
+    const existing = useCompressorStore.getState().files;
+    if (!sample && existing.length > 0 && existing.every((f) => f.sample)) {
+      for (const f of existing) {
+        for (const jobId of jobIdMapRef.current.get(f.id) ?? []) poolRef.current?.cancel(jobId);
+        revokeUrls(f);
+      }
+      useCompressorStore.getState().clearAll();
+    }
 
     // Dedup index built from live state + accepted files in this call.
     // `getState()` is always current (set is synchronous), so a rapid
@@ -261,6 +280,7 @@ export function useImageCompressor() {
         inputDimensions: null,
         previewUrl: URL.createObjectURL(file),
         settings: useCompressorStore.getState().globalSettings,
+        formatOverride: null,
         status: "idle",
         result: null,
         error: null,
@@ -268,26 +288,29 @@ export function useImageCompressor() {
         settingsTouched: false,
         displayName: null,
         hasIcc: null,
+        meta: null,
+        sample,
+        probes: null,
       });
     }
 
     if (accepted.length > 0) {
       useCompressorStore.getState().appendFiles(accepted);
-      // Probe ICC profile presence asynchronously per file. We only
-      // need the boolean (yes/no) — used to warn before a format swap
-      // would silently drop a wide-gamut profile.
-      for (const accepted_file of accepted) {
-        if (!supportsIcc(accepted_file.inputMimeType)) {
-          useCompressorStore.getState().setHasIcc(accepted_file.id, false);
-          continue;
-        }
+      for (const f of accepted) attachThumbnail(f.id, f.file);
+      // Cheap byte scans per file, off the critical path: ICC profile
+      // presence (warns before a format swap would drop a wide-gamut
+      // profile) and EXIF camera / GPS facts for the Metadata row. Both
+      // read only the head of the file.
+      for (const f of accepted) {
         void (async () => {
           try {
-            const buf = await accepted_file.file.arrayBuffer();
-            const icc = extractIcc(buf, accepted_file.inputMimeType);
-            useCompressorStore.getState().setHasIcc(accepted_file.id, !!icc);
+            const head = await f.file.slice(0, 1_048_576).arrayBuffer();
+            const icc = supportsIcc(f.inputMimeType) ? extractIcc(head, f.inputMimeType) : null;
+            const exif = readExifSummary(head.slice(0, 262_144), f.inputMimeType);
+            const meta: MetadataSummary = exif.exif ? exif : { exif: detectMetadata(head, f.inputMimeType), gps: false, camera: null };
+            useCompressorStore.getState().setSourceFacts(f.id, !!icc, meta);
           } catch {
-            useCompressorStore.getState().setHasIcc(accepted_file.id, false);
+            useCompressorStore.getState().setHasIcc(f.id, false);
           }
         })();
       }
@@ -311,17 +334,31 @@ export function useImageCompressor() {
       );
   }, []);
 
+  /** Stop a file's in-flight worker job, if any (frees the worker now). */
+  const cancelJobFor = useCallback((fileId: string) => {
+    for (const jobId of jobIdMapRef.current.get(fileId) ?? []) poolRef.current?.cancel(jobId);
+    for (const ref of [probeJobRef, diffJobRef]) {
+      const jobId = ref.current.get(fileId);
+      if (jobId) poolRef.current?.cancel(jobId);
+      ref.current.delete(fileId);
+    }
+  }, []);
+
   const removeFile = useCallback((id: string | null) => {
     if (!id) return;
+    cancelJobFor(id);
     const file = useCompressorStore.getState().files.find((f) => f.id === id);
-    if (file) URL.revokeObjectURL(file.previewUrl);
+    if (file) revokeUrls(file);
     useCompressorStore.getState().removeFile(id);
-  }, []);
+  }, [cancelJobFor]);
 
   const clearAll = useCallback(() => {
     const snapshot = useCompressorStore.getState().files;
     if (snapshot.length === 0) return;
-    for (const f of snapshot) URL.revokeObjectURL(f.previewUrl);
+    // Cancel running jobs so a huge image doesn't keep a worker busy (and
+    // memory pinned) for files that no longer exist.
+    for (const f of snapshot) cancelJobFor(f.id);
+    for (const f of snapshot) revokeUrls(f);
     useCompressorStore.getState().clearAll();
     // 8-second Undo window. We can't restore the original previewUrl
     // (the object URL has been revoked), so on Undo we re-create one
@@ -333,51 +370,25 @@ export function useImageCompressor() {
         action: {
           label: "Undo",
           onClick: () => {
+            // Files that were mid-compression lost their job when cleared;
+            // put them back in the queue instead of "Compressing" forever.
             const restored = snapshot.map((f) => ({
               ...f,
               previewUrl: URL.createObjectURL(f.file),
+              thumbUrl: null,
+              status: f.status === "compressing" ? ("idle" as const) : f.status,
             }));
             useCompressorStore.getState().appendFiles(restored);
+            for (const f of restored) attachThumbnail(f.id, f.file);
           },
         },
         duration: 8000,
       },
     );
-  }, []);
-
-  const toggleExpanded = useCallback((id: string) => {
-    const current = useCompressorStore.getState().expandedFileId;
-    useCompressorStore.getState().setExpanded(current === id ? null : id);
-  }, []);
+  }, [cancelJobFor]);
 
   const setExpanded = useCallback((id: string | null) => {
     useCompressorStore.getState().setExpanded(id);
-  }, []);
-
-  const updateFileSettings = useCallback(
-    (id: string, settings: Partial<CompressionSettings>) => {
-      useCompressorStore.getState().updateSettings(id, settings);
-    },
-    [],
-  );
-
-  const resetFileSettings = useCallback((id: string) => {
-    useCompressorStore.getState().resetSettings(id);
-  }, []);
-
-  const updateGlobalSettings = useCallback(
-    (patch: Partial<CompressionSettings>) => {
-      const next = mergeSettings(
-        useCompressorStore.getState().globalSettings,
-        patch,
-      );
-      useCompressorStore.getState().setGlobalSettings(next);
-    },
-    [],
-  );
-
-  const setAllQuality = useCallback((mode: QualityMode) => {
-    useCompressorStore.getState().bulkQuality(mode);
   }, []);
 
   const setDisplayName = useCallback(
@@ -390,17 +401,10 @@ export function useImageCompressor() {
     [],
   );
 
-  const setSortMode = useCallback((mode: SortMode) => {
-    useCompressorStore.getState().setSortMode(mode);
-  }, []);
-
   const cancelOne = useCallback((fileId: string) => {
-    const jobId = jobIdMapRef.current.get(fileId);
-    if (!jobId) return;
-    // Pool resolves the job's promise with "Cancelled" rejection; the
-    // existing compressOneInternal catch translates that into a
-    // setError with the literal "Cancelled" message.
-    poolRef.current?.cancel(jobId);
+    // Pool rejects the job's promise with a "cancelled" failure; the
+    // compressOneInternal catch turns that into a muted Cancelled state.
+    for (const jobId of jobIdMapRef.current.get(fileId) ?? []) poolRef.current?.cancel(jobId);
   }, []);
 
   const recompressOne = useCallback((id: string) => {
@@ -415,20 +419,153 @@ export function useImageCompressor() {
     if (ids.length > 0) useCompressorStore.getState().markPending(ids);
   }, []);
 
-  // ── Downloads ──
+  // ── Settings column ──
 
-  // OS filename safety. Strip characters most filesystems reject and
-  // trim length — protects users who type pasted text or accidentally
-  // include path separators. Falls back to "image" so the download
-  // never names a file "".
-  const sanitizeFilename = (name: string): string => {
-    return name.replace(/[/\\:*?"<>|]/g, "_").trim().slice(0, 200) || "image";
-  };
+  /** Run a store change; if it cleared per-image formats, say so with Undo. */
+  const withOverrideUndo = useCallback((change: () => void) => {
+    const before = collectOverrides(useCompressorStore.getState().files);
+    change();
+    const st = useCompressorStore.getState();
+    const cleared = new Map([...before].filter(([id]) => st.files.find((f) => f.id === id)?.formatOverride === null));
+    if (cleared.size === 0) return;
+    const fmt = OUTPUT_FORMAT_LABEL[st.globalSettings.outputFormat];
+    const n = cleared.size;
+    toast(`${n} image${n === 1 ? "" : "s"} had ${n === 1 ? "its" : "their"} own format; now all use ${fmt}`, {
+      action: { label: "Undo", onClick: () => useCompressorStore.getState().restoreFormatOverrides(cleared) },
+      duration: 8000,
+    });
+  }, []);
+
+  const editSettings = useCallback(
+    (patch: Partial<CompressionSettings>) => withOverrideUndo(() => useCompressorStore.getState().editSettings(patch)),
+    [withOverrideUndo],
+  );
+  const applyDraft = useCallback(() => withOverrideUndo(() => useCompressorStore.getState().applyDraft()), [withOverrideUndo]);
+  const clearFormatOverrides = useCallback(
+    () => withOverrideUndo(() => useCompressorStore.getState().clearFormatOverrides()),
+    [withOverrideUndo],
+  );
+  const followGlobalFormat = useCallback((id: string) => useCompressorStore.getState().setFormatOverride(id, null), []);
+  const setConvertAll = useCallback((on: boolean) => useCompressorStore.getState().setConvertAll(on), []);
+
+  /** A format bar (or a notice's format action) for one image: its own
+   *  format, or — with "Apply to all images" on — the global Format. */
+  const pickFormat = useCallback(
+    (id: string, picked: OutputFormat) => {
+      const st = useCompressorStore.getState();
+      const action = barPick(picked, st.convertAll, st.globalSettings);
+      if (action.kind === "global") editSettings(action.patch);
+      else st.setFormatOverride(id, action.override);
+    },
+    [editSettings],
+  );
+  const setAutoUpdate = useCallback(
+    (on: boolean) => withOverrideUndo(() => useCompressorStore.getState().setAutoUpdate(on)),
+    [withOverrideUndo],
+  );
+
+  // ── Comparison estimates ("every format" bars) ──
+
+  /**
+   * Approximate the formats the focused image's result didn't encode, from
+   * the downscaled sample the real job left behind — a fraction of a
+   * second, never a full encode. Low priority, only once the queue has
+   * drained; any new compression cancels it (cancelProbes). Choosing a
+   * format (or clicking its bar) is what runs the real encode.
+   */
+  const ensureProbes = useCallback(
+    (fileId: string) => {
+      const st = useCompressorStore.getState();
+      const f = st.files.find((x) => x.id === fileId);
+      const sample = f?.result?.sample;
+      if (!f || !f.result || f.status !== "done" || f.settingsDirty) return;
+      if (st.files.some((x) => x.status === "idle" || x.status === "compressing")) return;
+      const key = probeKey(f.settings);
+      if (f.probes?.key === key || probeJobRef.current.has(fileId)) return;
+      const have = new Set(f.result.candidates.map((c) => c.mimeType));
+      const missing = COMPARE_FORMATS.filter((m) => !have.has(m) && !(m === "image/jpeg" && f.result?.hasAlpha));
+      if (missing.length === 0 || !sample) {
+        st.setProbes(fileId, { key, candidates: [] });
+        return;
+      }
+      const settings = f.settings;
+      // The sample stays on the result; the worker gets a copy.
+      const job = getPool().estimate({ ...sample, buffer: sample.buffer.slice(0) }, settings, missing);
+      probeJobRef.current.set(fileId, job.id);
+      void (async () => {
+        try {
+          const estimates = await job.promise;
+          const live = useCompressorStore.getState().files.find((x) => x.id === fileId);
+          if (live && live.settings === settings) {
+            useCompressorStore.getState().setProbes(fileId, { key, candidates: estimates });
+          }
+        } catch (err) {
+          // Cancelled (a new compression took the workers): asked again once
+          // the queue drains. Failed: the bars show "—" for those formats.
+          const cancelled = err instanceof CompressionFailure && err.detail.kind === "cancelled";
+          const live = useCompressorStore.getState().files.find((x) => x.id === fileId);
+          if (!cancelled && live && live.settings === settings) {
+            useCompressorStore.getState().setProbes(fileId, { key, candidates: [] });
+          }
+        } finally {
+          if (probeJobRef.current.get(fileId) === job.id) probeJobRef.current.delete(fileId);
+        }
+      })();
+    },
+    [getPool],
+  );
+
+  // ── "Show what changed" ──
+
+  /** Render (once per result) the amplified difference map in a worker. */
+  const ensureDiff = useCallback(
+    (fileId: string) => {
+      const st = useCompressorStore.getState();
+      const f = st.files.find((x) => x.id === fileId);
+      const result = f?.result;
+      if (!f || !result || result.keptOriginal) return;
+      const existing = st.diffs[fileId];
+      if (existing && existing.result === result) return;
+      if (diffJobRef.current.has(fileId)) poolRef.current?.cancel(diffJobRef.current.get(fileId) ?? "");
+      st.setDiff(fileId, { status: "loading", result });
+      const settings = f.settings;
+      void (async () => {
+        // The result buffer stays in the store; the worker gets a copy.
+        const job = getPool().diff(await f.file.arrayBuffer(), f.inputMimeType, settings, {
+          buffer: result.buffer.slice(0),
+          mimeType: result.mimeType,
+        });
+        diffJobRef.current.set(fileId, job.id);
+        try {
+          const d = await job.promise;
+          const cur = useCompressorStore.getState().diffs[fileId];
+          if (cur?.result === result) {
+            useCompressorStore.getState().setDiff(fileId, {
+              status: "ready",
+              result,
+              url: URL.createObjectURL(d.blob),
+              width: d.width,
+              height: d.height,
+              mean: d.mean,
+              changedShare: d.changedShare,
+            });
+          }
+        } catch {
+          const cur = useCompressorStore.getState().diffs[fileId];
+          if (cur?.result === result) useCompressorStore.getState().setDiff(fileId, { status: "error", result });
+        } finally {
+          if (diffJobRef.current.get(fileId) === job.id) diffJobRef.current.delete(fileId);
+        }
+      })();
+    },
+    [getPool],
+  );
+
+  // ── Downloads ──
 
   const downloadOne = useCallback((id: string) => {
     const target = useCompressorStore.getState().files.find((f) => f.id === id);
     if (!target || !target.result) return;
-    const ext = extensionForMime(target.result.mimeType);
     const blob = new Blob([target.result.buffer], {
       type: target.result.mimeType,
     });
@@ -436,10 +573,7 @@ export function useImageCompressor() {
     const a = document.createElement("a");
     a.href = url;
     // User-renamed display name wins; otherwise fall back to source basename.
-    const base = sanitizeFilename(
-      target.displayName ?? baseFileName(target.file.name),
-    );
-    a.download = `${base}.${ext}`;
+    a.download = outputFileName(target, target.result);
     document.body.appendChild(a);
     try {
       a.click();
@@ -451,11 +585,7 @@ export function useImageCompressor() {
 
   const downloadAll = useCallback(async () => {
     const all = useCompressorStore.getState().files;
-    const completed = all.flatMap((f) =>
-      f.result
-        ? [{ file: f.file, result: f.result, displayName: f.displayName }]
-        : [],
-    );
+    const completed = all.flatMap((f) => (f.result ? [{ f, result: f.result }] : []));
     if (completed.length === 0) {
       toast.error("Nothing to download yet — compression still in progress");
       return;
@@ -466,17 +596,19 @@ export function useImageCompressor() {
         `Downloading ${completed.length} of ${all.length} — ${remaining} still compressing`,
       );
     }
-    // Progress toast for every download — even single-file. Was
-    // previously gated on `completed.length > 1` which silently
-    // dropped success feedback for the most common case.
+    // Progress toast for every download — even single-file.
     const toastId = toast.loading(
       completed.length === 1
         ? "Packaging download…"
         : `Packaging ${completed.length} files…`,
     );
     try {
-      const entries = completed.map(({ file, result, displayName }) => ({
-        name: `${sanitizeFilename(displayName ?? baseFileName(file.name))}.${extensionForMime(result.mimeType)}`,
+      // Unique names inside the ZIP: two "image.png" pastes, or anim.gif +
+      // anim.png both becoming PNG, would otherwise overwrite each other
+      // on extract.
+      const names = uniqueNames(completed.map(({ f, result }) => outputFileName(f, result)));
+      const entries = completed.map(({ result }, i) => ({
+        name: names[i],
         input: new Blob([result.buffer], { type: result.mimeType }),
         lastModified: new Date(),
       }));
@@ -505,24 +637,49 @@ export function useImageCompressor() {
     }
   }, []);
 
-  // Kick the queue whenever there are idle files and nothing is running.
-  // The running flag is claimed synchronously inside the effect (not at
-  // the top of runQueue) so React's double-render in strict mode and
-  // rapid state updates can't schedule two concurrent queues.
+  // React to file-list changes outside render: kick the queue when there
+  // are idle files and nothing is running, and re-run finished images
+  // whose result no longer matches the applied settings (files still
+  // running are picked up once they land — setResult marks a result stale
+  // when settings moved mid-flight; with "Update automatically" off,
+  // applied settings only move on Compress). A store subscription instead
+  // of an effect on `files`, so the tool doesn't re-render per update; the
+  // check is coalesced into one microtask per burst of store updates.
+  // The running flag is claimed synchronously in the check so two queues
+  // can never be scheduled.
   useEffect(() => {
-    if (queueRunningRef.current) return;
-    if (!files.some((f) => f.status === "idle")) return;
-    queueRunningRef.current = true;
-    void runQueue();
-  }, [files, runQueue]);
+    let scheduled = false;
+    let alive = true;
+    const check = () => {
+      scheduled = false;
+      if (!alive) return;
+      const { files } = useCompressorStore.getState();
+      const rerun = files.filter((f) => f.settingsDirty && (f.status === "done" || f.status === "error"));
+      if (rerun.length > 0) useCompressorStore.getState().markPending(rerun.map((f) => f.id));
+      if (queueRunningRef.current) return;
+      if (!useCompressorStore.getState().files.some((f) => f.status === "idle")) return;
+      queueRunningRef.current = true;
+      void runQueue();
+    };
+    const unsubscribe = useCompressorStore.subscribe((st, prev) => {
+      if (st.files === prev.files || scheduled) return;
+      scheduled = true;
+      queueMicrotask(check);
+    });
+    check();
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [runQueue]);
+
 
   // ── Cleanup preview URLs + worker pool on unmount ──
   // The store is a module singleton, so reset() here matches the old
   // per-mount reducer behaviour: leaving the tool discards all state.
   useEffect(() => {
     return () => {
-      for (const f of useCompressorStore.getState().files)
-        URL.revokeObjectURL(f.previewUrl);
+      for (const f of useCompressorStore.getState().files) revokeUrls(f);
       poolRef.current?.terminate();
       poolRef.current = null;
       useCompressorStore.getState().reset();
@@ -530,36 +687,24 @@ export function useImageCompressor() {
   }, []);
 
   return {
-    // state
-    files: visibleFiles,
-    expandedFileId,
-    globalSettings,
-    sortMode,
-    // derived
-    totalOriginalBytes: stats.totalOriginalBytes,
-    /** Original bytes of the files that have a result (pairs with totalCompressedBytes). */
-    processedOriginalBytes: stats.processedOriginalBytes,
-    totalCompressedBytes: stats.totalCompressedBytes,
-    totalSavedPct: stats.totalSavedPct,
-    doneCount: stats.doneCount,
-    compressingCount: stats.compressingCount,
-    queuedCount: stats.queuedCount,
-    dirtyCount: stats.dirtyCount,
     // actions
     addFiles,
     removeFile,
     clearAll,
-    toggleExpanded,
     setExpanded,
-    updateFileSettings,
-    resetFileSettings,
-    updateGlobalSettings,
-    setAllQuality,
+    editSettings,
+    applyDraft,
+    setAutoUpdate,
+    setConvertAll,
+    pickFormat,
+    followGlobalFormat,
+    clearFormatOverrides,
     setDisplayName,
-    setSortMode,
     recompressOne,
     recompressDirty,
     cancelOne,
+    ensureProbes,
+    ensureDiff,
     downloadOne,
     downloadAll,
   };

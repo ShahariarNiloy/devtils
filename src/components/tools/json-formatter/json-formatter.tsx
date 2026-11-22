@@ -1,9 +1,10 @@
 "use client";
 
 import { ClipboardPaste, Copy, Download, Search, Trash2, Upload } from "lucide-react";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ToolShell } from "@/components/layout/tool-shell";
+import { flushPendingEdits } from "@/components/primitives/code-editor";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/primitives/resizable";
 import { cn } from "@/lib/cn";
 import { useShortcut } from "@/lib/keyboard";
@@ -19,15 +20,13 @@ import { ConvertStrip } from "./panels/convert-strip";
 import { BROKEN_SAMPLE } from "./panels/empty-state";
 import { ErrorBanner } from "./panels/error-banner";
 import { FetchUrlDialog } from "./panels/fetch-url-dialog";
-import { FuzzyFindDialog } from "./panels/fuzzy-find-dialog";
 import { InputPanel } from "./panels/input-panel";
 import { OutputPanel } from "./panels/output-panel";
-import { QueryPanel } from "./panels/query-panel";
 import { RepairPreviewDialog } from "./panels/repair-preview-dialog";
-import { SchemaPanel } from "./panels/schema-panel";
-import { SearchPanel } from "./panels/search-panel";
 import { StatsPanel } from "./panels/stats-panel";
 import { StatusBar } from "./panels/status-bar";
+import { useSchemaCheck } from "./hooks/use-schema-check";
+import { Dialog, DialogContent, DialogSideSheetContent, DialogTitle } from "@/components/primitives/dialog";
 import { WorkspaceToolbar } from "./panels/workspace-toolbar";
 import type { ConvertTarget } from "./json-formatter.types";
 import {
@@ -38,6 +37,10 @@ import {
   readShareToken,
 } from "./share-link";
 import { useJsonFormatter } from "./use-json-formatter";
+
+// Find (fuzzy + JSONPath) and the Schema editor load the first time they open.
+const FindDialog = lazy(() => import("./panels/find-dialog").then((m) => ({ default: m.FindDialog })));
+const SchemaPanel = lazy(() => import("./panels/schema-panel").then((m) => ({ default: m.SchemaPanel })));
 
 type Pane = "input" | "output";
 
@@ -54,6 +57,8 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // Runs only once a schema has been entered (Ajv loads then).
+  const schemaResult = useSchemaCheck(state.parsedValue, state.isValid, state.schemaText);
   const [pane, setPane] = useState<Pane>("input");
   const mobileFileRef = useRef<HTMLInputElement>(null);
 
@@ -185,30 +190,39 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
 
   useShortcut({ key: "Enter", meta: true, label: "Format" }, (e) => {
     e.preventDefault();
+    // Focus stays in the editor, which debounces big docs: deliver the
+    // pending edit so the action sees the text on screen.
+    flushPendingEdits();
     state.formatWith("none");
   });
   useShortcut({ key: "m", meta: true, shift: true, label: "Minify" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     state.minify();
   });
   useShortcut({ key: "v", meta: true, shift: true, label: "Validate" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     state.validate();
   });
   useShortcut({ key: "c", meta: true, shift: true, label: "Copy output" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     void state.copyOutput();
   });
   useShortcut({ key: "r", meta: true, shift: true, label: "Repair" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     state.repair();
   });
   useShortcut({ key: "s", meta: true, shift: true, label: "Sort keys A → Z" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     state.formatWith("asc");
   });
   useShortcut({ key: "d", meta: true, shift: true, label: "Download output" }, (e) => {
     e.preventDefault();
+    flushPendingEdits();
     state.downloadOutput("json");
   });
   useShortcut({ key: "/", meta: true, label: "Toggle search" }, (e) => {
@@ -247,22 +261,38 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
 
   return (
     <ToolShell tool={tool} titleStyle="inline" wide relatedSlugs={seoData.relatedSlugs}>
-      {/* Side panels — above the workspace */}
-      {searchOpen && !isMobile && (
-        <SearchPanel value={state.parsedOutput ?? state.parsedValue} onClose={() => setSearchOpen(false)} />
+      {/* Find, Schema and Stats float over the workspace (dialog / side
+          sheet / popover) — opening one never pushes the page down. */}
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <FindDialog open={searchOpen} onOpenChange={setSearchOpen} value={state.parsedOutput ?? state.parsedValue} />
+        </Suspense>
       )}
-      {state.showQuery && isMobile && <QueryPanel state={state} onClose={() => state.setShowQuery(false)} />}
-      {state.showSchema && (
-        <SchemaPanel
-          value={state.parsedValue}
-          isValid={state.isValid}
-          schemaText={state.schemaText}
-          onSchemaTextChange={state.setSchemaText}
-          onClose={() => state.setShowSchema(false)}
-        />
-      )}
-      {state.showStats && (
-        <StatsPanel value={state.parsedOutput ?? state.parsedValue} text={state.output || state.input} onClose={() => state.setShowStats(false)} />
+      <Dialog open={state.showSchema} onOpenChange={state.setShowSchema} modal={false}>
+        {state.showSchema && (
+          <DialogSideSheetContent aria-describedby={undefined}>
+            <div className="flex min-h-14 shrink-0 items-center border-b border-border-subtle pr-16 pl-5">
+              <DialogTitle className="font-sans text-[15px] font-semibold text-text">Validate against JSON Schema</DialogTitle>
+            </div>
+            <Suspense fallback={<p className="px-5 py-4 text-sm text-text-faint">Loading…</p>}>
+              <SchemaPanel
+                value={state.parsedValue}
+                isValid={state.isValid}
+                schemaText={state.schemaText}
+                onSchemaTextChange={state.setSchemaText}
+                result={schemaResult}
+              />
+            </Suspense>
+          </DialogSideSheetContent>
+        )}
+      </Dialog>
+      {isMobile && (
+        <Dialog open={state.showStats} onOpenChange={state.setShowStats}>
+          <DialogContent aria-describedby={undefined} className="px-5 pt-5 pb-5">
+            <DialogTitle className="mb-3 font-sans text-[15px] font-semibold text-text">Document stats</DialogTitle>
+            {state.showStats && <StatsPanel value={state.parsedOutput ?? state.parsedValue} text={state.output || state.input} />}
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* WORKSPACE */}
@@ -274,6 +304,9 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
           sharing={sharing}
           onToggleSearch={() => setSearchOpen((v) => !v)}
           searchActive={searchOpen}
+          onOpenSchema={() => state.setShowSchema(!state.showSchema)}
+          schemaActive={state.showSchema}
+          schemaResult={state.schemaText.trim() ? schemaResult : undefined}
           onOpenMore={() => setMoreOpen(true)}
         />
 
@@ -354,22 +387,12 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
       <FetchUrlDialog open={fetchUrlOpen} onOpenChange={setFetchUrlOpen} onLoaded={handleUrlLoaded} />
 
       {isMobile && (
-        <>
-          <FuzzyFindDialog
-            open={searchOpen}
-            onOpenChange={setSearchOpen}
-            value={state.parsedOutput ?? state.parsedValue}
-            onPick={() => {
-              /* the dialog copies the picked path itself */
-            }}
-          />
           <MobileMoreSheet
             open={moreOpen}
             onClose={() => setMoreOpen(false)}
             hasInput={hasInput}
             hasOutput={hasOutput}
             canFormat={hasInput && !invalid}
-            isQueryOpen={state.showQuery}
             isStatsOpen={state.showStats}
             isSchemaOpen={state.showSchema}
             sharing={sharing}
@@ -382,14 +405,12 @@ export function JsonFormatter({ tool }: { tool: Tool }) {
             onConvert={(kind) => {
               if (isConvertTarget(kind)) state.convert(kind);
             }}
-            onToggleQuery={() => state.setShowQuery(!state.showQuery)}
             onToggleStats={() => state.setShowStats(!state.showStats)}
             onToggleSchema={() => state.setShowSchema(!state.showSchema)}
             onShare={() => void handleShare()}
             onDownload={() => state.downloadOutput("json")}
             onOpenFind={() => setSearchOpen(true)}
           />
-        </>
       )}
 
       <RepairPreviewDialog preview={state.repairPreview} onApply={state.applyRepair} onCancel={state.cancelRepair} />

@@ -2,11 +2,13 @@
 
 import { BookOpen, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
+import { memo } from "react";
 import { Tooltip } from "@/components/primitives/tooltip";
 import { cn } from "@/lib/cn";
 import type { Tool } from "@/lib/tools-registry";
 import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
 import { KeyIcon, toolIcon } from "@/components/shared/key-icon";
+import { categoryAnchor } from "@/lib/tools/category-url";
 
 const TINT_TEXT: Record<Tint, string> = {
   clay: "text-cat-clay",
@@ -15,8 +17,7 @@ const TINT_TEXT: Record<Tint, string> = {
   rose: "text-cat-rose",
 };
 
-export const categoryAnchor = (category: string) =>
-  `/tools#cat-${category.toLowerCase().replace(/\./g, "-")}`;
+export { categoryAnchor } from "@/lib/tools/category-url";
 
 
 interface ToolShellHeaderProps {
@@ -37,7 +38,7 @@ interface ToolShellHeaderProps {
  * and "Fit to window". The privacy guarantee lives in the nav-level copy and
  * each tool's status line rather than as a static pill here.
  */
-export function ToolShellHeader({ tool, titleStyle = "stacked", onOpenGuide, fullWindow, onToggleFullWindow }: ToolShellHeaderProps) {
+export const ToolShellHeader = memo(function ToolShellHeader({ tool, titleStyle = "stacked", onOpenGuide, fullWindow, onToggleFullWindow }: ToolShellHeaderProps) {
   const tagline = TOOL_PRESENTATION[tool.slug]?.tagline ?? tool.description;
   const tint = TINT_TEXT[CATEGORY_TINT[tool.category]];
   const inline = titleStyle === "inline";
@@ -66,7 +67,9 @@ export function ToolShellHeader({ tool, titleStyle = "stacked", onOpenGuide, ful
         <nav aria-label="Breadcrumb" className="hidden text-xs text-text-faint sm:block">
           <Link href="/tools" className="text-text-faint hover:text-text">Tools</Link>{" "}
           <span aria-hidden="true">/</span>{" "}
-          <Link href={categoryAnchor(tool.category)} className="text-text-faint hover:text-text">{tool.category}</Link>
+          <Link href={categoryAnchor(tool.category)} className="text-text-faint hover:text-text">{tool.category}</Link>{" "}
+          <span aria-hidden="true">/</span>{" "}
+          <span aria-current="page" className="text-text-tertiary">{tool.name}</span>
         </nav>
         {inline ? (
           <>
@@ -107,4 +110,4 @@ export function ToolShellHeader({ tool, titleStyle = "stacked", onOpenGuide, ful
       </div>
     </header>
   );
-}
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { queryJsonPath } from "../json-formatter.lib";
@@ -15,7 +15,8 @@ import {
 interface SearchPanelProps {
   /** Parsed JSON document (output if present, else parsed input). */
   value: unknown;
-  onClose: () => void;
+  /** Called after a result is picked (its path is copied first). */
+  onPicked?: () => void;
 }
 
 const RESULT_LIMIT = 60;
@@ -31,7 +32,7 @@ function isJsonPath(q: string): boolean {
  * fuzzy match across keys / paths / values. No mode toggle — intent is
  * detected from the input itself.
  */
-export function SearchPanel({ value, onClose }: SearchPanelProps) {
+export function SearchPanel({ value, onPicked }: SearchPanelProps) {
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const deferredQuery = useDeferredValue(query);
@@ -65,6 +66,7 @@ export function SearchPanel({ value, onClose }: SearchPanelProps) {
   const pick = (r: FuzzyResult) => {
     void navigator.clipboard.writeText(r.entry.path).catch(() => {});
     toast.success(`Path copied · ${r.entry.path}`);
+    onPicked?.();
   };
 
   const badge = badgeLabel({
@@ -76,8 +78,8 @@ export function SearchPanel({ value, onClose }: SearchPanelProps) {
   });
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="flex items-center gap-3 border-b border-border-subtle px-4 py-3">
+    <div className="overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-border-subtle py-3 pr-3 pl-4">
         <Search size={15} className="shrink-0 text-text-faint" />
         <input
           type="text"
@@ -106,17 +108,9 @@ export function SearchPanel({ value, onClose }: SearchPanelProps) {
             "placeholder:text-text-faint outline-none transition-[border-color] focus:border-brand",
           )}
         />
-        <span className="shrink-0 font-mono text-sm text-text-faint">
+        <span className="shrink-0 font-mono text-xs text-text-faint">
           {badge}
         </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close search panel"
-          className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors hover:bg-silver hover:text-text"
-        >
-          <X size={14} />
-        </button>
       </div>
 
       <SearchResults
@@ -173,7 +167,7 @@ function SearchResults({
     }
     const seen = new Map<string, number>();
     return (
-      <div className="max-h-48 overflow-auto px-4 py-3">
+      <div className="max-h-[min(60vh,480px)] overflow-auto px-4 py-3">
         <ul className="space-y-1 font-mono text-sm">
           {jsonPathResults.map((result, i) => {
             const json = JSON.stringify(result);
@@ -232,7 +226,7 @@ function FuzzyResultList({
   }, [effectiveIdx]);
 
   return (
-    <div className="max-h-56 overflow-auto">
+    <div className="max-h-[min(60vh,480px)] overflow-auto">
       {/* Split header — Key | Value */}
       <div className="sticky top-0 z-10 grid grid-cols-2 border-b border-border bg-silver px-4 py-1.5 font-mono text-sm font-semibold uppercase tracking-wide text-text-faint">
         <span>Key</span>

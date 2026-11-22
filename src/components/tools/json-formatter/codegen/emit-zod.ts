@@ -62,6 +62,9 @@ function refToZod(ref: TypeRef, refinements: boolean): string {
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 function safeKey(k: string): string {
+  // A literal `__proto__:` (quoted or not) in an object literal sets the
+  // prototype instead of defining a key; only the computed form defines it.
+  if (k === "__proto__") return `["__proto__"]`;
   return IDENT.test(k) ? k : JSON.stringify(k);
 }
 
@@ -111,9 +114,12 @@ export function emitZod(
       blocks.push(`export type ${rootType} = z.infer<typeof ${rootConst}>;`);
     }
   } else {
-    // Root is primitive / array / mixed — emit the schema directly.
+    // Root is primitive / array / mixed — emit the schema directly. The type
+    // takes the alias `collect` reserved, so it can't collide with a
+    // collected type or a reserved name.
+    const aliasType = collected.rootName;
     blocks.push(`export const ${rootConst} = ${refToZod(collected.root, refinements)};`);
-    blocks.push(`export type ${rootType} = z.infer<typeof ${rootConst}>;`);
+    blocks.push(`export type ${aliasType} = z.infer<typeof ${rootConst}>;`);
   }
 
   return `import { z } from "zod";\n\n${blocks.join("\n\n")}\n`;

@@ -23,6 +23,7 @@ const CATS = CATEGORIES.map((c) => ({
 
 const LINKS = [
   { href: "/tools", label: "Tools", meta: String(SHOWCASE_TOOLS.length) },
+  { href: "/blog", label: "Blog", meta: "" },
   { href: "/changelog", label: "What's new", meta: "" },
   { href: "/faq", label: "FAQ", meta: "" },
 ];

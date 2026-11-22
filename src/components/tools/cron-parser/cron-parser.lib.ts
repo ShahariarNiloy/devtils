@@ -300,8 +300,11 @@ export function nextRuns(c: ParsedCron, now: Date, count: number): Date[] {
 }
 
 /** "Mon 23 Nov · 09:30" */
-export function formatRun(d: Date): string {
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+export function formatRun(d: Date, now?: Date | null): string {
+  // Add the year when the run isn't in the current one — otherwise rare
+  // schedules (29 Feb, yearly) list several identical-looking dates.
+  const year = now && d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : "";
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${year} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 /** "in 12 min", "in 5 h", "in 3 days". */

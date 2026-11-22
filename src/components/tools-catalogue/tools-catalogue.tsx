@@ -58,7 +58,10 @@ export function ToolsCatalogue({ json, sections, featured, roadmap, total, live,
           All tools<span className="text-text-faint"> · {total}</span>
         </h1>
         <p className="relative -mt-3 mb-0 text-[15px] text-text-tertiary">
-          {live < total ? `${live} live, ${total - live} on the way.` : `All ${total} live.`} All free, all in your browser.
+          {live < total ? `${live} live, ${total - live} on the way.` : `All ${total} live.`} All free, all in your browser.{" "}
+          <Link href="/tools/category" className="whitespace-nowrap font-semibold text-text-muted hover:text-text">
+            Browse by category →
+          </Link>
         </p>
 
         <div className="relative flex w-full max-w-[660px] items-center gap-3 rounded-[14px] bg-[rgba(28,28,26,.96)] px-4 py-3.5 text-left shadow-search-glow">
@@ -134,7 +137,7 @@ export function ToolsCatalogue({ json, sections, featured, roadmap, total, live,
           {jsonRows.length > 0 && (
             <section id="cat-json" aria-labelledby="h-cat-json" className="surface-panel relative scroll-mt-6 overflow-hidden rounded-[18px] p-[18px]">
               <div aria-hidden="true" className="pointer-events-none absolute -top-[120px] -left-20 h-[260px] w-[360px] bg-[radial-gradient(closest-side,rgba(197,142,94,.16),rgba(197,142,94,0))]" />
-              <PanelHead id="h-cat-json" tint={json.tint} name={json.name} count={jsonRows.length} className="relative mb-3" />
+              <PanelHead id="h-cat-json" tint={json.tint} name={json.name} count={jsonRows.length} className="relative mb-3" longLink />
               {jsonPlain.length > 0 && (
                 <div className="relative grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-x-3 gap-y-1">
                   {jsonPlain.map((r) => (
@@ -208,7 +211,7 @@ export function ToolsCatalogue({ json, sections, featured, roadmap, total, live,
 
       {/* ROADMAP */}
       {roadmap.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border border-clay-light/22 bg-[radial-gradient(120%_120%_at_100%_0%,rgba(197,142,94,.12),rgba(20,18,15,.5)_60%),#121110] px-[18px] py-3.5">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border border-clay-light/22 [background:radial-gradient(120%_120%_at_100%_0%,rgba(197,142,94,.12),rgba(20,18,15,.5)_60%),#121110] px-[18px] py-3.5">
           <span className="text-sm font-bold">Coming next</span>
           <span className="flex flex-wrap gap-1.5">
             {roadmap.map((r) => (
@@ -225,16 +228,25 @@ export function ToolsCatalogue({ json, sections, featured, roadmap, total, live,
   );
 }
 
-function PanelHead({ id, tint, name, count, className }: { id: string; tint: Tint; name: ToolCategory; count: number; className?: string }) {
+function PanelHead({ id, tint, name, count, className, longLink }: { id: string; tint: Tint; name: ToolCategory; count: number; className?: string; longLink?: boolean }) {
+  const href = `/tools/category/${name.toLowerCase().replace(/\./g, "-")}`;
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <span aria-hidden="true" className={cn("surface-key flex size-7 items-center justify-center rounded-lg font-mono text-[11px]", TEXT[tint])}><KeyIcon icon={categoryIcon(name)} box={26} /></span>
       <h2 id={id} className="m-0 font-sans text-base font-bold tracking-normal">
-        <Link href={`/tools/category/${name.toLowerCase().replace(/\./g, "-")}`} className="text-text hover:text-clay-cream">
+        <Link href={href} className="text-text hover:text-clay-cream">
           {name}
         </Link>
       </h2>
       <span className="font-mono text-xs text-text-faint">{count}</span>
+      <span className="grow" />
+      <Link
+        href={href}
+        aria-label={`All ${name} tools`}
+        className="inline-flex min-h-8 items-center px-1.5 text-[12.5px] font-semibold text-text-muted hover:text-text max-sm:min-h-11"
+      >
+        {longLink ? `All ${name} tools →` : "All →"}
+      </Link>
     </div>
   );
 }

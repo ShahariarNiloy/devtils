@@ -29,7 +29,8 @@
  *   Check {level:"err"|"warn"|"info"|"ok", text}, countChecks, hasProblems,
  *   sortChecks, summaryChips, statusOf, checkLangCode, isAbsUrl, sameUrl,
  *   escapeXml, decodeEntities, highlight(text, "markup"|"robots"|"plain"|"json"),
- *   parseTable (CSV/TSV), findTags(html, "link"|"meta"…).
+ *   parseTable (CSV/TSV), findTags(html, "link"|"meta"…) (skips comments/scripts),
+ *   stripInertHtml, daysInMonth, isRealDate.
  * Client helpers: useCopy(), downloadText(filename, text, mime?).
  */
 

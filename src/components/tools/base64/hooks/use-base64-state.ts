@@ -15,7 +15,7 @@ import type {
   OutputTab,
   ValidationResult,
 } from "../base64.types";
-import { loadHistory, saveHistory, HISTORY_MAX_EXPORT as HISTORY_MAX, readUrlParams } from "./base64-state.utils";
+import { BASE64_SAMPLE, loadHistory, saveHistory, HISTORY_MAX_EXPORT as HISTORY_MAX, readUrlParams } from "./base64-state.utils";
 
 export const DEBOUNCE_MS = 300;
 
@@ -32,25 +32,39 @@ export interface Base64ComputedResult {
 }
 
 export function useBase64State() {
-  const [input, setInput]                       = useState(() => readUrlParams().input);
-  const [direction, setDirection]               = useState<Direction>(() => readUrlParams().direction);
-  const [variant, setVariant]                   = useState<Base64Variant>(() => readUrlParams().variant);
+  // Server + first client render use the defaults; the share-link params
+  // and session history are applied in the mount effect below, so the
+  // hydration pass matches the server HTML.
+  const [input, setInput]                       = useState(BASE64_SAMPLE);
+  const [direction, setDirection]               = useState<Direction>("encode");
+  const [variant, setVariant]                   = useState<Base64Variant>("standard");
   const [charset, setCharset]                   = useState<Charset>("utf-8");
   const [activeTab, setActiveTab]               = useState<OutputTab>("text");
   const [fileInfo, setFileInfo]                 = useState<FileInfo | null>(null);
-  const [history, setHistory]                   = useState<string[]>(() => loadHistory());
+  const [history, setHistory]                   = useState<string[]>([]);
   const [manualValidation, setManualValidation] = useState<ValidationResult | null>(null);
-  const [debouncedInput, setDebouncedInput]     = useState(() => readUrlParams().input);
+  const [debouncedInput, setDebouncedInput]     = useState(BASE64_SAMPLE);
   const [isProcessing, setIsProcessing]         = useState(false);
 
   const hydrated   = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Strip URL params on first mount
+  // Apply share-link params + stored history, then strip the URL params.
+  // Declared before the history-push effect so the stored list is queued
+  // first and the push's updater builds on it.
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
-    if (typeof window === "undefined") return;
+    const params = readUrlParams();
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hydration of client-only URL + storage state */
+    setHistory(loadHistory());
+    if (params.input !== BASE64_SAMPLE) {
+      setInput(params.input);
+      setDebouncedInput(params.input);
+    }
+    setDirection(params.direction);
+    setVariant(params.variant);
+    /* eslint-enable react-hooks/set-state-in-effect */
     if (window.location.search.length > 0) {
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
     }

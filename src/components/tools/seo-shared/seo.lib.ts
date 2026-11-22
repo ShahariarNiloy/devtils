@@ -72,8 +72,19 @@ const LANGS = new Set(
   ),
 );
 
+/**
+ * ISO 3166-1 alpha-2 codes that are officially assigned. Reserved or
+ * user-assigned codes (EU, UN, UK, XX, ZZ, QM–QZ, AA…) aren't countries, and
+ * Google ignores hreflang regions that aren't on this list.
+ */
+const REGIONS = new Set(
+  "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW".split(
+    " ",
+  ),
+);
+
 /** Common region mistakes → the code that was meant. */
-const REGION_FIX: Record<string, string> = { uk: "GB", la: "419" };
+const REGION_FIX: Record<string, string> = { UK: "GB" };
 
 export interface CodeCheck {
   ok: boolean;
@@ -87,9 +98,13 @@ export interface CodeCheck {
 
 const LANG_RE = /^([a-zA-Z]{2,3})(?:-([a-zA-Z]{4}))?(?:-([a-zA-Z]{2}|\d{3}))?$/;
 
-/** Validate an hreflang value: ISO 639-1 language, optional script and region, or x-default. */
+/**
+ * Validate an hreflang value: ISO 639-1 language, optional script and
+ * ISO 3166-1 alpha-2 region, or x-default. Values are case-insensitive;
+ * `fixed` is the conventional casing (x-default, zh-Hant-TW, en-GB).
+ */
 export function checkLangCode(code: string): CodeCheck {
-  if (code === "x-default") return { ok: true, fixed: code };
+  if (code.toLowerCase() === "x-default") return { ok: true, fixed: "x-default" };
   const m = LANG_RE.exec(code);
   if (!m) {
     return {
@@ -101,12 +116,36 @@ export function checkLangCode(code: string): CodeCheck {
   const lg = lang.toLowerCase();
   const sc = script ? `-${script[0].toUpperCase()}${script.slice(1).toLowerCase()}` : "";
   if (!LANGS.has(lg)) return { ok: false, msg: `“${lang}” isn't an ISO 639-1 language code.` };
-  if (region && REGION_FIX[region.toLowerCase()]) {
-    const fixed = `${lg}${sc}-${REGION_FIX[region.toLowerCase()]}`;
+  const rg = region?.toUpperCase();
+  if (rg && REGION_FIX[rg]) {
+    const fixed = `${lg}${sc}-${REGION_FIX[rg]}`;
     return { ok: false, msg: `“${code}” uses an invalid region. Did you mean ${fixed}?`, fixed };
   }
-  const fixed = `${lg}${sc}${region ? `-${region.toUpperCase()}` : ""}`;
-  if (region && region !== region.toUpperCase()) {
+  if (rg === "EU" || rg === "UN") {
+    return {
+      ok: false,
+      msg: `“${code}”: Google doesn't support ${rg} as a region. List each country (like ${lg}-DE, ${lg}-FR) or use plain ${lg}.`,
+    };
+  }
+  const fixed = `${lg}${sc}${rg ? `-${rg}` : ""}`;
+  if (rg && /^\d{3}$/.test(rg)) {
+    return {
+      ok: true,
+      warn: `“${code}” is valid BCP 47, but Google doesn't support numeric UN M.49 regions and ignores it. Use plain ${lg} or a country, like ${lg}-MX.`,
+      fixed,
+    };
+  }
+  if (rg && !REGIONS.has(rg)) {
+    return { ok: false, msg: `“${region}” isn't an assigned ISO 3166-1 country code.` };
+  }
+  if (rg === "LA" && lg === "es") {
+    return {
+      ok: true,
+      warn: `“${code}” targets Laos. For Latin America there's no country code: use plain es or specific countries like es-MX.`,
+      fixed,
+    };
+  }
+  if (region && region !== rg) {
     return { ok: true, warn: `“${code}” works, but regions are conventionally uppercase: ${fixed}.`, fixed };
   }
   return { ok: true, fixed };
@@ -114,9 +153,23 @@ export function checkLangCode(code: string): CodeCheck {
 
 /* ── URLs ───────────────────────────────────────────────────────────── */
 
-/** Absolute http(s) URL with a dotted host. */
+/**
+ * Absolute http(s) URL that parses, with a dotted host and no raw
+ * whitespace anywhere (spaces must be written as %20).
+ */
 export function isAbsUrl(u: string | null | undefined): boolean {
-  return /^https?:\/\/[^\s/]+\.[^\s]+/i.test(u ?? "");
+  const s = u ?? "";
+  if (!/^https?:\/\//i.test(s) || /\s/.test(s)) return false;
+  let url: URL;
+  try {
+    url = new URL(s);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.hostname.startsWith("[")) return true; // IPv6 literal
+  const labels = url.hostname.replace(/\.$/, "").split(".");
+  return labels.length >= 2 && labels.every(Boolean);
 }
 
 /** Normalised form for comparing two URLs (host case, default port…). */
@@ -127,6 +180,19 @@ export function sameUrl(a: string, b: string): boolean {
   } catch {
     return false;
   }
+}
+
+/* ── Dates ──────────────────────────────────────────────────────────── */
+
+/** Days in a month (1–12) of a year, leap years included. */
+export function daysInMonth(year: number, month: number): number {
+  if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+/** Is Y-M-D a real calendar date (no Feb 30, no Apr 31)? */
+export function isRealDate(year: number, month: number, day: number): boolean {
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month);
 }
 
 /* ── Escaping ───────────────────────────────────────────────────────── */
@@ -286,12 +352,26 @@ export interface HtmlTag {
   raw: string;
 }
 
-/** Find every `<name …>` start tag in pasted HTML and read its attributes. */
+/**
+ * Remove what a browser never parses as tags: comments, and the contents of
+ * <script>, <style>, <template> and <textarea> (their start/end tags stay).
+ */
+export function stripInertHtml(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
+    .replace(/(<(script|style|template|textarea)\b(?:[^>"']|"[^"]*"|'[^']*')*>)[\s\S]*?(?:(<\/\2\s*>)|$)/gi, "$1$3");
+}
+
+/**
+ * Find every `<name …>` start tag in pasted HTML and read its attributes.
+ * Tags inside comments, scripts, styles and templates are skipped.
+ */
 export function findTags(html: string, name: string): HtmlTag[] {
   const out: HtmlTag[] = [];
   const re = new RegExp(`<${name}\\b((?:[^>"']|"[^"]*"|'[^']*')*)>`, "gi");
+  const src = stripInertHtml(html);
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
+  while ((m = re.exec(src)) !== null) {
     const attrs: Record<string, string> = {};
     const are = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
     let a: RegExpExecArray | null;

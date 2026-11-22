@@ -43,6 +43,20 @@ export interface JsonSchema {
   oneOf?: JsonSchema[];
   /** Always present at root; identifies the spec. */
   $schema?: string;
+  /**
+   * Codegen-only (never emitted into a JSON Schema document — only present
+   * when `inferJsonSchema` is called with `{ intRange: true }`): integers
+   * outside the signed 64-bit range. `uint64` = above int64 but within
+   * uint64; `big` = outside both, so no fixed-width integer type fits.
+   */
+  intRange?: IntRange;
+}
+
+export type IntRange = "uint64" | "big";
+
+export interface InferOptions {
+  /** Annotate integers that overflow int64 with `intRange` (codegen only). */
+  intRange?: boolean;
 }
 
 const SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema";
@@ -59,19 +73,47 @@ const MAX_ARRAY_SAMPLE = 500;
 // Conservative — same posture as the smart-preview detectors: prefer no
 // format hint over a misclassification.
 
+// `date-time` is RFC 3339 `date-time`: seconds and a `Z` / `±hh:mm` offset are
+// mandatory. Offset-less ("local") timestamps and minute-precision forms are
+// left format-less: JSON Schema's `date-time` and Zod's `.datetime()` both
+// reject them, so tagging them would emit a schema that fails its own sample.
 const ISO_DATE_TIME =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/;
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Calendar check — `2024-02-30` matches the regex but is not a date. */
+function validYmd(y: string, m: string, d: string): boolean {
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1];
+}
+
+function isDateTime(s: string): boolean {
+  const m = ISO_DATE_TIME.exec(s);
+  if (!m || !validYmd(m[1], m[2], m[3])) return false;
+  if (Number(m[4]) > 23 || Number(m[5]) > 59 || Number(m[6]) > 59) return false;
+  if (m[7] !== undefined && (Number(m[7]) > 23 || Number(m[8]) > 59)) return false;
+  return true;
+}
+
+function isDate(s: string): boolean {
+  const m = ISO_DATE.exec(s);
+  return !!m && validYmd(m[1], m[2], m[3]);
+}
 
 function detectFormat(s: string): string | undefined {
   // Short-circuit: length bounds before regex tests.
   const n = s.length;
   if (n === 36 && UUID.test(s)) return "uuid";
-  if (n === 10 && ISO_DATE.test(s)) return "date";
-  if (n >= 16 && n <= 35 && ISO_DATE_TIME.test(s)) return "date-time";
+  if (n === 10 && isDate(s)) return "date";
+  if (n >= 20 && n <= 35 && isDateTime(s)) return "date-time";
   if (n >= 8 && (s.startsWith("http://") || s.startsWith("https://"))) {
     try {
       new URL(s);
@@ -93,7 +135,7 @@ function detectFormat(s: string): string | undefined {
 function canon(schema: JsonSchema): string {
   return JSON.stringify(schema, (_key, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      const sorted: Record<string, unknown> = {};
+      const sorted = Object.create(null) as Record<string, unknown>;
       for (const k of Object.keys(value).sort()) {
         sorted[k] = (value as Record<string, unknown>)[k];
       }
@@ -104,10 +146,6 @@ function canon(schema: JsonSchema): string {
 }
 
 // ── Merge two schemas ────────────────────────────────────────────────────────
-
-function sameType(a: JsonSchema, b: JsonSchema): boolean {
-  return JSON.stringify(a.type) === JSON.stringify(b.type);
-}
 
 /**
  * "No information" sentinel — a schema with no fields was produced by either
@@ -121,22 +159,39 @@ function isEmptySchema(s: JsonSchema): boolean {
   return Object.keys(s).length === 0;
 }
 
+/** The variants a schema stands for — a `oneOf` is flattened, anything else is itself. */
+function variantsOf(s: JsonSchema): JsonSchema[] {
+  if (s.oneOf && s.type === undefined) return s.oneOf.flatMap(variantsOf);
+  return isEmptySchema(s) ? [] : [s];
+}
+
 /**
- * Merge two schemas into the most specific schema that accepts every value
- * either of them accepted. Same-type schemas merge structurally; different
- * types fall through to a `oneOf`.
+ * Variants of the same kind merge structurally instead of sitting side by
+ * side in a `oneOf`. `integer` and `number` are one kind: `1` and `1.5` in the
+ * same field is a number field, not "integer or number".
  */
-function mergeTwo(a: JsonSchema, b: JsonSchema): JsonSchema {
-  if (isEmptySchema(a)) return b;
-  if (isEmptySchema(b)) return a;
+function kindOf(s: JsonSchema): string {
+  if (s.type === "integer" || s.type === "number") return "number";
+  return typeof s.type === "string" ? s.type : canon(s);
+}
+
+const INT_RANGE_RANK: Record<IntRange, number> = { uint64: 1, big: 2 };
+
+function widerIntRange(a?: IntRange, b?: IntRange): IntRange | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return INT_RANGE_RANK[a] >= INT_RANGE_RANK[b] ? a : b;
+}
+
+/** Structural merge of two variants that share a kind (see `kindOf`). */
+function mergeSameKind(a: JsonSchema, b: JsonSchema): JsonSchema {
   if (canon(a) === canon(b)) return a;
-  if (!sameType(a, b)) return { oneOf: [a, b] };
 
   if (a.type === "object") {
     const aProps = a.properties ?? {};
     const bProps = b.properties ?? {};
     const allKeys = new Set([...Object.keys(aProps), ...Object.keys(bProps)]);
-    const properties: Record<string, JsonSchema> = {};
+    const properties = propMap();
     for (const k of allKeys) {
       const av = aProps[k];
       const bv = bProps[k];
@@ -156,8 +211,15 @@ function mergeTwo(a: JsonSchema, b: JsonSchema): JsonSchema {
   if (a.type === "array") {
     const items = a.items && b.items
       ? mergeTwo(a.items, b.items)
-      : (a.items ?? b.items ?? {});
-    return { type: "array", items };
+      : (a.items ?? b.items);
+    return items && !isEmptySchema(items) ? { type: "array", items } : { type: "array" };
+  }
+
+  if (a.type === "integer" || a.type === "number") {
+    // Widen: any fractional sample makes the whole field a number.
+    if (a.type !== b.type) return { type: "number" };
+    const intRange = widerIntRange(a.intRange, b.intRange);
+    return intRange ? { type: a.type, intRange } : { type: a.type };
   }
 
   // For same-type primitives, prefer the wider format-less version when
@@ -169,6 +231,30 @@ function mergeTwo(a: JsonSchema, b: JsonSchema): JsonSchema {
     return out;
   }
   return a;
+}
+
+/**
+ * Merge two schemas into the most specific schema that accepts every value
+ * either of them accepted. Both sides are flattened to their variants; each
+ * variant folds into the existing variant of the same kind, so the result is
+ * either one schema or a flat, duplicate-free `oneOf` with at most one
+ * variant per kind (which keeps the variants mutually exclusive, as `oneOf`
+ * requires).
+ */
+function mergeTwo(a: JsonSchema, b: JsonSchema): JsonSchema {
+  if (isEmptySchema(a)) return b;
+  if (isEmptySchema(b)) return a;
+  if (canon(a) === canon(b)) return a;
+
+  const out: JsonSchema[] = [];
+  for (const v of [...variantsOf(a), ...variantsOf(b)]) {
+    const kind = kindOf(v);
+    const i = out.findIndex((o) => kindOf(o) === kind);
+    if (i === -1) out.push(v);
+    else out[i] = mergeSameKind(out[i], v);
+  }
+  if (out.length === 0) return {};
+  return out.length === 1 ? out[0] : { oneOf: out };
 }
 
 /**
@@ -190,13 +276,31 @@ function mergeAll(schemas: JsonSchema[]): JsonSchema {
 
 // ── Core inference ───────────────────────────────────────────────────────────
 
-function inferInner(value: unknown): JsonSchema {
+const INT64_LIMIT = 2 ** 63;
+const UINT64_LIMIT = 2 ** 64;
+
+/**
+ * Own-property map that is safe for any key — a `{}` literal would turn a
+ * `"__proto__"` key into a prototype swap and silently drop it.
+ */
+function propMap(): Record<string, JsonSchema> {
+  return Object.create(null) as Record<string, JsonSchema>;
+}
+
+function inferInner(value: unknown, opts: InferOptions): JsonSchema {
   if (value === null) return { type: "null" };
   if (typeof value === "boolean") return { type: "boolean" };
   if (typeof value === "number") {
-    return Number.isInteger(value)
-      ? { type: "integer" }
-      : { type: "number" };
+    if (!Number.isInteger(value)) return { type: "number" };
+    if (opts.intRange) {
+      // Doubles can't hold 2^63 - 1 exactly (it parses as 2^63), so `>=`
+      // is the honest bound for "does not fit int64".
+      if (value >= INT64_LIMIT) {
+        return { type: "integer", intRange: value < UINT64_LIMIT ? "uint64" : "big" };
+      }
+      if (value < -INT64_LIMIT) return { type: "integer", intRange: "big" };
+    }
+    return { type: "integer" };
   }
   if (typeof value === "string") {
     const fmt = detectFormat(value);
@@ -210,14 +314,14 @@ function inferInner(value: unknown): JsonSchema {
     const sample = value.length > MAX_ARRAY_SAMPLE
       ? value.slice(0, MAX_ARRAY_SAMPLE)
       : value;
-    return { type: "array", items: mergeAll(sample.map(inferInner)) };
+    return { type: "array", items: mergeAll(sample.map((v) => inferInner(v, opts))) };
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const properties: Record<string, JsonSchema> = {};
+    const properties = propMap();
     const required: string[] = [];
     for (const [k, v] of Object.entries(obj)) {
-      properties[k] = inferInner(v);
+      properties[k] = inferInner(v, opts);
       required.push(k);
     }
     const out: JsonSchema = { type: "object", properties };
@@ -232,6 +336,6 @@ function inferInner(value: unknown): JsonSchema {
  * with the spec identifier attached. Pass the result straight to JSON
  * stringify for display, or to downstream codegen generators.
  */
-export function inferJsonSchema(value: unknown): JsonSchema {
-  return { $schema: SCHEMA_DRAFT, ...inferInner(value) };
+export function inferJsonSchema(value: unknown, opts: InferOptions = {}): JsonSchema {
+  return { $schema: SCHEMA_DRAFT, ...inferInner(value, opts) };
 }

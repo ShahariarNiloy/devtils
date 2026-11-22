@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { ToolIcon } from '@/components/shared/tool-icon';
+import { iconForTool } from '@/components/shared/key-icon';
+import type { ToolCategory } from '@/lib/tools/types';
+import { createElement } from 'react';
 import { getCategoryMeta, type Tool } from "@/lib/tools-registry";
 import { cn } from "@/lib/cn";
 
@@ -52,12 +53,11 @@ export function ToolCard({
   const isFeature = variant === "feature";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay: Math.min(index, 10) * 0.02, ease: "easeOut" }}
-      whileHover={{ y: -1 }}
-      className={cn(isFeature && "md:col-span-2 lg:row-span-2")}
+    // CSS entrance (no animation library on every tool page); the global
+    // reduced-motion override disables it.
+    <div
+      className={cn("animate-slide-up transition-transform duration-150 hover:-translate-y-px", isFeature && "md:col-span-2 lg:row-span-2")}
+      style={{ animationDelay: `${Math.min(index, 10) * 20}ms` }}
     >
       <Link
         href={`/tools/${tool.slug}`}
@@ -77,11 +77,7 @@ export function ToolCard({
             )}
             style={{ background: meta.iconBg }}
           >
-            <ToolIcon
-              name={tool.icon}
-              size={isFeature ? 18 : 15}
-              style={{ color: meta.iconColor }}
-            />
+            <ToolIconFor tool={tool} size={isFeature ? 18 : 15} color={meta.iconColor} />
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 justify-end">
@@ -136,6 +132,11 @@ export function ToolCard({
           />
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
+}
+
+/** Curated, tree-shaken icon (the name-based resolver pulled in every Lucide icon). */
+function ToolIconFor({ tool, size, color }: { tool: { slug: string; category: ToolCategory }; size: number; color: string }) {
+  return createElement(iconForTool(tool), { size, style: { color }, "aria-hidden": true });
 }

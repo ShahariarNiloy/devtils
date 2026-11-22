@@ -1,176 +1,224 @@
 "use client";
 
-import { Copy, KeyRound } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/primitives/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/primitives/select";
-import { Card, CardCaption, CardIconButton } from "../parts/card";
-import type { Algorithm } from "../jwt-decoder.types";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/primitives/dropdown-menu";
+import { cn } from "@/lib/cn";
+import { classifyAlg } from "../jwt-decoder.lib";
+import { generateTestKey } from "../jwt-encode";
 import type { JwtDecoderState } from "../useJwtDecoder";
+import { OutlineButton, Segmented, Swatch, SEG_TONE, WARN_TEXT } from "../workspace/ui";
 
-const ALGS: Algorithm[] = [
-  "HS256", "HS384", "HS512",
-  "RS256", "RS384", "RS512",
-  "ES256", "ES384", "ES512",
-  "PS256", "PS384", "PS512",
-  "none",
-];
+const HS_ALGS = [
+  { value: "HS256", label: "HS256" },
+  { value: "HS384", label: "HS384" },
+  { value: "HS512", label: "HS512" },
+] as const;
 
+const OTHER_ALGS = ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "none"] as const;
+
+const editor =
+  "rounded-xl border border-border bg-bg px-3 py-2.5 font-mono text-[12.5px] leading-[1.6] text-syntax-plain outline-none focus:border-white/20";
+
+const QUICK = [
+  { kind: "plusHour", label: "exp +1 h" },
+  { kind: "expire", label: "expire it" },
+  { kind: "iatNow", label: "iat = now" },
+  { kind: "jti", label: "+ jti" },
+] as const;
+
+/** "Edit & sign": header/payload editors, quick claim edits, alg + key, signed output. */
 export function EncodePanel({ state }: { state: JwtDecoderState }) {
-  const isHmac = state.encAlg.startsWith("HS");
-  const isNone = state.encAlg === "none";
+  const { encState, encAlg, encIsHs } = state;
+  const isNone = encAlg === "none";
+  const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
+
+  const otherActive = !encIsHs && OTHER_ALGS.some((a) => a === encAlg);
+  const parts = encState.kind === "ok" ? encState.token.split(".") : [];
+
+  const copyToken = () => {
+    if (encState.kind !== "ok") return;
+    void navigator.clipboard.writeText(encState.token).then(
+      () => {
+        setCopied(true);
+        if (copyTimer.current) clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => setCopied(false), 1600);
+      },
+      () => toast.error("Couldn't reach the clipboard"),
+    );
+  };
+
+  const generate = async () => {
+    const info = classifyAlg(encAlg);
+    if (info.kind !== "supported") return;
+    setGenerating(true);
+    try {
+      state.setEncPrivateKey(await generateTestKey(info.name));
+      toast.success(`Generated a throwaway ${info.name} key`);
+    } catch {
+      toast.error("This browser couldn't generate that key");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto p-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Field label="Header">
-          <AutoGrowTextarea
-            value={state.encHeader}
-            onChange={state.setEncHeader}
-            ariaLabel="JWT header JSON"
-          />
-        </Field>
-        <Field label="Payload">
-          <AutoGrowTextarea
-            value={state.encPayload}
-            onChange={state.setEncPayload}
-            ariaLabel="JWT payload JSON"
-          />
-        </Field>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold uppercase tracking-tag text-text-faint">
-            Algorithm
+    <div className="grid items-stretch lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <div className="flex min-w-0 flex-col gap-3 p-4 lg:border-r lg:border-white/6">
+        <label className="flex flex-col gap-1.5 text-[13px] font-bold">
+          <span className="inline-flex items-center gap-2">
+            <Swatch className={SEG_TONE.header.bg} />
+            Header
           </span>
-          <Select
-            value={state.encAlg}
-            onValueChange={(v) => state.setEncAlg(v as Algorithm)}
-          >
-            <SelectTrigger size="sm" className="h-9 w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ALGS.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => void state.runEncode()}
-        >
-          <KeyRound size={14} aria-hidden />
-          Generate JWT
-        </Button>
-      </div>
-
-      {!isNone && (
-        <Field label={isHmac ? "Secret" : "Private key (PEM, PKCS#8)"}>
           <textarea
-            value={state.encKey}
-            onChange={(e) => state.setEncKey(e.target.value)}
+            value={state.encHeaderText}
+            onChange={(e) => state.setEncHeader(e.target.value)}
             spellCheck={false}
-            aria-label="Signing key"
-            placeholder={
-              isHmac ? "your-256-bit-secret" : "-----BEGIN PRIVATE KEY-----"
-            }
-            className="h-20 w-full resize-none rounded-lg border border-border bg-bg p-2.5 font-mono text-base text-text outline-none"
+            autoCapitalize="off"
+            className={cn(editor, "h-[84px] resize-none font-normal")}
           />
-        </Field>
-      )}
-
-      {state.encodeError && (
-        <p className="text-sm" style={{ color: "var(--color-danger)" }}>
-          {state.encodeError}
-        </p>
-      )}
-
-      {state.encoded && (
-        <Card
-          left={<CardCaption>Signed JWT</CardCaption>}
-          actions={
-            <CardIconButton
-              label="Copy generated JWT"
-              onClick={() => {
-                void navigator.clipboard.writeText(state.encoded);
-                toast.success("JWT copied");
-              }}
-            >
-              <Copy size={13} />
-            </CardIconButton>
-          }
-        >
-          <div className="whitespace-pre-wrap break-all rounded-lg border border-border bg-bg p-3 font-mono text-base leading-relaxed text-text">
-            {state.encoded}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-/**
- * Textarea that grows with its content (no JS, no fixed height): a hidden
- * mirror `<div>` with the same box model sizes the grid row; the textarea
- * is stacked in the same cell and stretches to fill. `min-h-32` is the
- * floor so an empty editor still has a comfortable size.
- */
-function AutoGrowTextarea({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  ariaLabel: string;
-}) {
-  const shared =
-    "col-start-1 row-start-1 min-h-32 w-full whitespace-pre-wrap break-words rounded-lg border border-border p-2.5 font-mono text-base leading-relaxed";
-  return (
-    <div className="grid h-full">
-      {/* Mirror sizes the grid row to this editor's own content. */}
-      <div aria-hidden className={`${shared} invisible`}>
-        {value}
-        {"\n"}
+        </label>
+        <label className="flex flex-col gap-1.5 text-[13px] font-bold">
+          <span className="inline-flex items-center gap-2">
+            <Swatch className={SEG_TONE.payload.bg} />
+            Payload
+          </span>
+          <textarea
+            value={state.encPayloadText}
+            onChange={(e) => state.setEncPayload(e.target.value)}
+            spellCheck={false}
+            autoCapitalize="off"
+            className={cn(editor, "h-[280px] resize-y font-normal")}
+          />
+        </label>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick claim edits">
+          {QUICK.map((q) => (
+            <OutlineButton key={q.kind} mono onClick={() => state.payloadAction(q.kind)} className="min-h-[30px] rounded-lg border-white/12 px-2.5">
+              {q.label}
+            </OutlineButton>
+          ))}
+        </div>
       </div>
-      {/* `min-h-full` makes the shorter editor stretch to the taller
-          sibling's height (the outer 2-col grid stretches both cells). */}
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        aria-label={ariaLabel}
-        className={`${shared} min-h-full resize-none overflow-hidden bg-bg text-text outline-none`}
-      />
-    </div>
-  );
-}
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex h-full flex-col gap-1.5">
-      <span className="text-sm font-semibold uppercase tracking-tag text-text-faint">
-        {label}
-      </span>
-      <div className="min-h-0 flex-1">{children}</div>
+      <div className="flex min-w-0 flex-col gap-3 p-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[13px] font-bold">Algorithm</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Segmented
+              label="Algorithm"
+              mono
+              options={HS_ALGS}
+              value={encAlg}
+              onChange={state.pickEncAlg}
+              itemClassName="min-h-7 px-2.5 text-xs font-normal"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-[10px] border border-white/7 px-2.5 font-mono text-xs transition-colors max-md:min-h-11",
+                    otherActive ? "bg-selected text-text" : "bg-[#0d0d0c] text-text-tertiary hover:text-text",
+                  )}
+                >
+                  {otherActive ? encAlg : "RS · PS · ES"}
+                  <ChevronDown size={12} aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-40">
+                {OTHER_ALGS.map((a) => (
+                  <DropdownMenuItem key={a} onSelect={() => state.pickEncAlg(a)} className="flex items-center gap-2 font-mono text-xs">
+                    <span className="grow">{a}</span>
+                    {a === encAlg && <Check size={12} aria-hidden className="text-brand" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {encIsHs && (
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold">
+            Secret
+            <input
+              type="text"
+              value={state.encSecret}
+              onChange={(e) => state.setEncSecret(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="off"
+              className="min-h-10 rounded-[10px] border border-border bg-bg px-3 font-mono text-[12.5px] font-normal text-syntax-plain outline-none focus:border-white/20 max-md:min-h-11"
+            />
+          </label>
+        )}
+        {encIsHs && state.weakSecret !== null && (
+          <span className={cn("text-xs", WARN_TEXT)}>
+            ! Shorter than {state.weakSecret} bytes. Fine for testing, too weak for {encAlg} in production.
+          </span>
+        )}
+        {!encIsHs && !isNone && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <label htmlFor="jwt-enc-key" className="grow text-[13px] font-bold">
+                Private key (PKCS#8 PEM or JWK)
+              </label>
+              <OutlineButton onClick={() => void generate()} disabled={generating} className="min-h-7 px-2.5">
+                {generating ? "Generating…" : "Generate a test key"}
+              </OutlineButton>
+            </div>
+            <textarea
+              id="jwt-enc-key"
+              value={state.encPrivateKey}
+              onChange={(e) => state.setEncPrivateKey(e.target.value)}
+              spellCheck={false}
+              autoCapitalize="off"
+              placeholder="-----BEGIN PRIVATE KEY-----"
+              className={cn(editor, "h-32 resize-y rounded-[10px] text-xs break-all")}
+            />
+          </div>
+        )}
+        {isNone && (
+          <span className="text-xs text-error-text">alg none makes an unsigned token. Use it to check that your server rejects it.</span>
+        )}
+
+        <div className="flex flex-col gap-2 rounded-[14px] border border-white/7 bg-[#0d0d0c] p-3.5" aria-live="polite">
+          <span className="text-[13px] font-bold">Signed token</span>
+          {encState.kind === "ok" && (
+            <>
+              <div className="font-mono text-xs leading-[1.65] break-all">
+                <span className={SEG_TONE.header.text}>{parts[0]}</span>
+                <span className="text-text-ghost">.</span>
+                <span className={SEG_TONE.payload.text}>{parts[1]}</span>
+                <span className="text-text-ghost">.</span>
+                <span className={SEG_TONE.signature.text}>{parts[2]}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={copyToken}
+                  className="btn-action min-h-9 cursor-pointer rounded-[9px] border-0 px-3.5 text-[13px] font-bold max-md:min-h-11"
+                >
+                  {copied ? "Copied" : "Copy token"}
+                </button>
+                <OutlineButton onClick={state.checkInDecoder} className="min-h-9 rounded-[9px] px-3.5 text-[13px]">
+                  Check it in the decoder
+                </OutlineButton>
+              </div>
+            </>
+          )}
+          {encState.kind === "signing" && <span className="text-[13px] text-text-tertiary">Signing…</span>}
+          {encState.kind === "error" && <span className="text-[13px] text-error-text">{encState.message}</span>}
+        </div>
+        <p className="m-0 text-xs leading-[1.6] text-text-faint">
+          Signed in your browser with Web Crypto. For testing and debugging, so don&apos;t paste production signing secrets.
+        </p>
+      </div>
     </div>
   );
 }

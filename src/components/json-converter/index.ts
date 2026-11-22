@@ -14,7 +14,21 @@ export {
   numberCodec,
 } from "./use-url-state";
 export { stashHandoffInput, consumeHandoffInput } from "./handoff";
-export { parseYaml, parseYamlStream, parseCsv, parseCsvRows } from "./reverse-parsers";
+export {
+  MAX_ALIAS_EXPANDED_NODES,
+  parseYaml,
+  parseYamlStream,
+  parseCsv,
+  parseCsvRows,
+} from "./reverse-parsers";
+export type { LossyNumberReport } from "./reverse-parsers";
+export {
+  findLossyJsonNumbers,
+  jsonSpelling,
+  precisionWarning,
+  yamlSpelling,
+} from "./number-precision";
+export type { LossyNumber, NumberSpelling } from "./number-precision";
 export { useToolHistory } from "./use-tool-history";
 export type { HistoryEntry } from "./use-tool-history";
 export { ValidationPill } from "./validation-pill";

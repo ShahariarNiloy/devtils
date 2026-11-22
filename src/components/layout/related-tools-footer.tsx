@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { memo } from "react";
 import { cn } from "@/lib/cn";
 import { getRelatedTools, getToolBySlug, type Tool } from "@/lib/tools-registry";
 import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
-import { categoryAnchor } from "./tool-shell-header";
+import { categoryAnchor } from "@/lib/tools/category-url";
 import { KeyIcon, toolIcon } from "@/components/shared/key-icon";
 
 const TINT_TEXT: Record<Tint, string> = {
@@ -21,7 +22,7 @@ interface Props {
 }
 
 /** "More JSON tools" / "Related tools" — four keycap cards under the tool. */
-export function RelatedToolsFooter({ tool, slugs }: Props) {
+export const RelatedToolsFooter = memo(function RelatedToolsFooter({ tool, slugs }: Props) {
   const curated = (slugs ?? [])
     .map((s) => getToolBySlug(s))
     .filter((t): t is Tool => Boolean(t) && t?.slug !== tool.slug);
@@ -33,7 +34,7 @@ export function RelatedToolsFooter({ tool, slugs }: Props) {
     <section className="mt-14 sm:mt-16" aria-labelledby="related-tools">
       <div className="mb-3.5 flex items-baseline gap-3">
         <h2 id="related-tools" className="m-0 font-sans text-base font-bold tracking-normal">
-          {sameCategory ? `More ${tool.category} tools` : "Related tools"}
+          {sameCategory ? `More ${categoryWord(tool.category)} tools` : "Related tools"}
         </h2>
         <span className="grow" />
         <Link href={sameCategory ? categoryAnchor(tool.category) : "/tools"} className="text-sm text-text-tertiary hover:text-text">
@@ -62,4 +63,9 @@ export function RelatedToolsFooter({ tool, slugs }: Props) {
       </div>
     </section>
   );
+});
+
+/** "Security" → "security", but acronyms like "JSON" / "SEO" stay as written. */
+function categoryWord(category: string): string {
+  return category === category.toUpperCase() ? category : category.toLowerCase();
 }

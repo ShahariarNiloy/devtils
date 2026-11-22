@@ -23,13 +23,14 @@ export function safeGoTypeName(name: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-const FIELD = /^\t(\S+) (\S+)(?: (`.*`))?$/;
+/** `\tName Type `tag` // note` — the tag may be a raw or an interpreted literal. */
+const FIELD = /^\t(\S+) (\S+)(?: (`[^`]*`|"(?:[^"\\]|\\.)*"))?( \/\/ .*)?$/;
 
 /** Initialisms + gofmt-like alignment for each struct's field block. */
 export function polishGoStructs(go: string): string {
   const lines = go.split("\n");
   const out: string[] = [];
-  let block: { name: string; type: string; tag?: string }[] = [];
+  let block: { name: string; type: string; tag?: string; note?: string }[] = [];
 
   const flush = () => {
     if (!block.length) return;
@@ -45,11 +46,10 @@ export function polishGoStructs(go: string): string {
     const w0 = Math.max(...fields.map((f) => f.name.length));
     const w1 = Math.max(...fields.map((f) => f.type.length));
     for (const f of fields) {
-      out.push(
-        f.tag
-          ? `\t${f.name.padEnd(w0)} ${f.type.padEnd(w1)} ${f.tag}`
-          : `\t${f.name.padEnd(w0)} ${f.type}`.trimEnd(),
-      );
+      const line = f.tag
+        ? `\t${f.name.padEnd(w0)} ${f.type.padEnd(w1)} ${f.tag}`
+        : `\t${f.name.padEnd(w0)} ${f.type}`.trimEnd();
+      out.push(f.note ? `${line}${f.note}` : line);
     }
     block = [];
   };
@@ -57,7 +57,7 @@ export function polishGoStructs(go: string): string {
   for (const line of lines) {
     const m = line.match(FIELD);
     if (m) {
-      block.push({ name: m[1], type: m[2], tag: m[3] });
+      block.push({ name: m[1], type: m[2], tag: m[3], note: m[4] });
       continue;
     }
     flush();
@@ -68,13 +68,16 @@ export function polishGoStructs(go: string): string {
 }
 
 export interface GoPostOptions {
-  rootName: string;
   packageLine: boolean;
 }
 
-export function postProcessGo(go: string, { rootName, packageLine }: GoPostOptions): string {
+/**
+ * The root type name is applied by the emitter (`toGo({ rootName })`), which
+ * resolves collisions with nested structs — a textual `type Root` rename here
+ * would declare `type User struct` twice for `{"user": {…}}` with root `User`.
+ */
+export function postProcessGo(go: string, { packageLine }: GoPostOptions): string {
   let s = polishGoStructs(go);
-  if (rootName !== "Root") s = s.replace(/^type Root\b/m, `type ${rootName}`);
   if (!packageLine) s = s.replace(/^package \w+\n+/, "");
   return s;
 }

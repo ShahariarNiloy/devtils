@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Filter,
   History,
   Link2,
   Minimize2,
@@ -27,7 +26,6 @@ interface MobileMoreSheetProps {
   hasInput: boolean;
   hasOutput: boolean;
   canFormat: boolean;
-  isQueryOpen: boolean;
   isStatsOpen: boolean;
   isSchemaOpen: boolean;
 
@@ -38,7 +36,6 @@ interface MobileMoreSheetProps {
   onRepair: () => void;
 
   onConvert: (kind: string) => void;
-  onToggleQuery: () => void;
   onToggleStats: () => void;
   onToggleSchema: () => void;
 
@@ -74,7 +71,6 @@ export function MobileMoreSheet({
   hasInput,
   hasOutput,
   canFormat,
-  isQueryOpen,
   isStatsOpen,
   isSchemaOpen,
   onFormat,
@@ -83,7 +79,6 @@ export function MobileMoreSheet({
   onSortDesc,
   onRepair,
   onConvert,
-  onToggleQuery,
   onToggleStats,
   onToggleSchema,
   onShare,
@@ -148,7 +143,6 @@ export function MobileMoreSheet({
               hasInput={hasInput}
               hasOutput={hasOutput}
               canFormat={canFormat}
-              isQueryOpen={isQueryOpen}
               isStatsOpen={isStatsOpen}
               isSchemaOpen={isSchemaOpen}
               sharing={sharing}
@@ -159,7 +153,6 @@ export function MobileMoreSheet({
               onSortAsc={dispatch(onSortAsc)}
               onSortDesc={dispatch(onSortDesc)}
               onRepair={dispatch(onRepair)}
-              onToggleQuery={dispatch(onToggleQuery)}
               onToggleStats={dispatch(onToggleStats)}
               onToggleSchema={dispatch(onToggleSchema)}
               onShare={dispatch(onShare)}
@@ -191,7 +184,6 @@ function RootView({
   hasInput,
   hasOutput,
   canFormat,
-  isQueryOpen,
   isStatsOpen,
   isSchemaOpen,
   sharing,
@@ -202,7 +194,6 @@ function RootView({
   onSortAsc,
   onSortDesc,
   onRepair,
-  onToggleQuery,
   onToggleStats,
   onToggleSchema,
   onShare,
@@ -213,7 +204,6 @@ function RootView({
   hasInput: boolean;
   hasOutput: boolean;
   canFormat: boolean;
-  isQueryOpen: boolean;
   isStatsOpen: boolean;
   isSchemaOpen: boolean;
   sharing: boolean;
@@ -224,7 +214,6 @@ function RootView({
   onSortAsc: () => void;
   onSortDesc: () => void;
   onRepair: () => void;
-  onToggleQuery: () => void;
   onToggleStats: () => void;
   onToggleSchema: () => void;
   onShare: () => void;
@@ -284,15 +273,8 @@ function RootView({
           disabled={!hasInput}
         />
         <SheetItem
-          icon={<Filter size={17} />}
-          label="JSONPath query"
-          active={isQueryOpen}
-          onClick={onToggleQuery}
-          disabled={!hasInput}
-        />
-        <SheetItem
           icon={<Sparkles size={17} />}
-          label="Find in JSON"
+          label="Find · JSONPath"
           shortcut="⌘/"
           onClick={onOpenFind}
           disabled={!hasInput}

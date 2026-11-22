@@ -36,10 +36,10 @@ function kindOf(v: unknown): TreeKind {
   return "leaf";
 }
 
-function entriesOf(value: unknown, isArray: boolean): [string, unknown][] {
-  return isArray
-    ? (value as unknown[]).map((v, i) => [String(i), v])
-    : Object.entries(value as Record<string, unknown>);
+/** Child keys: indices for arrays (no per-child tuples — a 300 K-item root
+ *  array is walked on every expand/collapse). */
+function keysOf(value: unknown, isArray: boolean): string[] | number {
+  return isArray ? (value as unknown[]).length : Object.keys(value as Record<string, unknown>);
 }
 
 export function flattenTree(
@@ -74,11 +74,12 @@ export function flattenTree(
     }
 
     const isArr = kind === "array";
-    const entries = entriesOf(value, isArr);
+    const keys = keysOf(value, isArr);
+    const childCount = typeof keys === "number" ? keys : keys.length;
     const expanded = isExpanded(path);
     const preview =
-      !isArr && entries.length > 0 && entries.length <= 4
-        ? entries.map(([k]) => k).join(", ")
+      typeof keys !== "number" && keys.length > 0 && keys.length <= 4
+        ? keys.join(", ")
         : null;
 
     out.push({
@@ -89,14 +90,21 @@ export function flattenTree(
       kind,
       value: undefined,
       raw: value,
-      childCount: entries.length,
+      childCount,
       preview,
       expanded,
     });
 
     if (!expanded) return;
-    for (const [k, v] of entries) {
-      walk(v, k, isArr, depth + 1, appendPath(path, k, isArr));
+    if (typeof keys === "number") {
+      const arr = value as unknown[];
+      for (let i = 0; i < keys; i++) {
+        const k = String(i);
+        walk(arr[i], k, true, depth + 1, appendPath(path, k, true));
+      }
+    } else {
+      const obj = value as Record<string, unknown>;
+      for (const k of keys) walk(obj[k], k, false, depth + 1, appendPath(path, k, false));
     }
   };
 
@@ -122,9 +130,19 @@ export function collectExpanded(
     if (kind === "leaf") return;
     set.add(path);
     const isArr = kind === "array";
-    for (const [k, v] of entriesOf(value, isArr)) {
-      if (set.size >= cap) return;
-      walk(v, depth + 1, appendPath(path, k, isArr));
+    const keys = keysOf(value, isArr);
+    if (typeof keys === "number") {
+      const arr = value as unknown[];
+      for (let i = 0; i < keys; i++) {
+        if (set.size >= cap) return;
+        walk(arr[i], depth + 1, appendPath(path, String(i), true));
+      }
+    } else {
+      const obj = value as Record<string, unknown>;
+      for (const k of keys) {
+        if (set.size >= cap) return;
+        walk(obj[k], depth + 1, appendPath(path, k, false));
+      }
     }
   };
 

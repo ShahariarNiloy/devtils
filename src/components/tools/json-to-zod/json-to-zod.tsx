@@ -72,7 +72,7 @@ export function JsonToZod({ tool }: { tool: Tool }) {
   // `inferJsonSchema`, so if that schema accepts the sample, the emitted
   // Zod schema does too (without eval'ing generated code).
   const validation = useMemo(() => {
-    if (c.parse.error || c.parse.parsed === null) return null;
+    if (c.parse.error || c.parse.empty) return null;
     try {
       return validateAgainstSchema(c.parse.parsed, inferJsonSchema(c.parse.parsed));
     } catch {

@@ -71,13 +71,19 @@ export function auditHreflang(page: string, html: string): Audit {
     const c = checkLangCode(t.lang);
     if (!c.ok) errs.push(c.msg ?? "Invalid code.");
     else if (c.warn) warns.push(c.warn);
-    if (!isAbsUrl(t.url)) errs.push("Relative URL — use an absolute https:// URL.");
-    else if (/^http:/i.test(t.url)) errs.push("Uses http — link to the https version.");
+    if (!isAbsUrl(t.url)) {
+      errs.push(
+        /^[a-z][a-z0-9+.-]*:/i.test(t.url)
+          ? "Not a valid absolute URL — use https://host/path with no spaces."
+          : "Relative URL — use an absolute https:// URL.",
+      );
+    } else if (/^http:/i.test(t.url)) warns.push("Uses http. That's allowed, but link to the https version if the site has one.");
     const key = t.lang.toLowerCase();
+    const isX = key === "x-default";
     if (seenLang.has(key)) errs.push("Duplicate hreflang value.");
     seenLang.add(key);
     const owner = urlOwner.get(t.url);
-    if (owner && t.lang !== "x-default" && owner !== "x-default") warns.push(`Same URL as “${owner}”.`);
+    if (owner && !isX && owner.toLowerCase() !== "x-default") warns.push(`Same URL as “${owner}”.`);
     if (!owner) urlOwner.set(t.url, t.lang);
 
     const level: AuditRow["level"] = errs.length ? "err" : warns.length ? "warn" : "ok";
@@ -94,7 +100,7 @@ export function auditHreflang(page: string, html: string): Audit {
     if (pageUrl && !selfRef) {
       push("err", `Missing self-reference: none of the tags point to this page (${pageUrl}). Each page must list itself.`);
     }
-    if (canonical && pageUrl && !sameUrl(canonical, pageUrl)) {
+    if (canonical && pageUrl && !sameUrl(resolveUrl(canonical, pageUrl), pageUrl)) {
       push("err", `The canonical tag points to ${canonical}. Search engines ignore hreflang on non-canonical pages.`);
     }
     if (!pageUrl) push("info", "Add this page's URL to check the self-reference and canonical.");
@@ -103,6 +109,15 @@ export function auditHreflang(page: string, html: string): Audit {
   }
 
   return { checks, rows, corrected: correctedTags(tags, pageUrl), tagCount: tags.length };
+}
+
+/** Resolve a possibly relative href against the page URL (as browsers do). */
+function resolveUrl(href: string, base: string): string {
+  try {
+    return new URL(href, base).href;
+  } catch {
+    return href;
+  }
 }
 
 /** Guess the page's own language from its first path segment (/de/ → de). */

@@ -19,6 +19,7 @@ import {
   readShareFromHash,
   shareHashFor,
 } from "./xml-share";
+import { useLiveText } from "@/components/tools/code-formatter/use-live-text";
 
 const DEBOUNCE_MS = 250;
 const STORAGE_KEY = "xml-formatter:flavor";
@@ -51,6 +52,8 @@ export type OutputMode = "format" | "minify" | "json";
 export interface XmlFormatterState {
   input: string;
   setInput: (v: string) => void;
+  /** Replace the whole input (paste) after pending edits have landed. */
+  replaceInput: (v: string) => void;
   output: string;
   error: string | null;
   errorLine: number | undefined;
@@ -82,7 +85,8 @@ export interface XmlFormatterState {
 
 export function useXmlFormatter(): XmlFormatterState {
   const [flavor, setFlavorRaw] = useState<Flavor>("auto");
-  const [input, setInput] = useState<string>(SAMPLES.generic);
+  // `read` / `replace` flush the editor's pending (debounced) edits first.
+  const { text: input, set: setInput, read: readInput, replace: replaceInput } = useLiveText(SAMPLES.generic);
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorLine, setErrorLine] = useState<number | undefined>(undefined);
@@ -133,7 +137,7 @@ export function useXmlFormatter(): XmlFormatterState {
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  }, [setInput]);
 
   // Persist flavor.
   useEffect(() => {
@@ -199,16 +203,16 @@ export function useXmlFormatter(): XmlFormatterState {
   }, []);
 
   const loadSample = useCallback(() => {
-    setInput(SAMPLES[effectiveFlavor]);
-  }, [effectiveFlavor]);
+    replaceInput(SAMPLES[effectiveFlavor]);
+  }, [effectiveFlavor, replaceInput]);
 
   const clear = useCallback(() => {
-    setInput("");
-  }, []);
+    replaceInput("");
+  }, [replaceInput]);
 
   const share = useCallback(async (): Promise<string | null> => {
     try {
-      const token = await encodeShare(input, flavor);
+      const token = await encodeShare(readInput(), flavor);
       const hash = shareHashFor(token);
       const url = `${window.location.origin}${window.location.pathname}${hash}`;
       window.history.replaceState(null, "", hash);
@@ -217,7 +221,7 @@ export function useXmlFormatter(): XmlFormatterState {
     } catch {
       return null;
     }
-  }, [input, flavor]);
+  }, [readInput, flavor]);
 
   const download = useCallback((): boolean => {
     if (!output) return false;
@@ -248,12 +252,13 @@ export function useXmlFormatter(): XmlFormatterState {
   const acceptDroppedFile = useCallback(async (file: File) => {
     if (file.size > 5 * 1024 * 1024) return;
     const text = await file.text();
-    setInput(text);
-  }, []);
+    replaceInput(text);
+  }, [replaceInput]);
 
   return {
     input,
     setInput,
+    replaceInput,
     output,
     error,
     errorLine,

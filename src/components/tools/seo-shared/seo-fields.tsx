@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { toast } from "sonner";
+import { flushPendingEdits, LazyCodeEditor, type CodeLanguage } from "@/components/primitives/code-editor";
 import { cn } from "@/lib/cn";
 
 const SR_ONLY = "absolute h-px w-px overflow-hidden [clip:rect(0_0_0_0)]";
@@ -83,9 +85,48 @@ interface TextAreaProps {
   /** CSS height, e.g. "230px". */
   height?: string;
   mono?: boolean;
+  /**
+   * Opt in to the shared code editor (lazy CodeMirror, highlighted as this
+   * language) for markup/code inputs that can be large — it stays instant
+   * on multi-MB pastes where a textarea lags. Callers whose actions read or
+   * replace the text must call `flushPendingEdits()` first (big documents
+   * reach `onChange` debounced). A file dropped on it replaces the text.
+   * Omit for prose fields.
+   */
+  code?: CodeLanguage;
 }
 
-export function SeoTextArea({ label, value, onChange, placeholder, height = "160px", mono = true }: TextAreaProps) {
+export function SeoTextArea({ label, value, onChange, placeholder, height = "160px", mono = true, code }: TextAreaProps) {
+  if (code) {
+    const loadFile = (file: File) => {
+      file.text().then(
+        (text) => {
+          // Pending keystrokes land first, so the file replaces them in order.
+          flushPendingEdits();
+          onChange(text);
+          toast.success(`Loaded ${file.name}`);
+        },
+        () => toast.error(`Couldn't read ${file.name}`),
+      );
+    };
+    return (
+      // Vertically resizable like the textarea; the editor fills the box.
+      <div style={{ height }} className={cn("flex resize-y overflow-hidden", FIELD_BOX)}>
+        <LazyCodeEditor
+          language={code}
+          value={value}
+          onChange={onChange}
+          onDropFile={loadFile}
+          placeholder={placeholder}
+          ariaLabel={label}
+          lineNumbers={false}
+          lineHeight={1.65}
+          padding="12px"
+          className="h-full min-w-0 grow text-[13px]"
+        />
+      </div>
+    );
+  }
   return (
     <label className={cn("flex", FIELD_BOX)}>
       <span className={SR_ONLY}>{label}</span>

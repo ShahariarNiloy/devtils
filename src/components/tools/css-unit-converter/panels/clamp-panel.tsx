@@ -7,7 +7,7 @@ import { Input } from "@/components/primitives/input";
 import { cn } from "@/lib/cn";
 import {
   buildClamp,
-  evaluateClampAt,
+  evaluateClamp,
   format,
 } from "../css-unit-converter.lib";
 
@@ -38,7 +38,7 @@ export function ClampPanel({
   );
 
   const result = useMemo(() => buildClamp(spec), [spec]);
-  const previewPx = evaluateClampAt(spec, previewViewportPx);
+  const previewPx = evaluateClamp(result, previewViewportPx);
 
   const copy = () => {
     void navigator.clipboard.writeText(result.expression);
@@ -86,6 +86,12 @@ export function ClampPanel({
           {format(outputUnit === "rem" ? result.interceptRem : result.interceptPx, 4)}
           {outputUnit}
         </p>
+        {result.shrinking && (
+          <p className="mt-1 text-xs text-text-muted">
+            Shrinks as the viewport grows: clamp() always takes its bounds smallest-first, so the
+            negative slope carries the direction.
+          </p>
+        )}
       </div>
 
       {/* RAMP + PREVIEW */}
@@ -104,6 +110,7 @@ export function ClampPanel({
               minViewportPx={minViewportPx}
               maxViewportPx={maxViewportPx}
               currentViewportPx={previewViewportPx}
+              currentSizePx={previewPx}
             />
           </div>
           <div className="mt-4">
@@ -229,12 +236,15 @@ function ClampRampSvg({
   minViewportPx,
   maxViewportPx,
   currentViewportPx,
+  currentSizePx,
 }: {
   minPx: number;
   maxPx: number;
   minViewportPx: number;
   maxViewportPx: number;
   currentViewportPx: number;
+  /** The generated clamp() evaluated at the current viewport. */
+  currentSizePx: number;
 }) {
   const w = 600;
   const h = 200;
@@ -252,13 +262,7 @@ function ClampRampSvg({
   const leftX = xPx(minViewportPx);
   const rightX = xPx(maxViewportPx);
   const curX = xPx(currentViewportPx);
-  const curSize = currentSizeAt(
-    currentViewportPx,
-    minPx,
-    maxPx,
-    minViewportPx,
-    maxViewportPx,
-  );
+  const curSize = currentSizePx;
 
   return (
     <svg
@@ -379,17 +383,4 @@ function ClampRampSvg({
       </text>
     </svg>
   );
-}
-
-/** Computed font-size at a specific viewport, clamped to the plateaus. */
-function currentSizeAt(
-  vp: number,
-  minPx: number,
-  maxPx: number,
-  minVp: number,
-  maxVp: number,
-): number {
-  if (vp <= minVp) return minPx;
-  if (vp >= maxVp) return maxPx;
-  return minPx + ((vp - minVp) / (maxVp - minVp)) * (maxPx - minPx);
 }

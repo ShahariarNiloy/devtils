@@ -82,7 +82,12 @@ export function countSentences(text: string): number {
 }
 
 export function countParagraphs(text: string): number {
-  return text.split(/\n\s*\n/).filter((p) => p.trim()).length;
+  return normalizeNewlines(text).split(/\n\s*\n/).filter((p) => p.trim()).length;
+}
+
+/** CRLF (Windows) and lone CR (classic Mac) → LF, so line-based stats don't count a stray `\r`. */
+export function normalizeNewlines(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }
 
 function toneFor(count: number, max: number): LimitCheck["tone"] {
@@ -120,14 +125,15 @@ export function topKeywords(words: readonly string[], take = 6): Keyword[] {
 export function analyzeText(text: string): TextStats {
   const words = wordList(text);
   const characters = countGraphemes(text);
-  const firstLine = text.split("\n")[0] ?? "";
+  const lines = normalizeNewlines(text).split("\n");
+  const firstLine = lines[0] ?? "";
   return {
     words: words.length,
     characters,
     charactersNoSpaces: countGraphemes(text.replace(/\s/g, "")),
     sentences: countSentences(text),
     paragraphs: countParagraphs(text),
-    lines: text ? text.split("\n").length : 0,
+    lines: text ? lines.length : 0,
     readSeconds: (words.length / READ_WPM) * 60,
     speakSeconds: (words.length / SPEAK_WPM) * 60,
     limits: [

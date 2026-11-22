@@ -165,3 +165,126 @@ export function applyExifOrientation(
 
   return new ImageData(dst, outW, outH);
 }
+
+// ── Camera / GPS summary (for the Metadata row) ────────────────────
+
+export interface ExifSummary {
+  exif: boolean;
+  gps: boolean;
+  camera: string | null;
+}
+
+const NONE: ExifSummary = { exif: false, gps: false, camera: null };
+
+/** Locate the TIFF header ("II*\0" / "MM\0*") at or just after `from`. */
+function tiffAt(b: Uint8Array, from: number, window: number): number {
+  const end = Math.min(b.length - 8, from + window);
+  for (let i = Math.max(0, from); i <= end; i++) {
+    if (
+      (b[i] === 0x49 && b[i + 1] === 0x49 && b[i + 2] === 0x2a && b[i + 3] === 0x00) ||
+      (b[i] === 0x4d && b[i + 1] === 0x4d && b[i + 2] === 0x00 && b[i + 3] === 0x2a)
+    )
+      return i;
+  }
+  return -1;
+}
+
+/** Make / Model / GPS pointer from IFD0 of a TIFF block. */
+function parseTiffSummary(b: Uint8Array, t: number): ExifSummary {
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const le = b[t] === 0x49;
+  const u16 = (o: number) => view.getUint16(t + o, le);
+  const u32 = (o: number) => view.getUint32(t + o, le);
+  if (t + 8 > b.length) return { ...NONE, exif: true };
+  const ifd = u32(4);
+  if (t + ifd + 2 > b.length) return { ...NONE, exif: true };
+  const n = Math.min(u16(ifd), 200);
+  let make = "";
+  let model = "";
+  let gps = false;
+  const str = (count: number, valueOff: number) => {
+    const off = count > 4 ? u32(valueOff) : valueOff;
+    let s = "";
+    for (let k = 0; k < Math.min(count, 64); k++) {
+      const c = b[t + off + k];
+      if (c === undefined || c === 0) break;
+      s += String.fromCharCode(c);
+    }
+    return s.trim();
+  };
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12;
+    if (t + e + 12 > b.length) break;
+    const tag = u16(e);
+    const count = u32(e + 4);
+    if (tag === 0x8825) gps = u32(e + 8) !== 0;
+    else if (tag === 0x010f) make = str(count, e + 8);
+    else if (tag === 0x0110) model = str(count, e + 8);
+  }
+  const camera = (model && make && !model.toLowerCase().startsWith(make.toLowerCase()) ? `${make} ${model}` : model || make).trim();
+  return { exif: true, gps, camera: camera || null };
+}
+
+/**
+ * Cheap camera / GPS read from the first bytes of a file (pass ~256 KB).
+ * JPEG APP1 Exif, PNG eXIf, WebP EXIF chunk, and the Exif item of HEIC /
+ * AVIF (located by scanning for its TIFF header). Never throws.
+ */
+export function readExifSummary(buffer: ArrayBuffer, mime: string): ExifSummary {
+  try {
+    const b = new Uint8Array(buffer);
+    if (mime === "image/jpeg") {
+      let off = 2;
+      if (b[0] !== 0xff || b[1] !== 0xd8) return NONE;
+      while (off + 4 <= b.length && b[off] === 0xff) {
+        const marker = b[off + 1];
+        if (marker === 0xda || marker === 0xd9) break;
+        const len = (b[off + 2] << 8) | b[off + 3];
+        if (marker === 0xe1 && b[off + 4] === 0x45 && b[off + 5] === 0x78 && b[off + 6] === 0x69 && b[off + 7] === 0x66) {
+          return parseTiffSummary(b, off + 10);
+        }
+        off += 2 + len;
+      }
+      return NONE;
+    }
+    if (mime === "image/png") {
+      let off = 8;
+      while (off + 8 <= b.length) {
+        const len = ((b[off] << 24) | (b[off + 1] << 16) | (b[off + 2] << 8) | b[off + 3]) >>> 0;
+        const type = String.fromCharCode(b[off + 4], b[off + 5], b[off + 6], b[off + 7]);
+        if (type === "eXIf") return parseTiffSummary(b, off + 8);
+        if (type === "IDAT") return NONE;
+        off += 12 + len;
+      }
+      return NONE;
+    }
+    if (mime === "image/webp") {
+      let off = 12;
+      while (off + 8 <= b.length) {
+        const type = String.fromCharCode(b[off], b[off + 1], b[off + 2], b[off + 3]);
+        const len = (b[off + 4] | (b[off + 5] << 8) | (b[off + 6] << 16) | (b[off + 7] << 24)) >>> 0;
+        if (type === "EXIF") {
+          const t = tiffAt(b, off + 8, 8);
+          return t >= 0 ? parseTiffSummary(b, t) : { ...NONE, exif: true };
+        }
+        off += 8 + len + (len & 1);
+      }
+      return NONE;
+    }
+    if (mime === "image/heic" || mime === "image/heif" || mime === "image/avif") {
+      // The Exif item payload is "<4-byte offset>Exif\0\0<TIFF>" (or bare
+      // TIFF); find a TIFF header right after an "Exif" marker.
+      const end = Math.min(b.length - 4, 262_144);
+      for (let i = 0; i < end; i++) {
+        if (b[i] === 0x45 && b[i + 1] === 0x78 && b[i + 2] === 0x69 && b[i + 3] === 0x66) {
+          const t = tiffAt(b, i + 4, 8);
+          if (t >= 0) return parseTiffSummary(b, t);
+        }
+      }
+      return NONE;
+    }
+  } catch {
+    /* malformed — say nothing rather than guess */
+  }
+  return NONE;
+}

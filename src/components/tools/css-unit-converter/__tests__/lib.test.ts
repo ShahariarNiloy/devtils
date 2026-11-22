@@ -303,6 +303,22 @@ section("Bulk rewrite — edge cases");
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+section("Bulk rewrite — unit boundaries");
+
+{
+  const all = { kind: "all" } as const;
+  const pct = bulkRewrite(`.a { width: 50%; height: 25% }`, { from: "%", to: "px", scope: all, ctx, preserveHairlines: false });
+  eq("% as From unit converts (no \\b after %)", pct.output, `.a { width: 8px; height: 4px }`);
+  const ids = bulkRewrite(`.a { gap: var(--gap-4px); margin: -4px 8px; background: url(/i/4px.png); }`, {
+    from: "px", to: "rem", scope: all, ctx, preserveHairlines: false,
+  });
+  includes("custom property name untouched", ids.output, "var(--gap-4px)");
+  includes("negative value still converted", ids.output, "margin: -0.25rem 0.5rem");
+  includes("unquoted url() untouched", ids.output, "url(/i/4px.png)");
+  eq("count: only the two real values", ids.replaced, 2);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 section("clamp() builder");
 
 {
@@ -334,6 +350,15 @@ section("clamp() builder");
     minPx: 16, maxPx: 24, minViewportPx: 320, maxViewportPx: 1440,
     baseFontSize: 16, outputUnit: "rem", precision: 4,
   }, 880), 20);
+
+  // Shrinking type (min size > max size): bounds must stay smallest-first,
+  // or CSS resolves clamp(2rem, …, 1rem) to a constant 2rem.
+  const shrink = { minPx: 32, maxPx: 16, minViewportPx: 320, maxViewportPx: 1440, baseFontSize: 16, outputUnit: "rem" as const, precision: 4 };
+  const r = buildClamp(shrink);
+  check("shrinking clamp lists smaller bound first", r.expression.startsWith("clamp(1rem,") && r.expression.endsWith(", 2rem)"), r.expression);
+  close("shrinking: eval at min viewport = 32px", evaluateClampAt(shrink, 320), 32, 1e-6);
+  close("shrinking: eval at midpoint = 24px", evaluateClampAt(shrink, 880), 24, 1e-6);
+  close("shrinking: eval at max viewport = 16px", evaluateClampAt(shrink, 1440), 16, 1e-6);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

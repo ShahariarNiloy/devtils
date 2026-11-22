@@ -17,8 +17,11 @@ import { MobileMenu } from "./mobile-menu";
  *   - landing   → ⌘K hint + "Open tools"
  *   - catalogue → "Request a tool"  (Tools is the current page)
  *   - tool      → "Jump to tool ⌘K" (Tools is the current section)
+ *   - blog      → "Search ⌘K"       (Blog is the current section)
+ *   - site      → "Search ⌘K"       (Tools is the current section; SitePage
+ *                 boards: categories index and category pages)
  */
-export type HeaderVariant = "landing" | "catalogue" | "tool";
+export type HeaderVariant = "landing" | "catalogue" | "tool" | "blog" | "site";
 
 interface NavLink {
   href: string;
@@ -27,13 +30,15 @@ interface NavLink {
 
 const LANDING_LINKS: NavLink[] = [
   { href: "/tools", label: "Tools" },
-  { href: "/#categories", label: "Categories" },
+  { href: "/blog", label: "Blog" },
+  { href: "/tools/category", label: "Categories" },
   { href: "/changelog", label: "Changelog" },
   { href: "/faq", label: "FAQ" },
 ];
 
 const SECTION_LINKS: NavLink[] = [
   { href: "/tools", label: "Tools" },
+  { href: "/blog", label: "Blog" },
   { href: "/changelog", label: "Changelog" },
   { href: "/faq", label: "FAQ" },
 ];
@@ -58,7 +63,8 @@ export function Header({ variant = "landing" }: { variant?: HeaderVariant }) {
         {/* ≥ sm: inline links + action */}
         <div className="hidden grow flex-wrap justify-center gap-[22px] text-sm sm:flex">
           {links.map((l) => {
-            const current = variant !== "landing" && l.href === "/tools";
+            const current =
+              variant === "blog" ? l.href === "/blog" : variant !== "landing" && l.href === "/tools";
             return (
               <Link
                 key={l.href}
@@ -109,6 +115,18 @@ export function Header({ variant = "landing" }: { variant?: HeaderVariant }) {
             className="hidden items-center gap-1.5 text-xs text-text-tertiary transition-colors hover:text-text sm:flex"
           >
             Jump to tool
+            <Keycap className="text-[11px]">{mod}</Keycap>
+            <Keycap className="text-[11px]">K</Keycap>
+          </button>
+        )}
+
+        {(variant === "blog" || variant === "site") && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="hidden min-h-9 items-center gap-1.5 text-xs text-text-tertiary transition-colors hover:text-text sm:flex"
+          >
+            Search
             <Keycap className="text-[11px]">{mod}</Keycap>
             <Keycap className="text-[11px]">K</Keycap>
           </button>

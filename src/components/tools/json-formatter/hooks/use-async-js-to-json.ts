@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Transform } from "../js-to-json.lib";
-import {
-  getJsonWorker,
-  nextWorkerSeq,
-  type TransformResponse,
-} from "./use-async-parsed";
+import { getJsonWorker, nextWorkerSeq } from "../json-worker-client";
+import type { WorkerResponse } from "../json-worker-protocol";
 
 export interface AsyncTransformResult {
   output: string;
@@ -77,7 +74,7 @@ export function useAsyncJsToJson(
       // never flash it over an already-visible banner.
       setState((s) => ({ result: s.result, isAnalysing: s.result === null }));
 
-      const onMessage = (e: MessageEvent<TransformResponse>) => {
+      const onMessage = (e: MessageEvent<WorkerResponse>) => {
         const data = e.data;
         if (data.kind !== "transform") return;
         if (data.id !== id) return; // stale: a newer request superseded us

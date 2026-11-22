@@ -25,6 +25,7 @@ import {
   SAMPLE_XDEFAULT,
   buildHreflang,
   checkHreflang,
+  hreflangSitemapFile,
   isBadCell,
   presetRows,
   type HreflangFormat,
@@ -104,7 +105,8 @@ export function HreflangGenerator({ tool }: { tool: Tool }) {
                 {
                   label: `Download ${FILE[format][0]}`,
                   icon: <Download size={14} />,
-                  onSelect: () => downloadText(FILE[format][0], output, FILE[format][1]),
+                  onSelect: () =>
+                    downloadText(FILE[format][0], format === "xml" ? hreflangSitemapFile(rows, xdef) : output, FILE[format][1]),
                   disabled: !output,
                 },
                 {

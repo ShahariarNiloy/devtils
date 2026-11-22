@@ -32,7 +32,7 @@ export type WordOp =
 /** A contiguous run of non-equal line ops, plus the surrounding context
  *  the unified view uses to render `@@ … @@` headers. */
 export interface Hunk {
-  /** 1-based start line in the left input. */
+  /** 1-based start line in the left input (0 when the hunk spans no left lines at the top). */
   leftStart: number;
   /** Number of left lines spanned (including context). */
   leftLength: number;
@@ -84,10 +84,28 @@ function normaliseForCompare(line: string, opts: DiffOptions): string {
 
 // ── Myers O(ND) diff ────────────────────────────────────────────────────
 
+/** Edit-script step: equal (consume one from each side), delete (left), insert (right). */
+type Step = "equal" | "delete" | "insert";
+
 /**
- * Classic Myers SES (shortest edit script). Returns the operation list
- * matching the inputs sequentially: every output token came from `a`
- * (`delete`), `b` (`insert`), or both (`equal`).
+ * Edit-distance ceiling for one line-level Myers run. Memory for the
+ * backtrack trace is ~D² int32s (16 MB at 2000) and time is
+ * O((N+M)·D), so this is what keeps a paste of two unrelated large files
+ * from freezing (or crashing) the tab. Regions that exceed it fall back
+ * to patience anchoring, then to a whole-region replace.
+ */
+const LINE_MAX_EDITS = 2000;
+/** Per-line-pair word diff: skip lines with more tokens than this. */
+const WORD_MAX_TOKENS = 2000;
+/** Per-line-pair word diff: give up (whole line marked changed) above this distance. */
+const WORD_MAX_EDITS = 300;
+/** Total tokens word-diffed per `buildSideRows` call; later pairs render whole-line. */
+const WORD_TOTAL_TOKENS = 100_000;
+
+/**
+ * Classic Myers SES (shortest edit script) over `a[aLo..aHi)` vs
+ * `b[bLo..bHi)`. Returns the step list, or `null` when the edit distance
+ * exceeds `maxD` — the caller decides how to degrade.
  *
  * Generic over T so the same code drives line diff and word diff.
  *
@@ -95,24 +113,31 @@ function normaliseForCompare(line: string, opts: DiffOptions): string {
  *   - `v[k]` stores the x-coord of the furthest point reached on diagonal
  *     `k`. We use an offset so negative diagonals map onto a non-negative
  *     array index.
- *   - We keep one snapshot of `v` per `d`; once we know the edit distance,
- *     we walk those snapshots backwards to reconstruct the path.
+ *   - Before each step `d` we snapshot only the live window `v[-d..d]`
+ *     (2d+1 entries, not the whole array) so the trace is O(D²) rather
+ *     than O((N+M)·D). Once we know the edit distance we walk those
+ *     snapshots backwards to reconstruct the path.
  */
 function myers<T>(
-  a: T[],
-  b: T[],
+  a: readonly T[],
+  b: readonly T[],
   eq: (x: T, y: T) => boolean,
-): Array<{ kind: "equal" | "delete" | "insert"; a?: T; b?: T }> {
-  const N = a.length;
-  const M = b.length;
-  const max = N + M;
-  const offset = max;
-  const v: number[] = new Array(2 * max + 1).fill(0);
-  const trace: number[][] = [];
+  maxD: number,
+  aLo = 0,
+  aHi = a.length,
+  bLo = 0,
+  bHi = b.length,
+): Step[] | null {
+  const N = aHi - aLo;
+  const M = bHi - bLo;
+  const limit = Math.min(N + M, maxD);
+  const offset = limit + 1;
+  const v = new Int32Array(2 * limit + 3);
+  const trace: Int32Array[] = [];
 
   let edit = -1;
-  for (let d = 0; d <= max; d++) {
-    trace.push(v.slice());
+  for (let d = 0; d <= limit; d++) {
+    trace.push(v.slice(offset - d, offset + d + 1));
     for (let k = -d; k <= d; k += 2) {
       let x: number;
       if (k === -d || (k !== d && v[k - 1 + offset] < v[k + 1 + offset])) {
@@ -121,7 +146,7 @@ function myers<T>(
         x = v[k - 1 + offset] + 1;
       }
       let y = x - k;
-      while (x < N && y < M && eq(a[x], b[y])) {
+      while (x < N && y < M && eq(a[aLo + x], b[bLo + y])) {
         x++;
         y++;
       }
@@ -133,72 +158,217 @@ function myers<T>(
     }
     if (edit !== -1) break;
   }
+  if (edit === -1) return null;
 
-  // Backtrack through the trace to reconstruct the path.
-  const ops: Array<{ kind: "equal" | "delete" | "insert"; a?: T; b?: T }> = [];
+  // Backtrack through the trace to reconstruct the path. `trace[d][k + d]`
+  // is v[k] as it stood before step d.
+  const steps: Step[] = [];
   let x = N;
   let y = M;
   for (let d = edit; d > 0; d--) {
     const vPrev = trace[d];
     const k = x - y;
     let prevK: number;
-    if (k === -d || (k !== d && vPrev[k - 1 + offset] < vPrev[k + 1 + offset])) {
+    if (k === -d || (k !== d && vPrev[k - 1 + d] < vPrev[k + 1 + d])) {
       prevK = k + 1;
     } else {
       prevK = k - 1;
     }
-    const prevX = vPrev[prevK + offset];
+    const prevX = vPrev[prevK + d];
     const prevY = prevX - prevK;
     while (x > prevX && y > prevY) {
-      ops.push({ kind: "equal", a: a[x - 1], b: b[y - 1] });
+      steps.push("equal");
       x--;
       y--;
     }
     if (x === prevX) {
-      ops.push({ kind: "insert", b: b[y - 1] });
+      steps.push("insert");
       y--;
     } else {
-      ops.push({ kind: "delete", a: a[x - 1] });
+      steps.push("delete");
       x--;
     }
   }
   while (x > 0 && y > 0) {
-    ops.push({ kind: "equal", a: a[x - 1], b: b[y - 1] });
+    steps.push("equal");
     x--;
     y--;
   }
   while (x > 0) {
-    ops.push({ kind: "delete", a: a[x - 1] });
+    steps.push("delete");
     x--;
   }
   while (y > 0) {
-    ops.push({ kind: "insert", b: b[y - 1] });
+    steps.push("insert");
     y--;
   }
 
-  ops.reverse();
-  return ops;
+  steps.reverse();
+  return steps;
+}
+
+function pushN(out: Step[], step: Step, n: number) {
+  for (let i = 0; i < n; i++) out.push(step);
+}
+
+/**
+ * Fallback for line regions too far apart for bounded Myers. Works like
+ * `git diff --patience`: strip the common prefix/suffix, anchor on lines
+ * that occur exactly once on each side (longest increasing run of them),
+ * and diff the gaps between anchors independently. A gap that still has
+ * no anchors and is over budget becomes one delete-all + insert-all block
+ * — always a correct diff, just not a minimal one. Iterative (explicit
+ * work stack) so deep nesting can't blow the call stack.
+ *
+ * Returns whether any region had to be emitted as a blind replace.
+ */
+function diffLinesFallback(a: readonly string[], b: readonly string[], out: Step[]): boolean {
+  // The caller already ran exact Myers on the whole input and it blew the
+  // budget; only retry it on sub-regions.
+  let first = true;
+  type Task =
+    | { t: "region"; aLo: number; aHi: number; bLo: number; bHi: number }
+    | { t: "equal" };
+  const stack: Task[] = [{ t: "region", aLo: 0, aHi: a.length, bLo: 0, bHi: b.length }];
+  let replaced = false;
+  const eq = (x: string, y: string) => x === y;
+
+  while (stack.length > 0) {
+    const task = stack.pop();
+    if (!task) break;
+    if (task.t === "equal") {
+      out.push("equal");
+      continue;
+    }
+    let { aLo, aHi, bLo, bHi } = task;
+
+    // Common prefix.
+    let pre = 0;
+    while (aLo + pre < aHi && bLo + pre < bHi && a[aLo + pre] === b[bLo + pre]) pre++;
+    pushN(out, "equal", pre);
+    aLo += pre;
+    bLo += pre;
+    // Common suffix — emitted after the middle, so queue it first.
+    let suf = 0;
+    while (aHi - suf > aLo && bHi - suf > bLo && a[aHi - suf - 1] === b[bHi - suf - 1]) suf++;
+    aHi -= suf;
+    bHi -= suf;
+    for (let i = 0; i < suf; i++) stack.push({ t: "equal" });
+
+    if (aLo === aHi || bLo === bHi) {
+      pushN(out, "delete", aHi - aLo);
+      pushN(out, "insert", bHi - bLo);
+      continue;
+    }
+
+    const wholeInput = first && pre === 0 && suf === 0;
+    first = false;
+    const exact = wholeInput ? null : myers(a, b, eq, LINE_MAX_EDITS, aLo, aHi, bLo, bHi);
+    if (exact) {
+      for (const s of exact) out.push(s);
+      continue;
+    }
+
+    // Unique-on-both-sides lines → candidate anchors.
+    const counts = new Map<string, { na: number; nb: number; ia: number; ib: number }>();
+    for (let i = aLo; i < aHi; i++) {
+      const c = counts.get(a[i]);
+      if (c) c.na++;
+      else counts.set(a[i], { na: 1, nb: 0, ia: i, ib: -1 });
+    }
+    for (let j = bLo; j < bHi; j++) {
+      const c = counts.get(b[j]);
+      if (c) {
+        c.nb++;
+        c.ib = j;
+      }
+    }
+    const cand: Array<{ ia: number; ib: number }> = [];
+    for (let i = aLo; i < aHi; i++) {
+      const c = counts.get(a[i]);
+      if (c && c.na === 1 && c.nb === 1) cand.push({ ia: c.ia, ib: c.ib });
+    }
+    const anchors = longestIncreasing(cand);
+    if (anchors.length === 0) {
+      pushN(out, "delete", aHi - aLo);
+      pushN(out, "insert", bHi - bLo);
+      replaced = true;
+      continue;
+    }
+
+    // Queue gaps + anchors in reverse so they pop in document order.
+    let nextA = aHi;
+    let nextB = bHi;
+    for (let n = anchors.length - 1; n >= 0; n--) {
+      const { ia, ib } = anchors[n];
+      stack.push({ t: "region", aLo: ia + 1, aHi: nextA, bLo: ib + 1, bHi: nextB });
+      stack.push({ t: "equal" });
+      nextA = ia;
+      nextB = ib;
+    }
+    stack.push({ t: "region", aLo, aHi: nextA, bLo, bHi: nextB });
+  }
+  return replaced;
+}
+
+/** Longest subsequence of `cand` (already sorted by `ia`) with increasing `ib`. O(n log n). */
+function longestIncreasing(cand: ReadonlyArray<{ ia: number; ib: number }>): Array<{ ia: number; ib: number }> {
+  const tails: number[] = []; // index into cand of the smallest tail for each length
+  const prev = new Int32Array(cand.length).fill(-1);
+  for (let i = 0; i < cand.length; i++) {
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cand[tails[mid]].ib < cand[i].ib) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const out: Array<{ ia: number; ib: number }> = [];
+  for (let i = tails.length ? tails[tails.length - 1] : -1; i !== -1; i = prev[i]) out.push(cand[i]);
+  return out.reverse();
 }
 
 // ── Line diff ───────────────────────────────────────────────────────────
 
-export function diffLines(
+export interface LineDiffResult {
+  ops: LineOp[];
+  /**
+   * True when the inputs were too far apart to align exactly within the
+   * engine's budget and at least one region is shown as a wholesale
+   * replace (all old lines removed, all new lines added). The diff is
+   * still correct — applying it yields the right side — just not minimal.
+   */
+  approximate: boolean;
+}
+
+/** Like `diffLines`, plus whether the result had to fall back to an approximate alignment. */
+export function diffLinesDetailed(
   left: string,
   right: string,
   options: DiffOptions = {},
-): LineOp[] {
+): LineDiffResult {
   const leftLines = splitLines(left);
   const rightLines = splitLines(right);
   const leftCmp = leftLines.map((l) => normaliseForCompare(l, options));
   const rightCmp = rightLines.map((l) => normaliseForCompare(l, options));
 
-  const raw = myers(leftCmp, rightCmp, (x, y) => x === y);
+  // Exact Myers first — identical output to the unbounded algorithm
+  // whenever the edit distance fits the budget (every normal diff).
+  let approximate = false;
+  let steps = myers(leftCmp, rightCmp, (x, y) => x === y, LINE_MAX_EDITS);
+  if (!steps) {
+    steps = [];
+    approximate = diffLinesFallback(leftCmp, rightCmp, steps);
+  }
 
   const result: LineOp[] = [];
   let li = 0;
   let ri = 0;
-  for (const op of raw) {
-    if (op.kind === "equal") {
+  for (const step of steps) {
+    if (step === "equal") {
       result.push({
         kind: "equal",
         left: li + 1,
@@ -207,7 +377,7 @@ export function diffLines(
       });
       li++;
       ri++;
-    } else if (op.kind === "delete") {
+    } else if (step === "delete") {
       result.push({ kind: "delete", left: li + 1, text: leftLines[li] });
       li++;
     } else {
@@ -215,12 +385,22 @@ export function diffLines(
       ri++;
     }
   }
-  return result;
+  return { ops: result, approximate };
+}
+
+export function diffLines(
+  left: string,
+  right: string,
+  options: DiffOptions = {},
+): LineOp[] {
+  return diffLinesDetailed(left, right, options).ops;
 }
 
 // ── Word diff ───────────────────────────────────────────────────────────
 
-const WORD_TOKEN = /(\s+|[A-Za-z0-9_]+|.)/gu;
+// Unicode-aware: letters (any script), combining marks and digits form one
+// word token, so `café` / `東京` / `привет` diff as words, not char-by-char.
+const WORD_TOKEN = /(\s+|[\p{L}\p{M}\p{N}_]+|.)/gu;
 
 export function tokenizeWords(text: string): string[] {
   return text.match(WORD_TOKEN) ?? [];
@@ -233,14 +413,34 @@ export function tokenizeWords(text: string): string[] {
  * the word diff shows which substrings actually changed.
  */
 export function diffWords(left: string, right: string): WordOp[] {
-  const a = tokenizeWords(left);
-  const b = tokenizeWords(right);
-  const raw = myers(a, b, (x, y) => x === y);
-  return raw.map((op) => {
-    if (op.kind === "equal") return { kind: "equal", text: op.a! };
-    if (op.kind === "delete") return { kind: "delete", text: op.a! };
-    return { kind: "insert", text: op.b! };
-  });
+  return diffWordTokens(tokenizeWords(left), tokenizeWords(right)) ?? [
+    { kind: "delete", text: left },
+    { kind: "insert", text: right },
+  ];
+}
+
+/**
+ * Word diff over pre-tokenised input, or `null` when the pair is over the
+ * size / edit budget (caller shows the whole line as changed instead).
+ */
+function diffWordTokens(a: string[], b: string[]): WordOp[] | null {
+  if (a.length > WORD_MAX_TOKENS || b.length > WORD_MAX_TOKENS) return null;
+  const steps = myers(a, b, (x, y) => x === y, WORD_MAX_EDITS);
+  if (!steps) return null;
+  const out: WordOp[] = [];
+  let ai = 0;
+  let bi = 0;
+  for (const step of steps) {
+    if (step === "equal") {
+      out.push({ kind: "equal", text: a[ai++] });
+      bi++;
+    } else if (step === "delete") {
+      out.push({ kind: "delete", text: a[ai++] });
+    } else {
+      out.push({ kind: "insert", text: b[bi++] });
+    }
+  }
+  return out;
 }
 
 // ── Hunks ───────────────────────────────────────────────────────────────
@@ -299,10 +499,15 @@ export function buildHunks(ops: LineOp[], contextLines = 3): Hunk[] {
         rightLen++;
       }
     }
+    // A side with no lines in the hunk (pure insertion / deletion, e.g.
+    // against an empty file) uses the line *before* the change as its
+    // start, per the unified-diff format: `@@ -0,0 +1,2 @@`.
+    if (leftLen === 0) leftStart = lineBefore(ops, startIdx, "left");
+    if (rightLen === 0) rightStart = lineBefore(ops, startIdx, "right");
     hunks.push({
-      leftStart: leftStart || 1,
+      leftStart,
       leftLength: leftLen,
-      rightStart: rightStart || 1,
+      rightStart,
       rightLength: rightLen,
       ops: slice,
     });
@@ -310,6 +515,16 @@ export function buildHunks(ops: LineOp[], contextLines = 3): Hunk[] {
     i = end;
   }
   return hunks;
+}
+
+/** Last line number on `side` among `ops[0..idx)`, or 0 if there is none. */
+function lineBefore(ops: LineOp[], idx: number, side: "left" | "right"): number {
+  for (let j = idx - 1; j >= 0; j--) {
+    const op = ops[j];
+    if (side === "left" && op.kind !== "insert") return op.left;
+    if (side === "right" && op.kind !== "delete") return op.right;
+  }
+  return 0;
 }
 
 // ── Stats ───────────────────────────────────────────────────────────────
@@ -350,6 +565,8 @@ export type SideRow =
       rightText: string;
       leftWords: WordOp[];
       rightWords: WordOp[];
+      /** Set when the pair was too large to word-diff; each side is one whole-line span. */
+      coarse?: true;
     }
   | { kind: "delete"; leftLine: number; text: string }
   | { kind: "insert"; rightLine: number; text: string };
@@ -392,6 +609,7 @@ export function formatUnifiedDiff(
 
 export function buildSideRows(ops: LineOp[]): SideRow[] {
   const rows: SideRow[] = [];
+  let tokenBudget = WORD_TOTAL_TOKENS;
   let i = 0;
   while (i < ops.length) {
     const op = ops[i];
@@ -424,16 +642,38 @@ export function buildSideRows(ops: LineOp[]): SideRow[] {
     for (let p = 0; p < pairs; p++) {
       const d = dels[p];
       const n = ins[p];
-      const words = diffWords(d.text, n.text);
-      rows.push({
-        kind: "changed",
-        leftLine: d.left,
-        rightLine: n.right,
-        leftText: d.text,
-        rightText: n.text,
-        leftWords: words.filter((w) => w.kind !== "insert"),
-        rightWords: words.filter((w) => w.kind !== "delete"),
-      });
+      // Word diff is the expensive part — budget it per pair and per call
+      // so one huge line (or thousands of changed lines) can't stall the
+      // main thread. Over budget → whole line shown as changed.
+      let words: WordOp[] | null = null;
+      if (tokenBudget > 0) {
+        const a = tokenizeWords(d.text);
+        const b = tokenizeWords(n.text);
+        tokenBudget -= a.length + b.length;
+        words = diffWordTokens(a, b);
+      }
+      if (words) {
+        rows.push({
+          kind: "changed",
+          leftLine: d.left,
+          rightLine: n.right,
+          leftText: d.text,
+          rightText: n.text,
+          leftWords: words.filter((w) => w.kind !== "insert"),
+          rightWords: words.filter((w) => w.kind !== "delete"),
+        });
+      } else {
+        rows.push({
+          kind: "changed",
+          leftLine: d.left,
+          rightLine: n.right,
+          leftText: d.text,
+          rightText: n.text,
+          leftWords: [{ kind: "delete", text: d.text }],
+          rightWords: [{ kind: "insert", text: n.text }],
+          coarse: true,
+        });
+      }
     }
     for (let p = pairs; p < dels.length; p++) {
       rows.push({ kind: "delete", leftLine: dels[p].left, text: dels[p].text });
