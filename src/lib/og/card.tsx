@@ -1,454 +1,225 @@
-import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
-import { SITE_DOMAIN, SITE_NAME, SITE_WORDMARK } from "@/lib/site";
-import { getCategoryMeta, type Tool } from "@/lib/tools-registry";
-import type { ReactElement } from "react";
+import { DISTINCT_LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
+import { SITE_DOMAIN, SITE_NAME } from "@/lib/site";
+import type { Tool } from "@/lib/tools-registry";
+import { CATEGORY_TINT, TOOL_PRESENTATION, type Tint } from "@/lib/tools/presentation";
+import type { ReactElement, ReactNode } from "react";
 
 /**
- * OG card layout. Editorial / handcrafted aesthetic per AGENTS.md:
- * warm cream gradient, brand chartreuse as accent only (left stripe,
- * tier marker, watermark mark), category-coloured eyebrow for variety
- * across the catalogue.
+ * Social (OG) card layouts, rendered to static PNGs by
+ * `scripts/generate-og.ts` (`pnpm og:build`). v2 brand: near-black
+ * canvas with the warm clay glow, the four-key diamond mark, Fredoka for
+ * titles, Noto Sans for text, the tool's category colour as the accent.
  *
- * Satori has no CSS cascade — every value is inline, every colour is a
- * literal hex. `var(--color-*)` tokens that CATEGORY_META carries get
- * resolved to hex in `TOKEN_HEX` below.
- *
- * Re-render after this file changes via `pnpm og:build`.
+ * Satori has no CSS cascade — every value is inline and every colour a
+ * literal. Every element with more than one child needs `display: flex`.
+ * Fonts are registered by the script (Fredoka 600, Noto Sans 400/600,
+ * JetBrains Mono 400).
  */
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
 export const OG_ALT = `${SITE_NAME} tool preview`;
 
-/**
- * Palette anchors — all from globals.css `@theme`. Brand accents are
- * olive (the `--color-brand` family) — NOT chartreuse. AGENTS.md uses
- * the word "chartreuse" loosely; the actual tokens are sage / olive.
- */
-const BRAND = "#3d4435"; // --color-brand, primary accent (dark olive)
-const BRAND_MID = "#7e8a6c"; // --color-border-strong, medium olive
-const BRAND_SOFT = "#3d443514"; // ~8% alpha — chip fills
-const BRAND_TINT = "#3d443530"; // ~19% alpha — separators
-const SURFACE_SAGE = "#dde0d0"; // --color-surface-sage, soft tint
+const BG = "#0b0b0a";
+const CREAM = "#f6f2ea";
+const MUTED = "#b9b6aa";
+const FAINT = "#8b8a82";
+const CLAY = "#e0a072";
+const TINT_HEX: Record<Tint, string> = { clay: "#e0a072", teal: "#6fa6af", sage: "#adb99a", rose: "#d08070" };
 
-/** Cream surface gradient — `--color-canvas` → `--color-surface-soft`. */
-const BG_GRADIENT = "linear-gradient(135deg, #f6f2ea 0%, #ebede5 100%)";
-const INK = "#1a1a18"; // --color-text
-const INK_MUTED = "#3d4435"; // matches --color-brand for muted ink role
-const INK_FAINT = "#5a615a"; // --color-text-faint
-const BORDER = "#d6d2c2"; // --color-border
+const SANS = "Noto Sans";
+const DISPLAY = "Fredoka";
+const MONO = "JetBrains Mono";
 
-const TOKEN_HEX: Record<string, string> = {
-  "var(--color-surface-tint)": "#efe0cc",
-  "var(--color-cream)": "#efe0cc",
-  "var(--color-sage)": "#dde0d0",
-  "var(--color-sage-deep)": "#5d6a4d",
-  "var(--color-terracotta)": "#a76f3e",
-  "var(--color-terracotta-deep)": "#8e5d36",
-  "var(--color-amber)": "#c58e5e",
-};
-
-const hex = (value: string | undefined, fallback: string): string =>
-  (value && TOKEN_HEX[value]) ?? (value?.startsWith("#") ? value : fallback);
-
-/** Vertical olive stripe along the left edge — brand accent at full
- *  saturation, narrow enough to read as a frame rather than a fill. */
-function LeftStripe(): ReactElement {
+/** The four-key diamond mark (same geometry as the favicon). */
+function Mark({ size = 44 }: { size?: number }) {
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 8,
-        backgroundColor: BRAND,
-      }}
-    />
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <g transform="rotate(45 32 32)">
+        <rect x="11" y="11" width="19" height="19" rx="5" fill={CLAY} />
+        <rect x="34" y="11" width="19" height="19" rx="5" fill={CREAM} />
+        <rect x="34" y="34" width="19" height="19" rx="5" fill={CREAM} />
+        <rect x="11" y="34" width="19" height="19" rx="5" fill={CREAM} />
+      </g>
+    </svg>
   );
 }
 
-/** Wordmark + chartreuse pip — top-left brand strip. */
-function BrandStrip(): ReactElement {
+function Pill({ children, color }: { children: ReactNode; color: string }) {
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 14,
-        fontSize: 26,
-        fontWeight: 700,
-        letterSpacing: "-0.025em",
-        color: INK,
-      }}
-    >
-      <div
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 999,
-          backgroundColor: BRAND_MID,
-        }}
-      />
-      {SITE_WORDMARK}
-    </div>
-  );
-}
-
-/** Category eyebrow chip. Colour comes from CATEGORY_META so variety reads. */
-function CategoryEyebrow({ tool }: { tool: Tool }): ReactElement {
-  const meta = getCategoryMeta(tool.category);
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "10px 18px",
+        padding: "8px 18px",
         borderRadius: 999,
-        backgroundColor: hex(meta.iconBg, "#dde0d0"),
-        color: hex(meta.iconColor, "#3d4435"),
-        fontSize: 16,
-        fontWeight: 700,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
+        border: `1.5px solid ${color}59`,
+        color,
+        fontFamily: SANS,
+        fontSize: 22,
+        fontWeight: 600,
       }}
     >
-      {tool.category}
+      {children}
     </div>
   );
 }
 
-/** Decorative ornament — fading olive bars, bottom-right corner. */
-function Ornament(): ReactElement {
+/** Shared frame: glow, mark + wordmark, optional pill, body, footer row. */
+function Frame({
+  pill,
+  accent = CLAY,
+  children,
+  footLeft,
+  footRight,
+}: {
+  pill?: ReactNode;
+  accent?: string;
+  children: ReactNode;
+  footLeft: string;
+  footRight?: string;
+}): ReactElement {
   return (
     <div
       style={{
-        position: "absolute",
-        bottom: 80,
-        right: 80,
+        width: OG_SIZE.width,
+        height: OG_SIZE.height,
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
-        gap: 8,
+        justifyContent: "space-between",
+        padding: "60px 72px 56px",
+        background: `radial-gradient(70% 90% at 100% 0%, ${accent}2e, ${BG} 62%), ${BG}`,
+        color: CREAM,
+        fontFamily: SANS,
       }}
     >
-      {[1, 0.7, 0.45, 0.25].map((opacity, i) => (
-        <div
-          key={i}
-          style={{
-            width: 72,
-            height: 8,
-            backgroundColor: BRAND_MID,
-            opacity,
-            borderRadius: 2,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Mark />
+          <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 34, fontWeight: 600 }}>{SITE_NAME}</div>
+        </div>
+        {pill ?? <div style={{ display: "flex" }} />}
+      </div>
 
-/**
- * Per-tool OG card — 1200×630.
- *
- * Layout (top → bottom):
- *   [LeftStripe] | brand row · category eyebrow
- *                | tool name (huge)
- *                | description
- *                | tag chips (up to 3)
- *                | footer band: tier + url · runs-in-browser tagline
- *                | (Ornament floats bottom-right)
- */
-export function ToolCard({ tool }: { tool: Tool }): ReactElement {
-  const isLive = IMPLEMENTED_TOOL_SLUGS.has(tool.slug);
-  const tags = tool.tags.slice(0, 3);
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        position: "relative",
-        backgroundImage: BG_GRADIENT,
-        backgroundColor: "#f6f2ea",
-        fontFamily: "system-ui, sans-serif",
-        color: INK,
-      }}
-    >
-      <LeftStripe />
-      <Ornament />
+      {children}
 
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          padding: "76px 84px 72px 100px",
-          position: "relative",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingTop: 26,
+          borderTop: "1.5px solid rgba(255,255,255,.09)",
+          fontFamily: MONO,
+          fontSize: 22,
+          color: FAINT,
         }}
       >
-        {/* Brand row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <BrandStrip />
-          <CategoryEyebrow tool={tool} />
-        </div>
-
-        {/* Tool name — adaptive sizing keyed to character count so a
-            24-char name like "JSON to TypeScript types" still fits on
-            one line. Thresholds were tuned against the actual catalogue
-            so the 4-tier table covers every live tool without wrapping.
-            `flexDirection: column` keeps Satori's wrapped-text height
-            calculation honest if any edge-case name does wrap. */}
-        {(() => {
-          const len = tool.name.length;
-          const titleSize =
-            len <= 14 ? 104 : len <= 18 ? 92 : len <= 26 ? 72 : 60;
-          return (
-            <div
-              style={{
-                marginTop: 72,
-                display: "flex",
-                flexDirection: "column",
-                fontSize: titleSize,
-                fontWeight: 700,
-                letterSpacing: "-0.045em",
-                lineHeight: 1.1,
-                color: INK,
-                maxWidth: 980,
-              }}
-            >
-              <span>{tool.name}</span>
-            </div>
-          );
-        })()}
-
-        {/* Description */}
-        <div
-          style={{
-            marginTop: 32,
-            display: "flex",
-            fontSize: 26,
-            lineHeight: 1.4,
-            color: INK_MUTED,
-            maxWidth: 880,
-            fontWeight: 500,
-          }}
-        >
-          {tool.description}
-        </div>
-
-        {/* Tag chips */}
-        {tags.length > 0 && (
-          <div style={{ marginTop: 36, display: "flex", gap: 10 }}>
-            {tags.map((tag) => (
-              <div
-                key={tag}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "8px 16px",
-                  borderRadius: 999,
-                  backgroundColor: SURFACE_SAGE,
-                  fontSize: 18,
-                  color: INK_MUTED,
-                  fontFamily: "ui-monospace, Menlo, monospace",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                #{tag}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Footer band */}
-        <div
-          style={{
-            marginTop: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingTop: 36,
-            borderTopWidth: 2,
-            borderTopStyle: "solid",
-            borderTopColor: BRAND_TINT,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            <span
-              style={{
-                padding: "8px 14px",
-                borderRadius: 6,
-                borderWidth: 1.5,
-                borderStyle: "solid",
-                borderColor: BRAND,
-                backgroundColor: BRAND_SOFT,
-                color: INK_MUTED,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontSize: 17,
-                fontFamily: "ui-monospace, Menlo, monospace",
-              }}
-            >
-              {tool.tier}
-            </span>
-            <span
-              style={{
-                fontSize: 22,
-                color: INK_MUTED,
-                fontFamily: "ui-monospace, Menlo, monospace",
-              }}
-            >
-              {SITE_DOMAIN}/tools/{tool.slug}
-            </span>
-          </div>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              fontSize: 20,
-              color: INK_FAINT,
-              fontWeight: 600,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                backgroundColor: isLive ? BRAND_MID : INK_FAINT,
-              }}
-            />
-            Runs in your browser · 100% local
-          </span>
-        </div>
+        <div style={{ display: "flex" }}>{footLeft}</div>
+        {footRight ? <div style={{ display: "flex", fontFamily: SANS, fontSize: 22 }}>{footRight}</div> : null}
       </div>
     </div>
   );
 }
 
-/**
- * Default fallback card — used by the homepage, generic pages, and any
- * tool slug that hasn't been re-generated yet.
- */
+/** Shrink long titles so they fit in two lines. */
+function titleSize(s: string, big: number): number {
+  if (s.length > 34) return big - 22;
+  if (s.length > 22) return big - 12;
+  return big;
+}
+
+/** One tool: keycap glyph in the category colour, name, tagline. */
+export function ToolCard({ tool }: { tool: Tool }): ReactElement {
+  const p = TOOL_PRESENTATION[tool.slug];
+  const tint = TINT_HEX[CATEGORY_TINT[tool.category]];
+  const tagline = p?.tagline ?? tool.description;
+  return (
+    <Frame
+      accent={tint}
+      pill={<Pill color={tint}>{tool.category}</Pill>}
+      footLeft={`${SITE_DOMAIN}/tools/${tool.slug}`}
+      footRight="Free · no sign-up · in your browser"
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 44 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 148,
+            height: 148,
+            flexShrink: 0,
+            borderRadius: 32,
+            background: "linear-gradient(#1f1f1d, #141413)",
+            border: "1.5px solid rgba(255,255,255,.10)",
+            boxShadow: "0 4px 0 #050505",
+            color: tint,
+            fontFamily: MONO,
+            fontSize: (p?.glyph ?? "").length > 3 ? 34 : 50,
+          }}
+        >
+          {p?.glyph ?? tool.name.slice(0, 2)}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+          <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 600, fontSize: titleSize(tool.name, 80), lineHeight: 1.02 }}>
+            {tool.name}
+          </div>
+          <div style={{ display: "flex", fontSize: 30, lineHeight: 1.35, color: MUTED }}>{tagline}</div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+/** Home page and any page without its own card. */
 export function DefaultCard(): ReactElement {
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        backgroundImage: BG_GRADIENT,
-        backgroundColor: "#f6f2ea",
-        fontFamily: "system-ui, sans-serif",
-        color: INK,
-      }}
-    >
-      <LeftStripe />
-      <Ornament />
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          padding: "76px 84px 72px 100px",
-          justifyContent: "center",
-        }}
-      >
-        {/* Big wordmark — hero treatment */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 26,
-            fontSize: 144,
-            fontWeight: 700,
-            letterSpacing: "-0.05em",
-            lineHeight: 1,
-            color: INK,
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              backgroundColor: BRAND_MID,
-            }}
-          />
-          {SITE_WORDMARK}
+    <Frame footLeft={SITE_DOMAIN} footRight={`${DISTINCT_LIVE_TOOL_COUNT} tools · free · in your browser`}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <div style={{ display: "flex", flexDirection: "column", fontFamily: DISPLAY, fontWeight: 600, fontSize: 92, lineHeight: 1.02 }}>
+          <div style={{ display: "flex" }}>Every tool you need.</div>
+          <div style={{ display: "flex", color: MUTED }}>None you don&apos;t.</div>
         </div>
-
-        {/* Tagline */}
-        <div
-          style={{
-            marginTop: 36,
-            display: "flex",
-            fontSize: 38,
-            color: INK_MUTED,
-            fontWeight: 500,
-            letterSpacing: "-0.01em",
-            lineHeight: 1.3,
-            maxWidth: 940,
-          }}
-        >
-          Handcrafted developer utilities. Every tool runs in your browser —
-          fast, keyboard-first, and private by default.
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            marginTop: 80,
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            paddingTop: 28,
-            borderTopWidth: 2,
-            borderTopStyle: "solid",
-            borderTopColor: BRAND_TINT,
-          }}
-        >
-          <span
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              borderWidth: 1.5,
-              borderStyle: "solid",
-              borderColor: BRAND,
-              backgroundColor: BRAND_SOFT,
-              color: INK_MUTED,
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              fontSize: 17,
-              fontFamily: "ui-monospace, Menlo, monospace",
-            }}
-          >
-            Open source
-          </span>
-          <span
-            style={{
-              fontSize: 24,
-              color: INK_MUTED,
-              fontFamily: "ui-monospace, Menlo, monospace",
-            }}
-          >
-            {SITE_DOMAIN}
-          </span>
+        <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
+          JSON, regex, JWTs, images — fast, keyboard-first, in your browser.
         </div>
       </div>
-    </div>
+    </Frame>
+  );
+}
+
+/** A blog post: tag pill, title, reading time. */
+export function BlogCard({ title, tag, readingTime, slug }: { title: string; tag: string; readingTime: string; slug: string }): ReactElement {
+  return (
+    <Frame pill={<Pill color={CLAY}>{`Blog · ${tag}`}</Pill>} footLeft={`${SITE_DOMAIN}/blog/${slug}`} footRight={`${readingTime} read`}>
+      <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 600, fontSize: title.length > 70 ? 56 : 66, lineHeight: 1.08 }}>
+        {title}
+      </div>
+    </Frame>
+  );
+}
+
+/** A section page (blog index, categories, a category): eyebrow, title, line. */
+export function PageCard({
+  eyebrow,
+  title,
+  line,
+  path,
+  tint,
+}: {
+  eyebrow: string;
+  title: string;
+  line: string;
+  path: string;
+  tint?: Tint;
+}): ReactElement {
+  const accent = tint ? TINT_HEX[tint] : CLAY;
+  return (
+    <Frame accent={accent} pill={<Pill color={accent}>{eyebrow}</Pill>} footLeft={`${SITE_DOMAIN}${path}`} footRight="Free · no sign-up">
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 600, fontSize: titleSize(title, 88), lineHeight: 1.02 }}>{title}</div>
+        <div style={{ display: "flex", fontSize: 30, lineHeight: 1.35, color: MUTED }}>{line}</div>
+      </div>
+    </Frame>
   );
 }

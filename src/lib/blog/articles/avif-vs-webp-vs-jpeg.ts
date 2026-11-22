@@ -28,6 +28,7 @@ ships q26  20856 bytes, flagged over budget`;
 
 export const post: BlogPost = {
   slug: "avif-vs-webp-vs-jpeg",
+  seoTitle: "AVIF vs WebP vs JPEG: which is smallest? 34 images tested",
   title: "AVIF vs WebP vs JPEG: which is actually smallest? We encoded 34 images",
   description:
     "At equal perceived quality AVIF was smallest on 30 of 34 images, but only 8–17% smaller than JPEG on photos. Our data, its losses, and how to ship it.",

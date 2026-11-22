@@ -1,5 +1,5 @@
 import { DISTINCT_LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
-import { OG_DEFAULT_PATH } from "@/lib/og/url";
+import { ogPagePath } from "@/lib/og/url";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { POSTS } from "./posts";
 import { postHref, spansText } from "./index";
@@ -86,7 +86,7 @@ export function postJsonLd(post: BlogPost) {
         dateModified: post.date,
         author: { "@type": "Organization", name: post.author, url: SITE_URL },
         publisher: PUBLISHER,
-        image: `${SITE_URL}${OG_DEFAULT_PATH}`,
+        image: `${SITE_URL}${ogPagePath(`blog/${post.slug}.png`)}`,
         keywords: post.tags.join(", "),
         articleSection: post.tags[0],
         wordCount: wordCount(post),

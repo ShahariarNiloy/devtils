@@ -883,11 +883,13 @@ export function highlightHtml(html: string): HtmlToken[][] {
   });
 }
 
-export const SAMPLE_MARKDOWN = `# Release notes
+/** Sample doc. Headings start at level 2: the preview renders into the page,
+ *  which already has its own <h1> (one h1 per page for SEO). */
+export const SAMPLE_MARKDOWN = `## Release notes
 
 utilyx **2.1** ships three new tools and a faster *JSON formatter*.
 
-## What's new
+### What's new
 
 - [x] Markdown preview
 - [x] Word counter with \`keyword density\`

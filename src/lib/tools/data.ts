@@ -1011,7 +1011,7 @@ export const TOOLS: Tool[] = [
   {
     slug: 'jwt-decoder',
     name: 'JWT decoder',
-    description: 'Decode JWT tokens, view header and payload, verify HS256 signatures.',
+    description: 'Decode JWT header and payload, check claims, and verify HS, RS, PS and ES signatures.',
     category: 'Security',
     tier: 'free',
     icon: 'lock-keyhole',

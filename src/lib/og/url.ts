@@ -25,6 +25,20 @@ export function ogImagePath(slug?: string): string {
   return DEFAULT_PATH;
 }
 
+/**
+ * OG image for a non-tool page, by its file under `public/og/` (e.g.
+ * "blog.png", "blog/<slug>.png", "category/json.png"); falls back to the
+ * default card when it hasn't been generated (`pnpm og:build`).
+ */
+export function ogPagePath(file: string): string {
+  try {
+    if (existsSync(join(PUBLIC_OG_DIR, file))) return `/og/${file}`;
+  } catch {
+    // fs unavailable — fall through.
+  }
+  return DEFAULT_PATH;
+}
+
 export const OG_DEFAULT_PATH = DEFAULT_PATH;
 export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;

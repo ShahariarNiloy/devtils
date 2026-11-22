@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
 import { BLOG_FEED_PATH, featuredPost, filterTags, PLANNED_POSTS, POSTS } from "@/lib/blog";
 import { BLOG_DESCRIPTION, blogIndexJsonLd } from "@/lib/blog/seo";
-import { OG_DEFAULT_PATH, OG_HEIGHT, OG_WIDTH } from "@/lib/og/url";
+import { OG_HEIGHT, OG_WIDTH, ogPagePath } from "@/lib/og/url";
 import { safeJsonLd } from "@/lib/safe-json-ld";
 import { SITE_NAME } from "@/lib/site";
 
@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     description: BLOG_DESCRIPTION,
     url: "/blog",
     siteName: SITE_NAME,
-    images: [{ url: OG_DEFAULT_PATH, width: OG_WIDTH, height: OG_HEIGHT, alt: `${SITE_NAME} blog` }],
+    images: [{ url: ogPagePath("blog.png"), width: OG_WIDTH, height: OG_HEIGHT, alt: `${SITE_NAME} blog` }],
   },
   twitter: {
     card: "summary_large_image",
     title: `Notes from the toolbox · ${SITE_NAME}`,
     description: BLOG_DESCRIPTION,
-    images: [OG_DEFAULT_PATH],
+    images: [ogPagePath("blog.png")],
   },
 };
 

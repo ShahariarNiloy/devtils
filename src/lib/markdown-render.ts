@@ -12,7 +12,7 @@
 import { CHANGELOG } from "./changelog";
 import {
   IMPLEMENTED_TOOL_SLUGS,
-  LIVE_TOOL_COUNT,
+  DISTINCT_LIVE_TOOL_COUNT,
 } from "./implemented-tools";
 import {
   SITE_DOMAIN,
@@ -118,8 +118,8 @@ export function renderToolsIndexMarkdown(): string {
   lines.push("# All tools");
   lines.push("");
   lines.push(
-    `> Browse the full ${SITE_NAME} catalogue. ${LIVE_TOOL_COUNT} live, ${
-      TOOLS.filter((t) => t.showcase).length - LIVE_TOOL_COUNT
+    `> Browse the full ${SITE_NAME} catalogue. ${DISTINCT_LIVE_TOOL_COUNT} live, ${
+      TOOLS.filter((t) => t.showcase).length - DISTINCT_LIVE_TOOL_COUNT
     } coming soon. Every tool runs entirely in the browser.`,
   );
   lines.push("");
@@ -158,18 +158,18 @@ export function renderHomeMarkdown(): string {
   lines.push(`# ${SITE_TITLE_DEFAULT}`);
   lines.push("");
   lines.push(
-    "> Format JSON, convert text cases, encode Base64, test regex, convert colors, and more. Every tool runs entirely in your browser. Nothing leaves your device.",
+    "> Format JSON, convert text cases, encode Base64, test regex, compress images, and more. Every tool runs in your browser; what you paste is processed there, not uploaded.",
   );
   lines.push("");
   lines.push(`Site: ${SITE_URL}`);
   lines.push(`Catalogue: ${SITE_URL}/tools`);
-  lines.push(`Live tools: ${LIVE_TOOL_COUNT}`);
+  lines.push(`Live tools: ${DISTINCT_LIVE_TOOL_COUNT}`);
   lines.push("");
 
   lines.push("## What's here");
   lines.push("");
   lines.push(
-    `- ${LIVE_TOOL_COUNT} working developer utilities across categories: ${CATEGORIES.join(", ")}.`,
+    `- ${DISTINCT_LIVE_TOOL_COUNT} working developer utilities across categories: ${CATEGORIES.join(", ")}.`,
   );
   lines.push("- Per-tool documentation with intro, use cases, FAQ.");
   lines.push(

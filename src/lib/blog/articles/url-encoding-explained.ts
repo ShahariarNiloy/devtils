@@ -7,6 +7,7 @@ const a = (v: string, href: string): Span => ({ t: "link", v, href });
 
 export const post: BlogPost = {
   slug: "url-encoding-explained",
+  seoTitle: "encodeURI vs encodeURIComponent: URL encoding bugs",
   title: "encodeURI vs encodeURIComponent: URL encoding bugs and how to avoid them",
   description:
     "What each JavaScript encoder escapes, why + and %20 differ, how double encoding happens, and how to build URLs that don't break on real input.",

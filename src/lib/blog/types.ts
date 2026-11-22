@@ -51,8 +51,12 @@ export interface PostTool {
 export interface BlogPost {
   slug: string;
   title: string;
+  /** Shorter title for search results (≤ 60 chars) when `title` is long. */
+  seoTitle?: string;
   /** Dek + meta description. */
   description: string;
+  /** Meta description when the dek runs past ~155 chars. */
+  seoDescription?: string;
   /** ISO date (YYYY-MM-DD), UTC. */
   date: string;
   author: string;

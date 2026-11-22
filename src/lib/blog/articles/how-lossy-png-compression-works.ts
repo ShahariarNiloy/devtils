@@ -83,6 +83,7 @@ for (const [name, a, b] of pairs) {
 
 export const post: BlogPost = {
   slug: "how-lossy-png-compression-works",
+  seoTitle: "How lossy PNG compression works, and why it looks lossless",
   title: "How lossy PNG compression works (and why 256 colours can look lossless)",
   description:
     "PNG is lossless, yet tools shrink it 60–70% with no visible change. Palettes, dithering, banding and honest metrics, from our own quantizer.",

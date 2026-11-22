@@ -8,6 +8,9 @@ import { ToolJsonLd } from "@/components/shared/tool-jsonld";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
 import { ToolRenderer } from "@/components/tool-loaders";
 import { getToolBySlug, TOOLS } from "@/lib/tools-registry";
+import { META_DESCRIPTIONS } from "@/lib/tools/meta-descriptions";
+import { SEO_TITLES } from "@/lib/tools/seo-titles";
+import { RelatedReading } from "@/components/blog/related-reading";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { OG_HEIGHT, OG_WIDTH, ogImagePath } from "@/lib/og/url";
 
@@ -36,8 +39,10 @@ export async function generateMetadata({
   const isLive = IMPLEMENTED_TOOL_SLUGS.has(slug);
   const canonical = `/tools/${slug}`;
   const suffix = isLive ? "" : " (coming soon)";
-  const title = `${tool.name}${suffix}`;
-  const description = tool.description;
+  // Search title: the words people search for (see seo-titles.ts).
+  const title = isLive ? (SEO_TITLES[slug] ?? tool.name) : `${tool.name}${suffix}`;
+  // Longer search description when the short registry one would be thin.
+  const description = META_DESCRIPTIONS[slug] ?? tool.description;
   // Resolved at build time: returns `/og/<slug>.png` when the file
   // exists in `public/og/`, else falls back to `/og/default.png`.
   const ogImage = ogImagePath(slug);
@@ -93,6 +98,7 @@ export default async function ToolPage({
       <Header variant="tool" />
       <main id="main" className="flex-1">
         {isLive ? <ToolRenderer slug={slug} tool={tool} /> : <ComingSoon tool={tool} />}
+        {isLive ? <RelatedReading slug={slug} /> : null}
       </main>
       <HomeFooter variant="compact" wide />
     </div>

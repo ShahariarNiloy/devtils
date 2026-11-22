@@ -855,6 +855,9 @@ export const POSTS: readonly BlogPost[] = [
   {
     slug: "decode-jwt-safely",
     title: "How to decode a JWT safely (without pasting it into a random website)",
+    seoTitle: "How to decode a JWT safely, without a random website",
+    seoDescription:
+      "A JWT is Base64URL-encoded JSON. How to read one in your browser or terminal, what each claim means, and the mistakes that leak credentials.",
     description:
       "A JWT is just Base64URL-encoded JSON. Here's how to read one in your browser or terminal, what each claim means, and the mistakes that turn a harmless debug session into a leaked credential.",
     date: PUBLISHED,

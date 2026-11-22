@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OG_HEIGHT, OG_WIDTH, ogPagePath } from "@/lib/og/url";
 import { Header } from "@/components/layout/header";
 import { HomeFooter } from "@/components/layout/home-footer";
 import { ComingNext } from "@/components/site/request/coming-next";
@@ -13,7 +14,11 @@ export const metadata: Metadata = {
   title: "Request a tool",
   description: DESCRIPTION,
   alternates: { canonical: "/request" },
+  twitter: { card: "summary_large_image", images: [ogPagePath("default.png")] },
   openGraph: {
+    images: [
+      { url: ogPagePath("default.png"), width: OG_WIDTH, height: OG_HEIGHT },
+    ],
     type: "website",
     title: `Request a tool · ${SITE_NAME}`,
     description: DESCRIPTION,
@@ -27,19 +32,27 @@ export default function RequestPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
       <Header variant="landing" />
-      <main id="main" className="mx-auto w-full max-w-[1160px] flex-1 px-4 pt-10 pb-[72px] sm:px-6 sm:pt-[72px] sm:pb-24">
+      <main
+        id="main"
+        className="mx-auto w-full max-w-[1160px] flex-1 px-4 pt-10 pb-[72px] sm:px-6 sm:pt-[72px] sm:pb-24"
+      >
         <header className="mb-10 flex flex-col items-start gap-3 text-left">
           <h1 className="m-0 text-[36px] leading-[1.06] font-bold tracking-[-0.045em] sm:text-[clamp(40px,5vw,60px)]">
             Request a tool
           </h1>
           <p className="m-0 max-w-[620px] text-[17px] text-text-muted">
-            Missing something you reach for every day? Tell us. Requests decide what we build next.
+            Missing something you reach for every day? Tell us. Requests decide
+            what we build next.
           </p>
         </header>
 
         <div className="flex flex-wrap items-start gap-7">
           <div className="surface-panel min-w-0 flex-[1.2_1_380px] rounded-[18px] p-[22px]">
-            <RequestForm categories={CATEGORY_OPTIONS} to={SITE_EMAIL} pageUrl={`${SITE_URL}/request`} />
+            <RequestForm
+              categories={CATEGORY_OPTIONS}
+              to={SITE_EMAIL}
+              pageUrl={`${SITE_URL}/request`}
+            />
           </div>
           <ComingNext />
         </div>

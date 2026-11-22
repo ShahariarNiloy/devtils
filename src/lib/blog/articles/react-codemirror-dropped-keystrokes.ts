@@ -11,6 +11,7 @@ const CM_GUIDE = "https://codemirror.net/docs/guide/";
 
 export const post: BlogPost = {
   slug: "react-codemirror-dropped-keystrokes",
+  seoTitle: "Why our code editor dropped keystrokes (a React bug)",
   title: "Why our code editor dropped keystrokes (a React startTransition bug)",
   description:
     "Fast typing in our CodeMirror editor lost and reordered letters. The cause: an echo check plus React's startTransition. A repro, the fix and the test.",

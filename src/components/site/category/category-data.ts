@@ -217,7 +217,7 @@ const COPY: Partial<Record<ToolCategory, CategoryCopy>> = {
   },
   Network: {
     eyebrow: "URLs",
-    lede: "Break URLs into their parts and clean up query strings.",
+    lede: "Break URLs into protocol, host, path, query parameters and fragment, and clean tracking parameters out of query strings — in your browser.",
     guide: [
       {
         t: "A long URL full of parameters",

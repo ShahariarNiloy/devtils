@@ -65,6 +65,8 @@ export function GET(): Response {
     "Allow: /",
     "",
     `Sitemap: ${SITE_URL}/sitemap.xml`,
+    // ARD discovery (agenticresourcediscovery.org §6.1): where the capability manifest lives.
+    `Agentmap: ${SITE_URL}/.well-known/ai-catalog.json`,
     `Host: ${SITE_URL}`,
     "",
   ].join("\n");

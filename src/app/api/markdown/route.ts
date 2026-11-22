@@ -7,7 +7,11 @@ import {
   renderToolsIndexMarkdown,
 } from "@/lib/markdown-render";
 
-export const dynamic = "force-static";
+// Must run per request: the page comes from `?path=`. With "force-static"
+// Next built this once with no query (= the home page) and served that for
+// every path — /auth.md and every /tools/<slug> included. The CDN still
+// caches each `?path=` separately via Cache-Control below.
+export const dynamic = "force-dynamic";
 
 /**
  * Markdown content-negotiation endpoint. Middleware rewrites any request
@@ -28,7 +32,12 @@ export const dynamic = "force-static";
  */
 export function GET(req: Request): Response {
   const url = new URL(req.url);
-  const path = url.searchParams.get("path") ?? "/";
+  // The proxy rewrites `Accept: text/markdown` requests here with `?path=`.
+  // Behind a rewrite the handler can see the ORIGINAL URL (no `?path`,
+  // pathname = the page asked for), so fall back to that pathname — never
+  // to "/", which served the home page for every unknown path.
+  const path =
+    url.searchParams.get("path") ?? (url.pathname.startsWith("/api/markdown") ? "/" : url.pathname);
   const md = renderForPath(path);
 
   if (md === null) {

@@ -57,49 +57,26 @@ const FRAME_DENY = { key: "X-Frame-Options", value: "DENY" };
  *                    just belt-and-braces for crawler tools that read
  *                    headers but not <link rel="canonical">.
  *
- * HTTP allows multiple `Link` headers in a response — we emit each as its
- * own array entry rather than comma-separating them, which is more robust
- * against intermediate proxies that fold headers incorrectly.
+ * All relations go in ONE `Link` header, comma-separated (RFC 8288 §3).
+ * Separate `{ key: "Link" }` entries don't survive: Next.js/Vercel keep only
+ * the last header with a given name, so production sent just `agent-skills`.
  */
-const DISCOVERY_LINK_HEADERS = [
-  {
-    key: "Link",
-    value: '</llms.txt>; rel="describedby"; type="text/markdown"',
-  },
-  {
-    key: "Link",
-    value: '</sitemap.xml>; rel="sitemap"; type="application/xml"',
-  },
-  {
-    key: "Link",
-    value:
-      '</manifest.webmanifest>; rel="manifest"; type="application/manifest+json"',
-  },
-  {
-    // RFC 9727: `rel="api-catalog"` points at the linkset that enumerates
-    // the site's machine-readable surfaces. An agent doing a HEAD on
-    // any page finds the catalog without parsing HTML.
-    key: "Link",
-    value:
-      '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
-  },
-  {
-    // MCP server card (SEP-1649). No registered IANA relation yet, so
-    // we use the spec-conventional `mcp-server-card` extension relation.
-    // Agents that speak MCP find /api/mcp from here without scraping.
-    key: "Link",
-    value:
-      '</.well-known/mcp/server-card.json>; rel="mcp-server-card"; type="application/json"',
-  },
-  {
-    // Agent Skills Discovery RFC v0.2.0. Extension relation since the RFC
-    // is still pre-IANA. Index lists every callable + documented skill
-    // the site exposes; each entry has a sha256 of the SKILL.md body.
-    key: "Link",
-    value:
-      '</.well-known/agent-skills/index.json>; rel="agent-skills"; type="application/json"',
-  },
+const DISCOVERY_LINKS = [
+  // llms.txt describes the site; it's also its service documentation.
+  '</llms.txt>; rel="describedby"; type="text/markdown"',
+  '</llms.txt>; rel="service-doc"; type="text/markdown"',
+  '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+  '</manifest.webmanifest>; rel="manifest"; type="application/manifest+json"',
+  // RFC 9727: the linkset that enumerates the site's machine-readable surfaces.
+  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+  // MCP server card (SEP-1649); extension relation, no IANA entry yet.
+  '</.well-known/mcp/server-card.json>; rel="mcp-server-card"; type="application/json"',
+  // Agent Skills Discovery index; extension relation, pre-IANA.
+  '</.well-known/agent-skills/index.json>; rel="agent-skills"; type="application/json"',
+  // ARD capability manifest (agenticresourcediscovery.org).
+  '</.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/json"',
 ];
+const DISCOVERY_LINK_HEADERS = [{ key: "Link", value: DISCOVERY_LINKS.join(", ") }];
 
 const nextConfig: NextConfig = {
   // Pin Turbopack's workspace root to this app — otherwise it walks up to a

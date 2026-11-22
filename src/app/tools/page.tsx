@@ -1,4 +1,7 @@
 import { Header } from "@/components/layout/header";
+import { CollectionJsonLd } from "@/components/shared/tool-jsonld";
+import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
+import { OG_HEIGHT, OG_WIDTH, ogPagePath } from "@/lib/og/url";
 import { HomeFooter } from "@/components/layout/home-footer";
 import {
   JSON_SECTION,
@@ -10,13 +13,16 @@ import {
 } from "@/components/tools-catalogue/catalogue-data";
 import { ToolsCatalogue } from "@/components/tools-catalogue/tools-catalogue";
 import { SITE_NAME } from "@/lib/site";
-import { TOOL_COUNT } from "@/lib/tools-registry";
+import { TOOL_COUNT, TOOLS } from "@/lib/tools-registry";
 
 export const metadata = {
   title: "All tools",
   description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities. Search by name, tag, or category.`,
   alternates: { canonical: "/tools" },
   openGraph: {
+    images: [
+      { url: ogPagePath("tools.png"), width: OG_WIDTH, height: OG_HEIGHT },
+    ],
     type: "website",
     url: "/tools",
     title: `All tools · ${SITE_NAME}`,
@@ -24,6 +30,7 @@ export const metadata = {
     siteName: SITE_NAME,
   },
   twitter: {
+    images: [ogPagePath("tools.png")],
     card: "summary_large_image",
     title: `All tools · ${SITE_NAME}`,
     description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities.`,
@@ -46,6 +53,18 @@ export default async function ToolsPage({ searchParams }: PageProps<"/tools">) {
         initialQuery={typeof q === "string" ? q : ""}
       />
       <HomeFooter variant="compact" />
+      <CollectionJsonLd
+        name="All tools"
+        path="/tools"
+        description={`${LIVE} free developer tools that run in your browser, grouped by category.`}
+        items={TOOLS.filter(
+          (t) => t.showcase && IMPLEMENTED_TOOL_SLUGS.has(t.slug),
+        ).map((t) => ({ name: t.name, path: `/tools/${t.slug}` }))}
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+        ]}
+      />
     </div>
   );
 }

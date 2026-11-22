@@ -85,3 +85,31 @@ export function spanText(s: Span): string {
 export function spansText(spans: Span[]): string {
   return spans.map(spanText).join("");
 }
+
+/** Every inline link href in a post's body. */
+function linkHrefs(post: BlogPost): string[] {
+  const out: string[] = [];
+  const spans = (list: Span[]) => {
+    for (const s of list) if (typeof s !== "string" && s.t === "link") out.push(s.href);
+  };
+  for (const b of post.blocks) {
+    if (b.k === "p" || b.k === "note" || b.k === "quote") spans(b.s);
+    else if (b.k === "ul" || b.k === "ol") b.items.forEach(spans);
+    else if (b.k === "table") [...b.head, ...b.rows.flat()].forEach(spans);
+  }
+  return out;
+}
+
+/**
+ * Posts about a tool — written for it (`post.tool`) first, then posts that
+ * link to it in the body. Feeds the "Related reading" links on tool pages.
+ */
+export function postsForTool(slug: string, max = 3): BlogPost[] {
+  const href = `/tools/${slug}`;
+  // Practical guides before our engineering write-ups.
+  const own = POSTS.filter((p) => p.tool.href === href).sort(
+    (a, b) => Number(a.tags[0] === "Engineering") - Number(b.tags[0] === "Engineering"),
+  );
+  const mentions = POSTS.filter((p) => !own.includes(p) && linkHrefs(p).some((h) => h === href || h.startsWith(`${href}#`) || h.startsWith(`${href}?`)));
+  return [...own, ...mentions].slice(0, max);
+}
