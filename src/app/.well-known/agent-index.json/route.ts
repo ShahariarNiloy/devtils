@@ -26,7 +26,7 @@ export function GET(): Response {
   const body = {
     name: SITE_NAME,
     description:
-      "Handcrafted developer utilities — JSON, encoding, text, image, regex, and more. Every tool runs entirely in the browser.",
+      "Tools that don't upload your files — JSON, PDF, image, SEO, text, encoding and more. Every tool runs in the browser; nothing leaves your browser.",
     url: SITE_URL,
     publisher: { name: SITE_NAME, url: SITE_URL },
 

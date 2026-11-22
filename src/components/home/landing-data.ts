@@ -98,14 +98,14 @@ export const COMING_NEXT = CATEGORIES.flatMap((c) => {
 
 export const LANDING_FAQ: { q: string; a: string }[] = [
   {
-    q: "Is my data really private?",
-    a: "Yes. Every tool runs entirely in your browser. Nothing you paste is uploaded, logged or stored.",
+    q: "Are my files really never uploaded?",
+    a: "Never. Every tool works inside this page — PDFs, photos, tokens and JSON stay on your device. You can watch the Network tab in DevTools to check.",
   },
   { q: "Is it free?", a: "The core tools are free, forever." },
   { q: "Do I need an account?", a: "No. Open a tool and use it." },
   {
-    q: "Does it work offline?",
-    a: "Yes. Once a tool has loaded, it keeps working without a connection.",
+    q: "Are there limits or watermarks?",
+    a: "No. No daily caps, no file-size paywall, no watermark on what you make. The only limit is your device's memory.",
   },
   {
     q: "Can I paste tokens or keys?",

@@ -52,6 +52,12 @@ import { seoData as metaPreview } from "@/components/tools/meta-preview/content"
 import { seoData as jsonLdGenerator } from "@/components/tools/json-ld-generator/content";
 import { seoData as blurPlaceholder } from "@/components/tools/blur-placeholder/content";
 import { CURL_SEO } from "@/components/tools/curl-converter/content";
+import { seoData as mergePdf } from "@/components/tools/merge-pdf/content";
+import { seoData as signPdf } from "@/components/tools/sign-pdf/content";
+import { seoData as splitPdf } from "@/components/tools/split-pdf/content";
+import { seoData as compressPdf } from "@/components/tools/compress-pdf/content";
+import { seoData as imageToPdf } from "@/components/tools/image-to-pdf/content";
+import { seoData as pdfToImage } from "@/components/tools/pdf-to-image/content";
 import { seoData as jsonDiff } from "@/components/tools/json-diff/content";
 import {
   getSeoData as cssUnitAliasSeo,
@@ -102,6 +108,12 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "meta-preview": metaPreview,
   "json-ld-generator": jsonLdGenerator,
   "blur-placeholder": blurPlaceholder,
+  "merge-pdf": mergePdf,
+  "sign-pdf": signPdf,
+  "split-pdf": splitPdf,
+  "compress-pdf": compressPdf,
+  "image-to-pdf": imageToPdf,
+  "pdf-to-image": pdfToImage,
   // The seven cURL pages share one tool, each with its own copy.
   ...CURL_SEO,
   "json-diff": jsonDiff,

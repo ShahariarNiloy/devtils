@@ -17,6 +17,7 @@ import {
 } from "./image-compressor.constants";
 import { autoFormats, mergeCandidates, signedSavedPct } from "./image-compressor.auto";
 import { CompressionFailure } from "./image-compressor.errors";
+import { decodeHeic as decodeHeicPixels, HeicLoadError } from "./image-compressor.heic";
 import { QUALITY_MODE_DEFS } from "./image-compressor.modes";
 import {
   BUDGET_FAST_PROBES,
@@ -318,61 +319,13 @@ export function detectMetadata(buffer: ArrayBuffer, mime: string): boolean {
   return false;
 }
 
-// ── HEIC/HEIF: decode via libheif-wasm ────────────────────────────
-// @jsquash ships no HEIC codec, so we lean on libheif compiled to WASM.
-// The `wasm-bundle` entry inlines the .wasm as base64, which avoids
-// having to serve a separate binary and works cleanly inside the worker
-// bundle. It's a ~1.4MB lazy chunk, only fetched when a HEIC is decoded.
-
-interface HeifImage {
-  get_width(): number;
-  get_height(): number;
-  /** Fills `target.data` (RGBA) and invokes the callback with the same
-   *  object, or null on a processing error. */
-  display(
-    target: { data: Uint8ClampedArray; width: number; height: number },
-    cb: (out: { data: Uint8ClampedArray } | null) => void,
-  ): void;
-}
-interface HeifDecoderInstance {
-  decode(buffer: Uint8Array): HeifImage[];
-}
-interface LibheifModule {
-  HeifDecoder: new () => HeifDecoderInstance;
-}
-
+// ── HEIC/HEIF: decode via libheif-wasm (see image-compressor.heic.ts) ──
 async function decodeHeic(buffer: ArrayBuffer): Promise<ImageData> {
-  let libheif: LibheifModule;
   try {
-    // The package has no type declarations for the high-level decoder;
-    // the structural cast above covers the surface we touch.
-    const mod = (await import(
-      "libheif-js/wasm-bundle"
-    )) as unknown as { default: LibheifModule };
-    libheif = mod.default;
+    return await decodeHeicPixels(buffer);
   } catch (err) {
-    throw new CodecLoadError("heic", err);
+    throw err instanceof HeicLoadError ? new CodecLoadError("heic", err.reason) : err;
   }
-
-  const decoder = new libheif.HeifDecoder();
-  const images = decoder.decode(new Uint8Array(buffer));
-  if (!images || images.length === 0) {
-    throw new Error("HEIC file contains no decodable image.");
-  }
-  const image = images[0];
-  const width = image.get_width();
-  const height = image.get_height();
-  if (!width || !height) {
-    throw new Error("HEIC image has invalid dimensions.");
-  }
-  const data = new Uint8ClampedArray(width * height * 4);
-  await new Promise<void>((resolve, reject) => {
-    image.display({ data, width, height }, (out) => {
-      if (!out) reject(new Error("Failed to decode HEIC pixel data."));
-      else resolve();
-    });
-  });
-  return new ImageData(data, width, height);
 }
 
 /**

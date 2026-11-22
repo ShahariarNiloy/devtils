@@ -17,7 +17,7 @@ import { decodeShare, encodeShare, readShareFromHash, shareHashFor } from "./dif
 export type ViewMode = "side-by-side" | "unified";
 
 const SAMPLE_LEFT = "# utilyx\n\nFast, private developer tools.\nEverything runs in your browser.\n\nInstall: none\nPrice: free\nTools: 23";
-const SAMPLE_RIGHT = "# utilyx\n\nFast, private, keyboard-first developer tools.\nEverything runs in your browser.\n\nInstall: none\nTools: 34\nOffline: yes";
+const SAMPLE_RIGHT = "# utilyx\n\nTools that don't upload your files.\nNothing leaves your browser.\n\nInstall: none\nTools: 56\nWatermarks: none";
 
 export interface DiffCheckerState {
   left: string;

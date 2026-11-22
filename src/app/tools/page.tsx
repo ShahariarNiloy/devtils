@@ -13,11 +13,12 @@ import {
 } from "@/components/tools-catalogue/catalogue-data";
 import { ToolsCatalogue } from "@/components/tools-catalogue/tools-catalogue";
 import { SITE_NAME } from "@/lib/site";
-import { TOOL_COUNT, TOOLS } from "@/lib/tools-registry";
+import { DISTINCT_LIVE_TOOL_COUNT } from "@/lib/implemented-tools";
+import { TOOLS } from "@/lib/tools-registry";
 
 export const metadata = {
   title: "All tools",
-  description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities. Search by name, tag, or category.`,
+  description: `All ${DISTINCT_LIVE_TOOL_COUNT} ${SITE_NAME} tools for JSON, PDFs, images, SEO and text — none of them upload your files. Search by name, tag, or category.`,
   alternates: { canonical: "/tools" },
   openGraph: {
     images: [
@@ -26,14 +27,14 @@ export const metadata = {
     type: "website",
     url: "/tools",
     title: `All tools · ${SITE_NAME}`,
-    description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+    description: `All ${DISTINCT_LIVE_TOOL_COUNT} ${SITE_NAME} tools for JSON, PDFs, images, SEO and text — none of them upload your files.`,
     siteName: SITE_NAME,
   },
   twitter: {
     images: [ogPagePath("tools.png")],
     card: "summary_large_image",
     title: `All tools · ${SITE_NAME}`,
-    description: `Browse the full ${SITE_NAME} catalogue of ${TOOL_COUNT} client-side developer utilities.`,
+    description: `All ${DISTINCT_LIVE_TOOL_COUNT} ${SITE_NAME} tools for JSON, PDFs, images, SEO and text — none of them upload your files.`,
   },
   robots: { index: true, follow: true },
 };

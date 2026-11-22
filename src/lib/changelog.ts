@@ -21,6 +21,87 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-22",
+    title: "PDF tools",
+    kind: "new",
+    highlights: [
+      "Six new tools: Merge PDF, Split PDF, Compress PDF, Sign PDF, Image to PDF and PDF to image — all in your browser, nothing uploaded.",
+      "Built for big files: a 3,000-page PDF opens in under a second, and a 280 MB PDF merges, splits and signs without freezing the page.",
+      "Sign with a drawn, typed or uploaded signature, plus initials, dates and ticks; drag-to-reveal comparison before you download a compressed PDF.",
+      "Image to PDF takes JPG, PNG, WebP and iPhone HEIC in any browser, turns sideways photos upright, and keeps colour profiles and screenshot sharpness.",
+      "PDF to image exports PNG, JPG or WebP at 72–300 DPI, with transparent backgrounds and a size estimate from a real render.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    title: "cURL converter",
+    kind: "new",
+    highlights: [
+      "Turn any curl command into fetch, axios, Python requests, Go net/http or PHP Guzzle.",
+      "cURL generator builds a command from a form, for bash, cmd or PowerShell.",
+      "Handles the awkward flags — -G, --data-urlencode, -u, file uploads, cookies — and says what it can't translate.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    title: "Blog, RSS and blur placeholders",
+    kind: "new",
+    highlights: [
+      "A blog with deep dives on image formats, JSON, timestamps, URL encoding, hreflang and more — with an RSS feed.",
+      "Blur placeholder tool: LQIP data URLs for next/image and CSS, plus ThumbHash and BlurHash.",
+      "Search-friendly titles and descriptions for every tool and post.",
+    ],
+  },
+  {
+    date: "2026-11-21",
+    title: "New look and 19 new tools",
+    kind: "new",
+    highlights: [
+      "Ten developer tools: UUID/ULID, cron parser, password generator, YAML → JSON, CSV → JSON, Markdown preview, word counter, URL encoder, HTML entities and URL parser.",
+      "Nine SEO tools: three hreflang tools, canonical URLs, robots.txt, sitemap validator, Open Graph, meta preview and JSON-LD.",
+      "JSON formatter v2: lossless big-number formatting, JSON Schema validation, and a problem banner with one-click repair.",
+      "A new ⌘K palette with scopes, recents and actions, and a shortcuts sheet that only lists shortcuts that work.",
+    ],
+  },
+  {
+    date: "2026-06-05",
+    title: "Safer JSON repair",
+    kind: "improved",
+    highlights: [
+      "Repairs are previewed with a risk rating before they're applied, and can be applied inline.",
+      "Image compressor spots CMYK JPEGs and warns before their colours could shift.",
+    ],
+  },
+  {
+    date: "2026-06-01",
+    title: "JSON diff",
+    kind: "new",
+    highlights: [
+      "Compare two JSON documents as a tree, side by side, or as a JSON Patch.",
+      "Differences are structural, so key order and formatting don't count as changes.",
+    ],
+  },
+  {
+    date: "2026-05-31",
+    title: "CSS unit converter",
+    kind: "new",
+    highlights: [
+      "Convert between px, rem, em, %, vw, vh and pt.",
+      "A clamp() builder for fluid type and spacing.",
+      "Large JSON is now parsed and transformed off the main thread.",
+    ],
+  },
+  {
+    date: "2026-05-30",
+    title: "utilyx, and code tools",
+    kind: "new",
+    highlights: [
+      "devtils is now utilyx.",
+      "New tools: code formatter, XML formatter, SQL formatter and diff checker, each with shareable links.",
+      "Social preview images for every tool.",
+    ],
+  },
+  {
     date: "2026-05-29",
     title: "Catalogue browser + SEO foundation",
     kind: "improved",

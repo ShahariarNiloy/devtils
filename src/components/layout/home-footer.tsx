@@ -1,4 +1,4 @@
-import { SITE_NAME } from "@/lib/site";
+import { PRIVACY_PROMISE, SITE_NAME } from "@/lib/site";
 import Link from "next/link";
 import { BrandMark } from "./brand/brand-mark";
 
@@ -84,7 +84,7 @@ export function HomeFooter({ variant = "full", wide = false }: { variant?: "full
         <span className="grow">
           © {new Date().getFullYear()} {SITE_NAME} · made with care
         </span>
-        <span className="font-mono">100% client-side</span>
+        <span className="font-mono">{PRIVACY_PROMISE}</span>
       </div>
     </footer>
   );

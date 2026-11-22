@@ -20,8 +20,8 @@ const PERKS: Perk[] = [
     icon: (<><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" /></>),
   },
   {
-    title: "Offline.", body: "Load once, use anywhere.", stroke: "var(--color-cat-rose)",
-    icon: (<><path d="M2 12a10 10 0 0 1 20 0" /><path d="M5 12a7 7 0 0 1 14 0" /><circle cx="12" cy="12" r="1.5" /></>),
+    title: "No limits.", body: "No caps, no watermarks.", stroke: "var(--color-cat-rose)",
+    icon: <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z" />,
   },
   {
     title: "No account.", body: "Open and go.", stroke: "var(--color-cat-clay)",

@@ -63,7 +63,7 @@ export function renderToolMarkdown(slug: string): string | null {
   lines.push(`status:      ${isLive ? "live" : "coming-soon"}`);
   lines.push(`tags:        ${tool.tags.join(", ")}`);
   if (tool.wasm) lines.push(`runtime:     WebAssembly`);
-  lines.push(`processing:  client-side (browser only)`);
+  lines.push(`processing:  in the browser — nothing leaves your browser`);
   lines.push("```");
   lines.push("");
 
@@ -180,7 +180,7 @@ export function renderHomeMarkdown(): string {
   lines.push("## Privacy");
   lines.push("");
   lines.push(
-    "Every tool runs client-side. Inputs and outputs never reach our servers, never appear in logs, never leave your device.",
+    "Nothing leaves your browser. Every tool works inside the page: inputs and outputs never reach our servers and never appear in logs.",
   );
   lines.push("");
 

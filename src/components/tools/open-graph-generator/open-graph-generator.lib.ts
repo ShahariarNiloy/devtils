@@ -23,8 +23,8 @@ export interface OgFields {
 }
 
 export const SAMPLE_OG: OgFields = {
-  title: "utilyx — every dev tool you need, none you don't",
-  desc: "Format JSON, test regex, decode JWTs and more. Free, private and fast — everything runs in your browser.",
+  title: "utilyx — every tool you need, none you don't",
+  desc: "Merge PDFs, compress images, format JSON, decode JWTs and more. Free, no sign-up — nothing leaves your browser.",
   url: "https://utilyx.dev/",
   image: "https://utilyx.dev/og.png",
   site: "utilyx",

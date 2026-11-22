@@ -17,29 +17,29 @@ const ART = "h-full w-full";
 
 const PILLARS: Pillar[] = [
   {
-    n: "01 · Fast",
+    n: "01 · Private",
+    title: "Nothing leaves your browser",
+    body: "Tools work on your files and pastes right here in the page, so contracts, photos, tokens and payloads are never uploaded. You can check it yourself in DevTools.",
+    foot: "0 bytes of your data sent",
+    art: <LandingPrivateArt className={ART} />,
+  },
+  {
+    n: "02 · Fast",
     title: "Three keystrokes to any tool",
     body: "Press ⌘K anywhere, type a few letters, hit enter. The tool opens with your cursor in the input, and results update as you type.",
     foot: "⌘K → jwt → ↵",
     art: <LandingFastArt className={ART} />,
   },
   {
-    n: "02 · Simple",
+    n: "03 · Simple",
     title: "Paste, and it figures out the rest",
     body: "Tools detect what you pasted and pick sensible defaults. Every tool has the same layout, so once you know one, you know them all. Copy the result in one click.",
     foot: `No sign-up · No setup · Same layout in all ${LIVE_COUNT} tools`,
     art: <LandingSimpleArt className={ART} />,
   },
-  {
-    n: "03 · Private",
-    title: "What you paste stays on your device",
-    body: "Tools process your input in the browser, so tokens and payloads aren't uploaded to us. You can check it yourself in DevTools.",
-    foot: "0 requests when you paste",
-    art: <LandingPrivateArt className={ART} />,
-  },
 ];
 
-/** "Why utilyx — Fast. Simple. Private." Three pillars with line art. */
+/** "Why utilyx — Private. Fast. Simple." Three pillars with line art. */
 export function WhySection() {
   return (
     // PauseOffscreen: the drawings' dash animations tick on the main thread,
@@ -53,11 +53,11 @@ export function WhySection() {
         <div className="flex flex-col items-center gap-2.5 text-center">
           <span className="font-mono text-xs text-clay-light">Why utilyx</span>
           <h2 className="m-0 text-[clamp(30px,3.4vw,40px)] leading-[1.12] text-text">
-            Fast. Simple. Private.
+            Private. Fast. Simple.
           </h2>
           <p className="m-0 max-w-[560px] text-[17px] leading-[1.6] text-text-tertiary">
-            The three things a tool you open twenty times a day has to get
-            right.
+            The three things a tool you trust with your files, and open twenty
+            times a day, has to get right.
           </p>
         </div>
         <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-3.5 p-0">

@@ -216,12 +216,50 @@ const COPY: Partial<Record<ToolCategory, CategoryCopy>> = {
     ],
   },
   Network: {
-    eyebrow: "URLs",
-    lede: "Break URLs into protocol, host, path, query parameters and fragment, and clean tracking parameters out of query strings — in your browser.",
+    eyebrow: "HTTP and URLs",
+    lede: "Turn a copied curl command into fetch, axios, Python, Go or PHP, build curl commands from a form, and take URLs apart — in your browser, with tokens kept out of the code.",
     guide: [
+      {
+        t: "A request copied from DevTools",
+        d: "cURL to code turns it into working code, with secrets read from environment variables.",
+      },
+      {
+        t: "A request you need to send from a terminal",
+        d: "The cURL generator writes a command quoted correctly for bash, cmd or PowerShell.",
+      },
       {
         t: "A long URL full of parameters",
         d: "URL parser splits it into parts so you can read, edit or drop query params.",
+      },
+    ],
+  },
+  PDF: {
+    eyebrow: "Documents",
+    lede: "Merge, split, compress and sign PDFs, and convert images to PDF and back, in your browser. Your files are read and written on your device — no upload, no size limit, no daily cap.",
+    guide: [
+      {
+        t: "Several PDFs that belong together",
+        d: "Merge PDF joins them, and lets you reorder, rotate or drop pages first.",
+      },
+      {
+        t: "One big PDF you only need part of",
+        d: "Split PDF pulls out the pages you want, or cuts it into ranges.",
+      },
+      {
+        t: "A PDF too big to email",
+        d: "Compress PDF shrinks the photos and scans inside; the text stays sharp.",
+      },
+      {
+        t: "A contract or form to sign",
+        d: "Sign PDF places your signature, initials and the date, and writes them into the pages.",
+      },
+      {
+        t: "Photos or screenshots that should be one file",
+        d: "Image to PDF puts them on pages in the order you choose — JPG, PNG, WebP or iPhone HEIC.",
+      },
+      {
+        t: "Pages you need as pictures",
+        d: "PDF to image saves pages as PNG, JPG or WebP for slides, chats or print.",
       },
     ],
   },

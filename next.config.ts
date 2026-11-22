@@ -120,6 +120,12 @@ const nextConfig: NextConfig = {
       // but mandatory for the spec) and tells crawlers the new URL is
       // canonical so the link equity transfers.
       { source: "/tools/code-beautifier", destination: "/tools/code-formatter", permanent: true },
+      // PDF placeholders renamed when the tools were built, to the names
+      // people search for.
+      { source: "/tools/pdf-merger", destination: "/tools/merge-pdf", permanent: true },
+      { source: "/tools/pdf-splitter", destination: "/tools/split-pdf", permanent: true },
+      { source: "/tools/pdf-compressor", destination: "/tools/compress-pdf", permanent: true },
+      { source: "/tools/pdf-to-images", destination: "/tools/pdf-to-image", permanent: true },
     ];
   },
 };

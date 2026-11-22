@@ -20,6 +20,7 @@ const ORDER: ToolCategory[] = [
   "Calc",
   "Security",
   "Network",
+  "PDF",
 ];
 
 /** One-line card descriptions from the board. */
@@ -33,7 +34,8 @@ const DESC: Partial<Record<ToolCategory, string>> = {
   Design: "Colour formats and CSS units.",
   Calc: "Timestamps, UUIDs, cron and file permissions.",
   Security: "Decode and verify JWTs, generate passwords.",
-  Network: "Take a URL apart into protocol, host, path and query.",
+  Network: "Turn curl commands into code, build new ones, and take URLs apart.",
+  PDF: "Merge, split, compress, sign and convert PDFs without uploading them.",
 };
 
 /** Short display names where the category key reads badly on a card. */
@@ -41,7 +43,7 @@ const NAMES: Partial<Record<ToolCategory, string>> = { Calc: "Time & IDs" };
 
 /** Board badges: SEO is the newest category; one with nothing live yet is "Soon". */
 function badgeFor(c: ToolCategory, live: number): BrowseCategory["badge"] {
-  if (c === "SEO") return "New";
+  if (c === "SEO" || c === "PDF") return "New";
   if (live === 0) return "Soon";
   return null;
 }

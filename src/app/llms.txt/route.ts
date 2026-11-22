@@ -28,8 +28,8 @@ export function GET(): Response {
   const lines: string[] = [
     `# ${SITE_NAME}`,
     "",
-    "> Handcrafted developer utilities — JSON, encoding, text, image, regex, and more.",
-    "> Every tool runs entirely in the browser. Nothing leaves your device.",
+    "> Tools that don't upload your files — JSON, PDF, image, SEO, text, encoding and more.",
+    "> Every tool runs in the browser. Nothing leaves your browser.",
     "",
     "## About",
     "",

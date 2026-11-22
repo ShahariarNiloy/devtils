@@ -128,10 +128,16 @@ function titleSize(s: string, big: number): number {
   return big;
 }
 
-/** One tool: keycap glyph in the category colour, name, tagline. */
-export function ToolCard({ tool }: { tool: Tool }): ReactElement {
+/** A tool's accent: its category colour. */
+export const toolTint = (tool: Tool): string => TINT_HEX[CATEGORY_TINT[tool.category]];
+
+/**
+ * One tool: keycap glyph in the category colour, name, tagline. `icon` (an
+ * image URL) replaces the glyph when the card's fonts can't draw it.
+ */
+export function ToolCard({ tool, icon }: { tool: Tool; icon?: string }): ReactElement {
   const p = TOOL_PRESENTATION[tool.slug];
-  const tint = TINT_HEX[CATEGORY_TINT[tool.category]];
+  const tint = toolTint(tool);
   const tagline = p?.tagline ?? tool.description;
   return (
     <Frame
@@ -158,7 +164,8 @@ export function ToolCard({ tool }: { tool: Tool }): ReactElement {
             fontSize: (p?.glyph ?? "").length > 3 ? 34 : 50,
           }}
         >
-          {p?.glyph ?? tool.name.slice(0, 2)}
+          {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders <img>, not next/image */}
+          {icon ? <img src={icon} width={76} height={76} alt="" /> : (p?.glyph ?? tool.name.slice(0, 2))}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
           <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 600, fontSize: titleSize(tool.name, 80), lineHeight: 1.02 }}>
@@ -174,14 +181,14 @@ export function ToolCard({ tool }: { tool: Tool }): ReactElement {
 /** Home page and any page without its own card. */
 export function DefaultCard(): ReactElement {
   return (
-    <Frame footLeft={SITE_DOMAIN} footRight={`${DISTINCT_LIVE_TOOL_COUNT} tools · free · in your browser`}>
+    <Frame footLeft={SITE_DOMAIN} footRight={`${DISTINCT_LIVE_TOOL_COUNT} tools · free · no uploads`}>
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", fontFamily: DISPLAY, fontWeight: 600, fontSize: 92, lineHeight: 1.02 }}>
           <div style={{ display: "flex" }}>Every tool you need.</div>
           <div style={{ display: "flex", color: MUTED }}>None you don&apos;t.</div>
         </div>
         <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
-          JSON, regex, JWTs, images — fast, keyboard-first, in your browser.
+          PDFs, images, JSON, SEO — nothing leaves your browser.
         </div>
       </div>
     </Frame>

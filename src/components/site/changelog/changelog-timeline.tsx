@@ -76,7 +76,7 @@ export function ChangelogTimeline({ releases, tags }: { releases: ReleaseView[];
 
       <ol className="m-0 ml-1.5 flex list-none flex-col border-l border-white/10 p-0">
         {shown.map((r) => (
-          <li key={r.date} className="relative pb-9 pl-7">
+          <li key={`${r.date}:${r.title}`} className="relative pb-9 pl-7">
             <span
               aria-hidden="true"
               className={cn(

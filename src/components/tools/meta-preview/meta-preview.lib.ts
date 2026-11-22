@@ -37,7 +37,7 @@ export interface MetaFields {
 }
 
 export const SAMPLE_META: MetaFields = {
-  title: "JSON Formatter & Validator — Free, Private, Works Offline | utilyx",
+  title: "JSON Formatter & Validator — Free, Private, No Upload | utilyx",
   desc: "Format, validate, repair and explore JSON in your browser. Tree, table and JSONPath views, ten output formats, and nothing ever leaves your device. No sign-up needed.",
   url: "https://utilyx.dev/tools/json-formatter",
 };

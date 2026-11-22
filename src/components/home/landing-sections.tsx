@@ -230,7 +230,7 @@ export function InstallSection() {
           <h3 className="m-0 font-sans text-lg font-bold">Install as an app</h3>
           <p className="m-0 text-sm text-text-tertiary">
             Click install in your browser&apos;s address bar. utilyx opens in
-            its own window and works fully offline.
+            its own window, one click from your dock.
           </p>
           <InstallButton />
         </div>

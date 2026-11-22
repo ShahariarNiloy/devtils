@@ -22,7 +22,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: "Does my data leave my browser?",
-        a: "No. Every tool runs entirely in your browser. Nothing you paste is uploaded, logged or stored on a server. The only request a tool makes is one you ask for, like loading JSON from a URL in the JSON formatter, which your browser fetches directly.",
+        a: "No — nothing leaves your browser. Every tool works inside the page, so nothing you paste or drop in (JSON, tokens, PDFs, photos) is uploaded, logged or stored on a server. The only request a tool makes is one you ask for, like loading JSON from a URL in the JSON formatter, which your browser fetches directly.",
       },
       {
         q: "Can I paste tokens, keys or customer data?",

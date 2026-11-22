@@ -37,7 +37,7 @@ const SAMPLES: Record<Exclude<Flavor, "auto">, string> = {
   soap: `<?xml version="1.0"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://example.com/stock"><soap:Header><m:Trans soap:mustUnderstand="1">234</m:Trans></soap:Header><soap:Body><m:GetStockPrice><m:StockName>IBM</m:StockName></m:GetStockPrice></soap:Body></soap:Envelope>`,
   rss: `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>utilyx blog</title><link>https://utilyx.dev</link><description>Handcrafted developer utilities</description><item><title>SQL formatter ships with 10 dialects</title><link>https://utilyx.dev/blog/sql</link><pubDate>Mon, 25 May 2026 09:00:00 GMT</pubDate><description><![CDATA[Format <em>any</em> SQL dialect locally.]]></description></item></channel></rss>`,
+<rss version="2.0"><channel><title>utilyx blog</title><link>https://utilyx.dev</link><description>Tools that don't upload your files</description><item><title>SQL formatter ships with 10 dialects</title><link>https://utilyx.dev/blog/sql</link><pubDate>Mon, 25 May 2026 09:00:00 GMT</pubDate><description><![CDATA[Format <em>any</em> SQL dialect locally.]]></description></item></channel></rss>`,
   atom: `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"><title>utilyx blog</title><link href="https://utilyx.dev/atom"/><id>https://utilyx.dev/</id><updated>2026-05-25T09:00:00Z</updated><entry><title>XML formatter ships</title><link href="https://utilyx.dev/blog/xml"/><id>tag:utilyx.dev,2026:xml</id><updated>2026-05-25T09:00:00Z</updated><summary>Now with SOAP, RSS, Atom, POM and SVG presets.</summary></entry></feed>`,
   pom: `<?xml version="1.0" encoding="UTF-8"?>

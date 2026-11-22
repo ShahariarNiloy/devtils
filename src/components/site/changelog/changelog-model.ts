@@ -4,7 +4,7 @@ import type { ChangelogEntry } from "@/lib/changelog";
 export type ReleaseTag = "New" | "Improved" | "Fixed";
 
 export interface ReleaseView {
-  /** ISO date, used for `<time dateTime>` and as the React key. */
+  /** ISO date, for `<time dateTime>`. Several releases can share a day, so keys pair it with the title. */
   date: string;
   /** Pre-formatted on the server so the client never re-formats. */
   dateLabel: string;

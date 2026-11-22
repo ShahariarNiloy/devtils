@@ -54,7 +54,7 @@ export const seoData = {
         {
           question: "Does my text leave the page?",
           answer:
-            "No. Conversion is pure client-side. Safe for proprietary identifier lists, internal API names, and sensitive payloads.",
+            "No — nothing leaves your browser. Safe for proprietary identifier lists, internal API names, and sensitive payloads.",
         },
       ],
   relatedSlugs: ["text-to-slug", "base64", "url-encoder", "regex-tester"],

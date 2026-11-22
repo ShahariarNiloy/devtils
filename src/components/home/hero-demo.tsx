@@ -33,7 +33,7 @@ export function HeroDemo() {
           </span>
         </span>
         <span className="font-mono text-[11px] text-success">
-          ● offline-ready
+          ● nothing uploaded
         </span>
       </div>
 

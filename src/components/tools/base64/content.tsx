@@ -34,7 +34,7 @@ export const seoData = {
         {
           question: "Does my input leave my browser?",
           answer:
-            "No. All encoding, decoding, and file processing happen client-side. Safe to use with API keys, tokens, and confidential blobs.",
+            "No — nothing leaves your browser. Encoding, decoding and file processing all happen in the page. Safe to use with API keys, tokens, and confidential blobs.",
         },
         {
           question: "Why does my decoded text look like garbage?",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HeroKeyfield } from "./hero-keyfield";
+import { PRIVACY_PROMISE } from "@/lib/site";
 import { LIVE_COUNT } from "./landing-data";
 
 export function LandingHero() {
@@ -19,7 +20,7 @@ export function LandingHero() {
         href="/#changelog"
         className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-clay-light/40 bg-[rgba(26,20,14,.7)] px-3.5 py-1.5 text-[13px] text-clay-cream hover:text-clay-cream"
       >
-        {LIVE_COUNT} tools live · 100% client-side
+        {LIVE_COUNT} tools live · {PRIVACY_PROMISE.toLowerCase()}
         <svg
           width="14"
           height="14"
@@ -40,9 +41,9 @@ export function LandingHero() {
         None you don&apos;t.
       </h1>
       <p className="relative mt-6 max-w-[540px] text-[17px] leading-[1.55] text-pretty text-text-muted sm:text-[19px]">
-        {/* U+2011 non-breaking hyphen: never split "keyboard-first" across lines. */}
-        JSON, regex, JWTs, colors and encoding — fast, keyboard‑first, and
-        running entirely in your browser.
+        Merge PDFs, compress images, format JSON, decode tokens — {LIVE_COUNT}{" "}
+        tools that work right here in the page. Your files and pastes are never
+        sent anywhere.
       </p>
       <div className="relative mt-9 flex flex-wrap justify-center gap-3">
         <Link
@@ -62,7 +63,7 @@ export function LandingHero() {
         </Link>
       </div>
       <p className="relative mt-[18px] font-mono text-xs text-text-faint">
-        No sign-up · No uploads · Works offline
+        No sign-up · No uploads · No watermarks
       </p>
     </section>
   );

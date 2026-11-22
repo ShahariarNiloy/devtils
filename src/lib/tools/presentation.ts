@@ -14,7 +14,7 @@ export type Tint = "clay" | "teal" | "sage" | "rose";
 export const CATEGORY_TINT: Record<ToolCategory, Tint> = {
   JSON: "clay",
   Security: "clay",
-  PDF: "clay",
+  PDF: "rose",
   Code: "teal",
   Image: "teal",
   Network: "teal",
@@ -87,6 +87,12 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   "curl-to-python": { glyph: "$_", task: "convert", label: "cURL → Python", desc: "curl as Python requests", tagline: "Turn any curl command into Python requests code." },
   "curl-to-go": { glyph: "$_", task: "convert", label: "cURL → Go", desc: "curl as Go net/http", tagline: "Turn any curl command into Go net/http code." },
   "curl-to-php": { glyph: "$_", task: "convert", label: "cURL → PHP", desc: "curl as PHP Guzzle", tagline: "Turn any curl command into PHP code using Guzzle." },
+  "merge-pdf": { glyph: "⧉", task: "convert", desc: "Combine, reorder, rotate pages", tagline: "Combine, reorder and rotate pages — without uploading." },
+  "sign-pdf": { glyph: "✍", task: "generate", desc: "Draw, type or upload a signature", tagline: "Add your signature to a PDF — it never leaves your browser." },
+  "split-pdf": { glyph: "✂", task: "convert", desc: "Pages, ranges or every page", tagline: "Pick pages, split every page, or cut it into ranges." },
+  "compress-pdf": { glyph: "⇲", task: "convert", desc: "Smaller PDFs, text stays sharp", tagline: "Shrink photos and scans inside a PDF — text stays sharp." },
+  "image-to-pdf": { glyph: "▣", task: "convert", desc: "Photos and scans into one PDF", tagline: "Photos, scans and screenshots into one PDF — no upload." },
+  "pdf-to-image": { glyph: "▤", task: "convert", desc: "Pages to PNG, JPG, WebP", tagline: "Turn PDF pages into PNG, JPG or WebP — on your device." },
   "url-parser": { glyph: "://", task: "inspect", desc: "Break a URL into its parts", tagline: "Break a URL into parts and clean up its query string." },
   "hreflang-generator": { glyph: "hl", task: "generate", desc: "Tags for every language and region", tagline: "Build hreflang tags for every language and region, with x-default." },
   "hreflang-validator": { glyph: "hl✓", task: "inspect", desc: "Find hreflang mistakes on a page", tagline: "Paste a page's head and find every hreflang mistake." },
@@ -110,4 +116,5 @@ export const CATEGORY_GLYPH: Partial<Record<ToolCategory, string>> = {
   Image: "▢",
   Network: "⇄",
   SEO: "SEO",
+  PDF: "▤",
 };

@@ -53,6 +53,18 @@ export const META_DESCRIPTIONS: Record<string, string> = {
     "Convert a curl command to Go net/http code that compiles: headers, JSON and form bodies, multipart uploads, basic auth and timeouts. Free, in your browser.",
   "curl-to-php":
     "Convert a curl command to PHP Guzzle code: headers, query, json, form_params, multipart, auth and timeout options. Free, runs in your browser.",
+  "merge-pdf":
+    "Merge PDF files in your browser: reorder, rotate or delete pages, then download one PDF. No upload, no size limit, no daily cap. Free, no sign-up.",
+  "sign-pdf":
+    "Sign a PDF in your browser: draw, type or upload your signature, add initials, dates and text, and download. Nothing is uploaded. Free, no account.",
+  "split-pdf":
+    "Split a PDF in your browser: pick pages, save every page as its own file, or cut it into ranges. Pages keep full quality. No upload, free.",
+  "compress-pdf":
+    "Compress a PDF in your browser: photos and scans shrink, text stays sharp, colours stay true. Compare pages before you download. No upload.",
+  "image-to-pdf":
+    "Convert JPG, PNG, WebP and iPhone HEIC images to one PDF in your browser. Reorder, rotate, A4 or Letter, no watermark, no upload. Free.",
+  "pdf-to-image":
+    "Convert PDF pages to PNG, JPG or WebP at 72, 150 or 300 DPI, with transparent backgrounds and ZIP download. Runs in your browser, no upload.",
   "meta-preview":
     "See how your page title and meta description will look in search results, with pixel-width checks for truncation. Free, runs in your browser.",
 };

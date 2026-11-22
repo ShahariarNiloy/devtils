@@ -26,16 +26,22 @@ export const SITE_URL =
 /** Bare domain (no scheme) for display, robots host, structured data. */
 export const SITE_DOMAIN = "utilyx.dev";
 
+/**
+ * The brand promise, word for word. Use this phrase — not "client-side",
+ * "100% local" or other variants — wherever the site states it.
+ */
+export const PRIVACY_PROMISE = "Nothing leaves your browser";
+
 /** Default meta description — long form. */
 export const SITE_DESCRIPTION =
-  "Format JSON, convert cases, encode Base64, test regex, and convert colors. Fast, keyboard-first, and beautifully designed — every tool runs in your browser.";
+  "Free tools for JSON, PDFs, images, SEO and text that never upload your files. Merge and sign PDFs, compress images, format JSON, decode JWTs — nothing leaves your browser, no sign-up, no watermarks.";
 
 /** Short description for OG / Twitter / per-page fallbacks. */
 export const SITE_DESCRIPTION_SHORT =
-  "A curated set of polished, client-side developer tools. JSON, encoding, text, image, regex, and more.";
+  "Tools for JSON, PDFs, images, SEO and text that never upload your files. Nothing leaves your browser.";
 
 /** Tagline pairing with the brand name in titles. */
-export const SITE_TAGLINE = "handcrafted developer utilities";
+export const SITE_TAGLINE = "tools that don't upload your files";
 
 /** Composed default title: `${SITE_NAME} — ${SITE_TAGLINE}`. */
 export const SITE_TITLE_DEFAULT = `${SITE_NAME} — ${SITE_TAGLINE}`;

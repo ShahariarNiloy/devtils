@@ -23,12 +23,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { ImageResponse } from "next/og";
-import type { ReactElement } from "react";
+import { createElement, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { iconForTool } from "@/components/shared/key-icon";
 import { buildCategoryView, categorySlug, NON_EMPTY_CATEGORIES } from "@/components/site/category/category-data";
 import { BLOG_DESCRIPTION } from "@/lib/blog/seo";
 import { POSTS } from "@/lib/blog/posts";
 import { IMPLEMENTED_TOOL_SLUGS } from "@/lib/implemented-tools";
-import { BlogCard, DefaultCard, OG_SIZE, PageCard, ToolCard } from "@/lib/og/card";
+import { BlogCard, DefaultCard, OG_SIZE, PageCard, ToolCard, toolTint } from "@/lib/og/card";
+import { TOOL_PRESENTATION } from "@/lib/tools/presentation";
 import { TOOLS } from "@/lib/tools-registry";
 
 const OUT_DIR = join(process.cwd(), "public", "og");
@@ -51,8 +54,35 @@ async function loadFonts(): Promise<Font[]> {
   ]);
 }
 
+/** Code points a TrueType font can draw (cmap format 4 — the BMP). */
+function codePoints(font: Buffer): Set<number> {
+  const has = new Set<number>();
+  const tables = font.readUInt16BE(4);
+  let cmap = 0;
+  for (let i = 0; i < tables; i++) if (font.toString("latin1", 12 + i * 16, 16 + i * 16) === "cmap") cmap = font.readUInt32BE(12 + i * 16 + 8);
+  for (let i = 0; i < font.readUInt16BE(cmap + 2); i++) {
+    const sub = cmap + font.readUInt32BE(cmap + 4 + i * 8 + 4);
+    if (font.readUInt16BE(sub) !== 4) continue;
+    const segs = font.readUInt16BE(sub + 6) / 2;
+    for (let s = 0; s < segs; s++) {
+      const end = font.readUInt16BE(sub + 14 + s * 2);
+      const start = font.readUInt16BE(sub + 16 + segs * 2 + s * 2);
+      for (let c = start; c <= end && c !== 0xffff; c++) has.add(c);
+    }
+  }
+  return has;
+}
+
 (async () => {
   const fonts = await loadFonts();
+  const drawable = new Set(fonts.flatMap((f) => [...codePoints(f.data)]));
+  /** The tool's site icon as an SVG data URL, when its keycap glyph would render as boxes. */
+  const iconFor = (tool: (typeof TOOLS)[number]): string | undefined => {
+    const glyph = TOOL_PRESENTATION[tool.slug]?.glyph;
+    if (!glyph || [...glyph].every((c) => drawable.has(c.codePointAt(0) ?? 0))) return undefined;
+    const svg = renderToStaticMarkup(createElement(iconForTool(tool), { size: 76, color: toolTint(tool), strokeWidth: 1.75 }));
+    return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+  };
   let total = 0;
   let count = 0;
 
@@ -70,7 +100,7 @@ async function loadFonts(): Promise<Font[]> {
   await render(DefaultCard(), "default.png");
 
   for (const tool of TOOLS.filter((t) => IMPLEMENTED_TOOL_SLUGS.has(t.slug))) {
-    await render(ToolCard({ tool }), `${tool.slug}.png`);
+    await render(ToolCard({ tool, icon: iconFor(tool) }), `${tool.slug}.png`);
   }
 
   await render(
