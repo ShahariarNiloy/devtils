@@ -40,4 +40,6 @@ export type { SeoRowColumn, CounterTone } from "./seo-fields";
 export { SeoChecks, SeoTable, SeoCodePanel, useCopy, downloadText } from "./seo-results";
 export type { SeoTableRow, SeoMenuItem } from "./seo-results";
 export { SeoSerpCard, SeoSocialCards } from "./seo-previews";
+export { SeoLoadUrl } from "./seo-load-url";
+export { loadPage, type LoadedPage } from "./load-page";
 export * from "./seo.lib";

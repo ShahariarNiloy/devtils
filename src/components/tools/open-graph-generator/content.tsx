@@ -2,7 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro:
-    "Write the Open Graph and Twitter card tags a page needs, check them as you type, and see a large share card and a compact link preview side by side. Title and description counters turn amber when text is short and red when it will be cut off. The tool flags a missing or relative image, a missing og:url and malformed handles, then gives you the meta tags to paste into your <head>. Nothing is fetched: the preview uses a placeholder instead of loading your image.",
+    "Write the Open Graph and Twitter card tags a page needs, check them as you type, and see a large share card and a compact link preview side by side. Title and description counters turn amber when text is short and red when it will be cut off. The tool flags a missing or relative image, a missing og:url and malformed handles, then gives you the meta tags to paste into your <head>. The preview loads your real image, crops it the way platforms do, and checks its actual size and shape — or try a local image before you host it.",
   usesNote: "Better link previews on every platform.",
   useCases: [
     { title: "Launch pages", description: "Make sure shared links show a title, image and description." },
@@ -13,7 +13,7 @@ export const seoData = {
     {
       question: "What image size?",
       answer:
-        "1200 × 630 pixels works for large cards everywhere. The generated tags declare that size, so use an image with those dimensions or edit og:image:width and og:image:height after copying. The small summary card uses a square image, so no size is declared for it.",
+        "1200 × 630 pixels (1.91:1) works for large cards everywhere; small summary cards use a square of at least 144 × 144. The tool measures your real image and declares its actual size in og:image:width and og:image:height, so platforms can lay out the card before the image loads.",
     },
     {
       question: "Why does my old preview still show?",
@@ -24,9 +24,9 @@ export const seoData = {
       answer: "Only twitter:card. Others fall back to the og: tags.",
     },
     {
-      question: "Why isn't my real image in the preview?",
+      question: "Does the preview load my image?",
       answer:
-        "The tool never makes network requests, so it doesn't load the image URL. The preview shows where the image goes and how the title and description will be cut.",
+        "Yes — your browser loads it straight from where it's hosted, without telling that site which page asked. If it doesn't load (a 404, a login, or a host that blocks other sites), the tool says so. Previewing a local image never uploads it.",
     },
     {
       question: "Which image formats work?",
@@ -34,7 +34,7 @@ export const seoData = {
         "PNG and JPG are safe everywhere, and WebP works on most platforms. SVG isn't supported by most of them, so the tool warns you if the image URL ends in .svg.",
     },
   ],
-  relatedSlugs: ["meta-preview", "json-ld-generator", "canonical-generator", "hreflang-generator"],
+  relatedSlugs: ["seo-checker", "meta-preview", "json-ld-generator", "canonical-generator"],
 } as const;
 
 export function OpenGraphGeneratorContent() {

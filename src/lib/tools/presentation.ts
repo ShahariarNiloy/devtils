@@ -102,6 +102,7 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   "sitemap-validator": { glyph: "sm✓", task: "inspect", desc: "Catch sitemap format errors", tagline: "Paste a sitemap and catch format, URL and date errors." },
   "open-graph-generator": { glyph: "og", task: "generate", desc: "Share-card tags and preview", tagline: "Write share-card tags and preview how links will look." },
   "meta-preview": { glyph: "srp", task: "inspect", desc: "Title and description fit", tagline: "See how your title and description fit in search results." },
+  "seo-checker": { glyph: "seo", task: "inspect", desc: "Audit any page like a search engine", tagline: "See any page the way search engines and social apps do — and what to fix." },
   "json-ld-generator": { glyph: "{L}", task: "generate", desc: "Structured data for rich results", tagline: "Structured data for articles, products, organisations, FAQs and breadcrumbs." },
 };
 

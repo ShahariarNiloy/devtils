@@ -85,6 +85,7 @@ const LOADERS: Record<LiveSlug, ToolComponent> = {
   "open-graph-generator": dynamic(() => import("@/components/tools/open-graph-generator").then((m) => m.OpenGraphGenerator)),
   "meta-preview": dynamic(() => import("@/components/tools/meta-preview").then((m) => m.MetaPreview)),
   "json-ld-generator": dynamic(() => import("@/components/tools/json-ld-generator").then((m) => m.JsonLdGenerator)),
+  "seo-checker": dynamic(() => import("@/components/tools/seo-checker").then((m) => m.SeoChecker)),
 };
 
 /** Renders a live tool by slug, loading only that tool's code. */

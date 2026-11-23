@@ -44,6 +44,7 @@ import {
   Pilcrow,
   Regex,
   Ruler,
+  ScanSearch,
   Scissors,
   Search,
   Share2,
@@ -140,6 +141,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   "open-graph-generator": Share2,
   "meta-preview": AppWindow,
   "json-ld-generator": Tags,
+  "seo-checker": ScanSearch,
 };
 
 const CATEGORY_ICONS: Record<ToolCategory, LucideIcon> = {

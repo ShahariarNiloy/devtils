@@ -8,6 +8,7 @@ import type { Tool } from "@/lib/tools-registry";
 import { SeoChecks, SeoCodePanel, SeoField, SeoTable, SeoTextArea, SeoWorkspace, countChecks } from "../seo-shared";
 import { SAMPLE_SITEMAP, validateSitemap } from "./sitemap-validator.lib";
 import { SitemapValidatorContent, seoData } from "./content";
+import { SeoLoadUrl, type LoadedPage } from "../seo-shared";
 
 export function SitemapValidator({ tool }: { tool: Tool }) {
   const [xml, setXml] = useState(SAMPLE_SITEMAP);
@@ -23,6 +24,21 @@ export function SitemapValidator({ tool }: { tool: Tool }) {
   return (
     <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
       <SeoWorkspace
+        top={
+          <SeoLoadUrl
+            label="Load a live sitemap"
+            placeholder="example.com/sitemap.xml"
+            // A bare domain means its usual sitemap.
+            prepare={(u) => (/^(?:https?:\/\/)?[^/]+\/?$/i.test(u) ? `${u.replace(/\/$/, "")}/sitemap.xml` : u)}
+            onLoad={(p: LoadedPage) => {
+              if (p.page.status !== 200) throw new Error(`${p.page.finalUrl} answered ${p.page.status}.`);
+              if (!/<(urlset|sitemapindex)\b/i.test(p.page.body)) throw new Error("That address isn't a sitemap (no <urlset> or <sitemapindex>).");
+              flushPendingEdits();
+              setXml(p.page.body);
+              return `Loaded ${p.page.finalUrl}${p.page.truncated ? " — only the first 2 MB, so the end may be cut off" : ""}.`;
+            }}
+          />
+        }
         counts={countChecks(report.checks)}
         detail={tool.name}
         form={

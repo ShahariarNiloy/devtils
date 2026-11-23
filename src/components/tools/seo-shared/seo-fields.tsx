@@ -25,7 +25,7 @@ interface SeoFieldProps {
   counter?: string;
   counterTone?: CounterTone;
   /** Muted helper line under the control. */
-  hint?: string;
+  hint?: ReactNode;
   children: ReactNode;
 }
 

@@ -53,6 +53,7 @@ const LIVE = [
   "open-graph-generator",
   "meta-preview",
   "json-ld-generator",
+  "seo-checker",
   "blur-placeholder",
   "merge-pdf",
   "sign-pdf",

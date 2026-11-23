@@ -32,8 +32,10 @@ import {
   presetRules,
   testPath,
   type RobotsRule,
+  parseRobotsTxt,
 } from "./robots-txt-generator.lib";
 import { Dropdown } from "@/components/primitives/select";
+import { SeoLoadUrl, type LoadedPage } from "../seo-shared";
 
 const COLUMNS: readonly SeoRowColumn<keyof RobotsRule>[] = [
   { key: "ua", label: "User-agent", flex: "1 1 110px" },
@@ -60,7 +62,24 @@ export function RobotsTxtGenerator({ tool }: { tool: Tool }) {
       <SeoWorkspace
         counts={countChecks(checks)}
         detail={tool.name}
-        top={<SeoPresets presets={PRESETS} onPick={(id) => setRules(presetRules(id))} />}
+        top={
+          <>
+            <SeoPresets presets={PRESETS} onPick={(id) => setRules(presetRules(id))} />
+            <SeoLoadUrl
+              label="Load a site's robots.txt"
+              placeholder="example.com"
+              onLoad={(p: LoadedPage) => {
+                const site = new URL(p.page.finalUrl).hostname;
+                if (!p.robots || p.robots.status !== 200) throw new Error(`${site} has no robots.txt — everything may be crawled.`);
+                const parsed = parseRobotsTxt(p.robots.text);
+                setRules(parsed.rules);
+                setSitemap(parsed.sitemaps[0] ?? "");
+                setDelay(parsed.delay);
+                return `Loaded ${parsed.rules.length} rule${parsed.rules.length === 1 ? "" : "s"} from ${site}/robots.txt${parsed.sitemaps.length > 1 ? ` (${parsed.sitemaps.length} sitemaps; the first is shown)` : ""}.`;
+              }}
+            />
+          </>
+        }
         form={
           <>
             <SeoField label="Rules (user-agent · allow or disallow · path)">

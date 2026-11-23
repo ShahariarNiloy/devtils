@@ -1906,6 +1906,19 @@ export const TOOLS: Tool[] = [
     isNew: true,
   },
   {
+    slug: 'seo-checker',
+    name: 'SEO checker',
+    description: 'Check a page like a search engine: indexing, Google and share previews, canonical and more.',
+    category: 'SEO',
+    tier: 'free',
+    icon: 'scan-search',
+    tags: ['seo', 'audit', 'checker', 'indexing', 'noindex', 'canonical', 'open graph', 'meta tags', 'robots.txt', 'structured data'],
+    // Same order as the hreflang generator; listed first, so it leads the SEO group.
+    order: 30,
+    isNew: true,
+    showcase: true,
+  },
+  {
     slug: 'hreflang-generator',
     name: 'Hreflang generator',
     description: 'Build hreflang tags for every language and region, with x-default.',

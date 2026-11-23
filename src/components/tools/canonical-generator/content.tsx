@@ -2,7 +2,7 @@ import { ToolContent } from "@/components/shared/tool-content";
 
 export const seoData = {
   intro:
-    "Clean any URL into a consistent canonical, then copy it as an HTML link tag, an HTTP Link header or a plain URL. Choose your site's rules for www and trailing slashes once, and the tool forces https, lowercases the path, drops index.html, strips tracking parameters and fragments, and sorts what's left. Each change is listed, so you can see exactly what happened. The URL is only read as text; it's never visited.",
+    "Clean any URL into a consistent canonical, then copy it as an HTML link tag, an HTTP Link header or a plain URL. Choose your site's rules for www and trailing slashes once, and the tool forces https, drops index.html, strips tracking parameters and fragments, and sorts what's left. Lowercasing the path is there when your site needs it, but off by default — paths are case-sensitive on most servers. Each change is listed, so you can see exactly what happened. The URL is only read as text; it's never visited.",
   usesNote: "One URL per page, every time.",
   useCases: [
     { title: "Kill duplicates", description: "Tracking params, index.html and casing create copies." },
@@ -30,7 +30,7 @@ export const seoData = {
     {
       question: "Is lowercasing the path always safe?",
       answer:
-        "Not always. Hostnames are case-insensitive, but paths can be case-sensitive on some servers. Only lowercase if your site serves the lowercase URL; otherwise switch the option off.",
+        "Not always. Hostnames are case-insensitive, but paths can be case-sensitive on some servers. So the option is off by default: only switch it on if your site serves the lowercase URL, and check that it loads.",
     },
   ],
   relatedSlugs: ["robots-txt-generator", "hreflang-generator", "sitemap-validator", "meta-preview"],

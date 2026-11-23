@@ -2,8 +2,9 @@
  * Open Graph generator — pure logic (no React, no DOM).
  *
  * Turns the form into og: / twitter: meta tags, checks what a share card
- * needs, and prepares the text for the preview cards. The image URL is only
- * read as text; it's never fetched.
+ * needs, and prepares the text for the preview cards. The image itself is
+ * loaded by the preview (a request the user asked for, straight from their
+ * browser to the image's host); its measured size comes back in as `probe`.
  */
 
 import { escapeXml, isAbsUrl, type Check, type CheckLevel } from "@/components/tools/seo-shared/seo.lib";
@@ -16,17 +17,26 @@ export interface OgFields {
   desc: string;
   url: string;
   image: string;
+  /** Describes the image for screen readers and X. */
+  alt: string;
   site: string;
   type: OgType;
   card: OgCard;
   handle: string;
 }
 
+/** What loading the image in the browser found. */
+export type ImageProbe = { state: "loading" } | { state: "ok"; w: number; h: number } | { state: "error" };
+
+/** Large cards are cropped to 1.91:1, small ones to a square. */
+export const LARGE_RATIO = 1.91;
+
 export const SAMPLE_OG: OgFields = {
   title: "utilyx — every tool you need, none you don't",
   desc: "Merge PDFs, compress images, format JSON, decode JWTs and more. Free, no sign-up — nothing leaves your browser.",
-  url: "https://utilyx.dev/",
-  image: "https://utilyx.dev/og.png",
+  url: "https://www.utilyx.dev/",
+  image: "https://www.utilyx.dev/og/default.png",
+  alt: "utilyx — every tool you need, none you don't",
   site: "utilyx",
   type: "website",
   card: "summary_large_image",
@@ -38,6 +48,7 @@ export const EMPTY_OG: OgFields = {
   desc: "",
   url: "",
   image: "",
+  alt: "",
   site: "",
   type: "website",
   card: "summary_large_image",
@@ -91,10 +102,36 @@ export interface OgResult {
   checks: Check[];
   /** The tags, one per line, ready for <head>. */
   html: string;
-  preview: { domain: string; title: string; titleShort: string; desc: string; imgLabel: string };
+  preview: { domain: string; title: string; titleShort: string; desc: string; imgLabel: string; large: boolean };
 }
 
-export function buildOg(f: OgFields): OgResult {
+/** Size and shape checks for a loaded image, per card type. */
+export function imageChecks(probe: ImageProbe, large: boolean): Check[] {
+  if (probe.state === "loading") return [];
+  if (probe.state === "error") {
+    return [
+      {
+        level: "err",
+        text: "The image didn't load in your browser. Check it's public (no login), not a 404, and that the host allows other sites to show it.",
+      },
+    ];
+  }
+  const { w, h } = probe;
+  const out: Check[] = [];
+  const ratio = w / h;
+  if (large) {
+    if (w < 600 || h < 315) out.push({ level: "err", text: `The image is ${w} × ${h}. Below 600 × 315, most platforms fall back to a small card or no image.` });
+    else if (w < 1200) out.push({ level: "warn", text: `The image is ${w} × ${h}. 1200 × 630 looks sharp on high-resolution screens.` });
+    if (Math.abs(ratio - LARGE_RATIO) / LARGE_RATIO > 0.05) out.push({ level: "warn", text: `The image is ${ratio.toFixed(2)}:1, so platforms crop it to 1.91:1 — the preview shows what survives.` });
+  } else {
+    if (w < 144 || h < 144) out.push({ level: "err", text: `The image is ${w} × ${h}. Small cards need at least 144 × 144.` });
+    if (Math.abs(ratio - 1) > 0.05) out.push({ level: "warn", text: "Small cards crop the image to a square — the preview shows what survives." });
+  }
+  if (!out.length) out.push({ level: "ok", text: `Image is ${w} × ${h} — right size and shape.` });
+  return out;
+}
+
+export function buildOg(f: OgFields, probe: ImageProbe | null = null): OgResult {
   const checks: Check[] = [];
   const chk = (level: CheckLevel, text: string) => checks.push({ level, text });
   const title = f.title.trim();
@@ -102,7 +139,9 @@ export function buildOg(f: OgFields): OgResult {
   const url = f.url.trim();
   const image = f.image.trim();
   const site = f.site.trim();
+  const alt = f.alt.trim();
   const handle = f.handle.trim();
+  const large = f.card === "summary_large_image";
   const tLen = charCount(title);
   const dLen = charCount(desc);
 
@@ -115,6 +154,8 @@ export function buildOg(f: OgFields): OgResult {
   else {
     if (/^http:/i.test(image)) chk("warn", "The image uses http. Some platforms only load https images.");
     if (/\.svg(?:[?#]|$)/i.test(image)) chk("warn", "SVG share images aren't supported by most platforms. Use PNG or JPG.");
+    if (probe) checks.push(...imageChecks(probe, large));
+    if (!alt) chk("warn", "Add alt text for the image — X and screen readers use it.");
   }
   if (url && !isAbsUrl(url)) chk("err", "og:url must be absolute.");
   if (!url) chk("warn", "Add og:url so shares point at the canonical address.");
@@ -122,22 +163,24 @@ export function buildOg(f: OgFields): OgResult {
   chk("info", "Platforms cache previews. After changing tags, refresh them with each platform's sharing debugger.");
   if (!checks.some((c) => c.level === "err" || c.level === "warn")) chk("ok", "Everything a share card needs is here.");
 
-  // The large card's 1200×630 is the size the form asks for; the small card
-  // uses a square image of unknown size, so no dimensions are declared.
-  const large = f.card === "summary_large_image";
+  // Declare the size only once it's been measured — a wrong size is worse
+  // than none, since platforms use it to lay out the card before loading.
+  const measured = probe?.state === "ok" ? probe : null;
   const prop: [string, string][] = [
     ["og:title", title],
     ["og:description", desc],
     ["og:url", url],
     ["og:image", image],
-    ["og:image:width", image && large ? "1200" : ""],
-    ["og:image:height", image && large ? "630" : ""],
+    ["og:image:width", image && measured ? String(measured.w) : ""],
+    ["og:image:height", image && measured ? String(measured.h) : ""],
+    ["og:image:alt", image ? alt : ""],
     ["og:site_name", site],
     ["og:type", f.type],
   ];
   const named: [string, string][] = [
     ["twitter:card", f.card],
     ["twitter:site", handle],
+    ["twitter:image:alt", image ? alt : ""],
   ];
   const html = [
     ...prop.filter(([, v]) => v).map(([k, v]) => `<meta property="${k}" content="${escapeXml(v)}" />`),
@@ -153,7 +196,8 @@ export function buildOg(f: OgFields): OgResult {
       title: shownTitle,
       titleShort: truncate(shownTitle, 52, 50),
       desc: desc ? truncate(desc, 120, 118) : "Add a description",
-      imgLabel: image ? `og:image · ${large ? "1200×630" : "square"}` : "No image set",
+      imgLabel: measured ? `og:image · ${measured.w}×${measured.h}` : "No image set",
+      large,
     },
   };
 }

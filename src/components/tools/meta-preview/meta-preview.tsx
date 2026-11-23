@@ -1,7 +1,7 @@
 "use client";
 
 import { Eraser, RotateCcw } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { ToolShell } from "@/components/layout/tool-shell";
 import type { Tool } from "@/lib/tools-registry";
 import {
@@ -21,31 +21,19 @@ import {
   SAMPLE_META,
   TITLE_MAX,
   buildMeta,
-  estimateWidth,
   pxTone,
   type Device,
   type MetaFields,
 } from "./meta-preview.lib";
+import { useTextMeasure } from "../seo-shared/measure";
+import { allTitles, metaContent } from "../seo-shared/page-meta.lib";
+import { SeoLoadUrl, type LoadedPage } from "../seo-shared";
 import { MetaPreviewContent, seoData } from "./content";
-
-let ctx: CanvasRenderingContext2D | null | undefined;
-
-/** Real text width via canvas; falls back to the Arial estimate. */
-function canvasMeasure(text: string, font: string): number {
-  if (ctx === undefined) ctx = document.createElement("canvas").getContext("2d");
-  if (!ctx) return estimateWidth(text, font);
-  ctx.font = font;
-  return ctx.measureText(text).width;
-}
-
-const noopSubscribe = () => () => {};
 
 export function MetaPreview({ tool }: { tool: Tool }) {
   const [f, setF] = useState<MetaFields>(SAMPLE_META);
   const [device, setDevice] = useState<Device>("desktop");
-  // Server render (and hydration) use the estimate; the browser then measures with canvas.
-  const isClient = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  const measure = isClient ? canvasMeasure : estimateWidth;
+  const measure = useTextMeasure();
   const result = useMemo(() => buildMeta(f, device, measure), [f, device, measure]);
   const set = (k: keyof MetaFields) => (v: string) => setF((o) => ({ ...o, [k]: v }));
 
@@ -54,7 +42,21 @@ export function MetaPreview({ tool }: { tool: Tool }) {
       <SeoWorkspace
         counts={countChecks(result.checks)}
         detail={tool.name}
-        top={<SeoSegmented label="Device" options={DEVICES} value={device} onChange={setDevice} />}
+        top={
+          <>
+            <SeoSegmented label="Device" options={DEVICES} value={device} onChange={setDevice} />
+            <SeoLoadUrl
+              onLoad={(p: LoadedPage) => {
+                const html = p.page.body;
+                const title = allTitles(html)[0] ?? "";
+                const desc = metaContent(html, "description") ?? "";
+                setF({ title, desc, url: p.page.finalUrl });
+                if (!title && !desc) throw new Error("That page has no title or meta description.");
+                return `Loaded from ${new URL(p.page.finalUrl).hostname}${!desc ? " — it has no meta description" : ""}.`;
+              }}
+            />
+          </>
+        }
         form={
           <>
             <SeoField

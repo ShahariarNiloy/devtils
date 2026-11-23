@@ -18,6 +18,8 @@ import {
   type SeoRowColumn,
 } from "../seo-shared";
 import { HreflangGeneratorContent, seoData } from "./content";
+import { parseHead } from "../hreflang-validator/hreflang-validator.lib";
+import { SeoLoadUrl, type LoadedPage } from "../seo-shared";
 import {
   FORMATS,
   PRESETS,
@@ -57,14 +59,27 @@ export function HreflangGenerator({ tool }: { tool: Tool }) {
         counts={countChecks(checks)}
         detail={tool.name}
         top={
-          <SeoPresets
-            presets={PRESETS}
-            onPick={(id) => {
-              const p = presetRows(id);
-              setRows(p.rows);
-              setXdef(p.xdef);
-            }}
-          />
+          <>
+            <SeoPresets
+              presets={PRESETS}
+              onPick={(id) => {
+                const p = presetRows(id);
+                setRows(p.rows);
+                setXdef(p.xdef);
+              }}
+            />
+            <SeoLoadUrl
+              label="Load from a page"
+              onLoad={(p: LoadedPage) => {
+                const { tags } = parseHead(p.page.body);
+                if (!tags.length) throw new Error("That page has no hreflang tags yet — start from a preset instead.");
+                const x = tags.find((t) => t.lang.toLowerCase() === "x-default");
+                setRows(tags.filter((t) => t !== x).map((t) => ({ lang: t.lang, url: t.url })));
+                setXdef(x?.url ?? "");
+                return `Loaded ${tags.length} hreflang tag${tags.length === 1 ? "" : "s"} from ${new URL(p.page.finalUrl).hostname}.`;
+              }}
+            />
+          </>
         }
         form={
           <>

@@ -83,7 +83,12 @@ export function auditHreflang(page: string, html: string): Audit {
     if (seenLang.has(key)) errs.push("Duplicate hreflang value.");
     seenLang.add(key);
     const owner = urlOwner.get(t.url);
-    if (owner && !isX && owner.toLowerCase() !== "x-default") warns.push(`Same URL as “${owner}”.`);
+    // Several regions of one language sharing a page (es-AR, es-PE → /la/) is
+    // normal; two different languages on one URL usually means a copy-paste slip.
+    const base = (l: string) => l.toLowerCase().split("-")[0];
+    if (owner && !isX && owner.toLowerCase() !== "x-default" && base(owner) !== base(t.lang)) {
+      warns.push(`Same URL as “${owner}”, a different language. Each language needs its own page.`);
+    }
     if (!owner) urlOwner.set(t.url, t.lang);
 
     const level: AuditRow["level"] = errs.length ? "err" : warns.length ? "warn" : "ok";

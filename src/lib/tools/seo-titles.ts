@@ -67,4 +67,5 @@ export const SEO_TITLES: Record<string, string> = {
   "open-graph-generator": "Open Graph Generator & Preview — OG Tags",
   "meta-preview": "SERP Preview — Title & Meta Description",
   "json-ld-generator": "JSON-LD Generator — Schema Markup Tool",
+  "seo-checker": "SEO Checker — Free Page Audit: Indexing, Meta, Open Graph",
 };

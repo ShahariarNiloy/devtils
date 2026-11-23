@@ -50,6 +50,7 @@ import { seoData as sitemapValidator } from "@/components/tools/sitemap-validato
 import { seoData as openGraphGenerator } from "@/components/tools/open-graph-generator/content";
 import { seoData as metaPreview } from "@/components/tools/meta-preview/content";
 import { seoData as jsonLdGenerator } from "@/components/tools/json-ld-generator/content";
+import { seoData as seoChecker } from "@/components/tools/seo-checker/content";
 import { seoData as blurPlaceholder } from "@/components/tools/blur-placeholder/content";
 import { CURL_SEO } from "@/components/tools/curl-converter/content";
 import { seoData as mergePdf } from "@/components/tools/merge-pdf/content";
@@ -107,6 +108,7 @@ const TOOL_SEO: Record<string, ToolSeoData> = {
   "open-graph-generator": openGraphGenerator,
   "meta-preview": metaPreview,
   "json-ld-generator": jsonLdGenerator,
+  "seo-checker": seoChecker,
   "blur-placeholder": blurPlaceholder,
   "merge-pdf": mergePdf,
   "sign-pdf": signPdf,

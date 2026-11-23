@@ -20,7 +20,7 @@ export type ToggleId = "https" | "lower" | "index" | "track" | "allParams" | "so
 
 export const TOGGLES: readonly { id: ToggleId; label: string }[] = [
   { id: "https", label: "Force https" },
-  { id: "lower", label: "Lowercase host and path" },
+  { id: "lower", label: "Lowercase the path" },
   { id: "index", label: "Drop index.html" },
   { id: "track", label: "Strip tracking params" },
   { id: "allParams", label: "Strip all params" },
@@ -28,11 +28,16 @@ export const TOGGLES: readonly { id: ToggleId; label: string }[] = [
   { id: "hash", label: "Remove #fragment" },
 ];
 
+/*
+ * Safe by default: only changes that can't point the canonical at a page
+ * that doesn't exist. www, the trailing slash and path case all depend on
+ * how the site is set up, so they're the user's call.
+ */
 export const DEFAULT_OPTIONS: CanonicalOptions = {
-  www: "remove",
-  slash: "remove",
+  www: "keep",
+  slash: "keep",
   https: true,
-  lower: true,
+  lower: false,
   index: true,
   track: true,
   allParams: false,
@@ -111,6 +116,9 @@ export function canonicalize(input: string, o: CanonicalOptions): CanonicalResul
   if (hostHadCaps && pathLowered) notes.push("Lowercased host and path");
   else if (hostHadCaps) notes.push("Lowercased host");
   else if (pathLowered) notes.push("Lowercased path");
+  if (pathLowered) {
+    push("warn", "Paths are case-sensitive on most servers. Check the lowercased URL actually loads before using it as the canonical.");
+  }
 
   // Only when something domain-like remains: www.com is a domain, not a www host.
   if (o.www === "remove" && u.hostname.startsWith("www.") && u.hostname.slice(4).includes(".")) {

@@ -39,7 +39,7 @@ export const PRIVACY_PROMISE = "Nothing leaves your browser";
 
 /** Default meta description — long form. */
 export const SITE_DESCRIPTION =
-  "Free tools for JSON, PDFs, images, SEO and text that never upload your files. Merge and sign PDFs, compress images, format JSON, decode JWTs — nothing leaves your browser, no sign-up, no watermarks.";
+  "Free tools for PDFs, images, JSON and SEO that never upload your files. Merge and sign PDFs, compress images, format JSON — no sign-up.";
 
 /** Short description for OG / Twitter / per-page fallbacks. */
 export const SITE_DESCRIPTION_SHORT =

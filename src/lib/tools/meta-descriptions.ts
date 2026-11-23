@@ -61,6 +61,8 @@ export const META_DESCRIPTIONS: Record<string, string> = {
     "Split a PDF in your browser: pick pages, save every page as its own file, or cut it into ranges. Pages keep full quality. No upload, free.",
   "compress-pdf":
     "Compress a PDF in your browser: photos and scans shrink, text stays sharp, colours stay true. Compare pages before you download. No upload.",
+  "seo-checker":
+    "Free SEO checker: see if a page can be indexed, how it looks in Google and when shared, and fix canonical, robots, hreflang and structured data.",
   "image-to-pdf":
     "Convert JPG, PNG, WebP and iPhone HEIC images to one PDF in your browser. Reorder, rotate, A4 or Letter, no watermark, no upload. Free.",
   "pdf-to-image":

@@ -17,6 +17,8 @@ import {
   isAbsUrl,
 } from "../seo-shared";
 import { HreflangValidatorContent, seoData } from "./content";
+import { headOf } from "../seo-shared/page-meta.lib";
+import { SeoLoadUrl, type LoadedPage } from "../seo-shared";
 import { SAMPLE_HTML, SAMPLE_PAGE, auditHreflang } from "./hreflang-validator.lib";
 
 export function HreflangValidator({ tool }: { tool: Tool }) {
@@ -29,6 +31,17 @@ export function HreflangValidator({ tool }: { tool: Tool }) {
   return (
     <ToolShell tool={tool} relatedSlugs={seoData.relatedSlugs}>
       <SeoWorkspace
+        top={
+          <SeoLoadUrl
+            label="Load a live page"
+            onLoad={(p: LoadedPage) => {
+              flushPendingEdits();
+              setPage(p.page.finalUrl);
+              setHtml(headOf(p.page.body));
+              return `Loaded the <head> of ${p.page.finalUrl}.`;
+            }}
+          />
+        }
         counts={countChecks(audit.checks)}
         detail={tool.name}
         form={

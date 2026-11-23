@@ -232,6 +232,8 @@ export function renderGenericPageMarkdown(path: string): string | null {
         "",
         "Some tools fetch something only when you ask (JSON from a URL, a JWT issuer's public keys). Your browser fetches it directly from that site, never through our servers.",
         "",
+        "One exception: the SEO checker's live-URL mode sends the URL you enter to our server, which fetches that public page, its robots.txt, and the headers of the share image and favicon it points to, and returns them. Nothing is stored or logged. Its paste mode runs entirely in the browser.",
+        "",
         "## What we do collect",
         "",
         "- Page-view counts: Cloudflare Web Analytics, aggregate and cookieless (page address, referrer, browser type, country, load timings). Nothing you type or paste into a tool.",

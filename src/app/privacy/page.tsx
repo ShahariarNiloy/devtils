@@ -84,6 +84,20 @@ const SECTIONS: readonly LegalSection[] = [
     ),
   },
   {
+    id: "seo-checker",
+    title: "The SEO checker",
+    body: (
+      <p>
+        The one exception: when you check a live URL with the SEO checker, the
+        URL you enter is sent to our server, which fetches that public page,
+        its robots.txt, and the headers of the share image and favicon it
+        points to — the way a search engine would — and returns them to you. Only the URL is sent; nothing is stored or logged, and it only
+        reaches public sites. Its Paste source mode runs entirely in your
+        browser.
+      </p>
+    ),
+  },
+  {
     id: "what-we-do-collect",
     title: "What we do collect",
     body: (
@@ -146,7 +160,7 @@ export default function PrivacyPage() {
       }
       tldr={TLDR}
       sections={SECTIONS}
-      lastUpdated="Last updated: 2026-11-22."
+      lastUpdated="Last updated: 2026-11-23."
     />
   );
 }

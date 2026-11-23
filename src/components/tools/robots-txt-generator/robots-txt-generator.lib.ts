@@ -228,3 +228,42 @@ export function describeTest(t: TestResult): string {
   const kind = isAllow(t.rule.type) ? "Allow" : "Disallow";
   return `${t.allowed ? "✓ Allowed" : "✕ Blocked"} by “${kind}: ${t.rule.path.trim()}”${t.group && t.group !== "*" ? ` (${t.group} group)` : ""}`;
 }
+
+export interface ParsedRobots {
+  /** One entry per agent per rule, as the rule rows and tester use them. */
+  rules: RobotsRule[];
+  sitemaps: string[];
+  /** Crawl-delay of the first group that sets one, as written. */
+  delay: string;
+}
+
+/** A robots.txt file → editable rules, sitemaps and crawl delay. */
+export function parseRobotsTxt(text: string): ParsedRobots {
+  const rules: RobotsRule[] = [];
+  const sitemaps: string[] = [];
+  let delay = "";
+  let agents: string[] = [];
+  let lastWasRule = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, "").trim();
+    const m = /^([a-z-]+)\s*:\s*(.*)$/i.exec(line);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    const value = m[2].trim();
+    if (key === "user-agent") {
+      if (lastWasRule) agents = [];
+      agents.push(value);
+      lastWasRule = false;
+    } else if (key === "allow" || key === "disallow") {
+      lastWasRule = true;
+      // "Disallow:" with no path allows everything — no rule needed.
+      if (!value) continue;
+      for (const ua of agents) rules.push({ ua, type: key, path: value });
+    } else if (key === "sitemap" && value) sitemaps.push(value);
+    else if (key === "crawl-delay" && !delay) {
+      lastWasRule = true;
+      delay = value;
+    }
+  }
+  return { rules, sitemaps, delay };
+}
